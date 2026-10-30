@@ -187,3 +187,5 @@ AI를 활용한 설계·구현·검수 프로젝트입니다. 확인된 코드/�
 B 트랜잭션 잠금 후보의 [검증 및 운영 차단 항목](docs/devlog/DEV-007-transaction-write-scope.md)과 [한국어 백엔드 학습 안내](docs/BACKEND_LEARNING.md)를 제공합니다. [공식 Python 3.15.2 검증](docs/devlog/DEV-008-python315-runtime.md)을 추가했습니다. 코드 검토와 현장 운영 승인은 별개이며 새 릴리스는 아직 없습니다.
 
 운영 전 검증은 [현장 인수 계획](docs/WINDOWS_ACCEPTANCE.md)의 실제 Waitress HTTP 시나리오·미승인 제안 기준과 [빈 결과 양식](docs/evidence/FIELD_ACCEPTANCE_TEMPLATE.md)을 사용합니다. 실장비 항목은 아직 미실행이며, [DEV-009](docs/devlog/DEV-009-b-admission-bounded-investigation.md)의 간헐 admission timeout은 미해결입니다. 이 문서 준비로 PR #4 Draft 해제·병합·운영 배포를 승인하지 않습니다.
+
+시험 후보 패키지와 실제 HTTP 도구의 [실행 순서·Windows 명령](docs/FIELD_SETUP.md)을 제공합니다. 도구는 새 합성 DB만 사용하며 Windows 10·HTTPS·휴대폰 인수는 별도입니다.
