@@ -257,5 +257,15 @@
         "outside_close_note": "overlap is correlation; internal checkpoint not directly observed"
       }
     }
-  ]
+  ],
+  "uninstrumented_pr_ci_comparison": {
+    "run_id": 41089945852,
+    "attempt": 1,
+    "job_id": 124180901920,
+    "conclusion": "success",
+    "passed": 100,
+    "failed": 0,
+    "elapsed_seconds": 143.14,
+    "scope": "existing full-suite command; raw per-test latency unavailable"
+  }
 }

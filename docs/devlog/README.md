@@ -21,3 +21,5 @@
 - [DEV-006 조사 원본 연결](DEV-006-windows-concurrency-investigation.md)
 - [DEV-007 B 구현 후보 및 실제 검증](DEV-007-transaction-write-scope.md) · [백엔드 학습](../BACKEND_LEARNING.md)
 - [DEV-008 공식 Python 3.15.2 런타임/설치 호환성](DEV-008-python315-runtime.md)
+
+- [DEV-009 B admission 한정 조사: 원인 미확정·운영 수정 보류](DEV-009-b-admission-bounded-investigation.md)
