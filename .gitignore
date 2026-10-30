@@ -1,0 +1,55 @@
+# Customer records and SQLite sidecars, at any depth
+*.sqlite
+*.sqlite3
+*.db
+*.sqlite-*
+*.sqlite3-*
+*.db-*
+*.backup
+*.bak
+**/data/
+**/backups/
+**/logs/
+**/qr-export/
+**/qr-exports/
+qr-export/
+qr-exports/
+# Private runtime settings / credentials
+/config/*
+!/config/event.example.json
+!/config/operations.example.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.crt
+*.cer
+*tunnel-token*
+credentials*.json
+cert.json
+# Python / editor / local experiment artifacts
+.venv/
+.test-venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.coverage
+htmlcov/
+work/
+.tmp/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+node_modules/
+# Local binaries and generated distribution archives
+/bin/
+/dist/
+*.zip
+app.next.*/
+# Deployment manifest is built for each release; never publish a stale source-tree copy.
+/PACKAGE_MANIFEST.json

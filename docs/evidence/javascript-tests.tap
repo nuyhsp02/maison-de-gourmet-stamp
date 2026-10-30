@@ -1,0 +1,215 @@
+TAP version 13
+# Subtest: new visitor is never created automatically; explicit button creates then collects
+ok 1 - new visitor is never created automatically; explicit button creates then collects
+  ---
+  duration_ms: 109.727486
+  ...
+# Subtest: valid returning visitor auto POSTs exactly once and sends CSRF
+ok 2 - valid returning visitor auto POSTs exactly once and sends CSRF
+  ---
+  duration_ms: 9.190992
+  ...
+# Subtest: automatic collection blocked for reload, manual fallback works
+ok 3 - automatic collection blocked for reload, manual fallback works
+  ---
+  duration_ms: 6.476343
+  ...
+# Subtest: automatic collection blocked for back, manual fallback works
+ok 4 - automatic collection blocked for back, manual fallback works
+  ---
+  duration_ms: 6.465432
+  ...
+# Subtest: automatic collection blocked for prefetch, manual fallback works
+ok 5 - automatic collection blocked for prefetch, manual fallback works
+  ---
+  duration_ms: 9.426907
+  ...
+# Subtest: automatic collection blocked for hidden, manual fallback works
+ok 6 - automatic collection blocked for hidden, manual fallback works
+  ---
+  duration_ms: 6.096229
+  ...
+# Subtest: automatic collection blocked for unfocused, manual fallback works
+ok 7 - automatic collection blocked for unfocused, manual fallback works
+  ---
+  duration_ms: 5.685354
+  ...
+# Subtest: automatic collection blocked for prerender, manual fallback works
+ok 8 - automatic collection blocked for prerender, manual fallback works
+  ---
+  duration_ms: 6.66933
+  ...
+# Subtest: automatic collection blocked for activatedPrerender, manual fallback works
+ok 9 - automatic collection blocked for activatedPrerender, manual fallback works
+  ---
+  duration_ms: 7.093778
+  ...
+# Subtest: automatic collection blocked for missingNavigation, manual fallback works
+ok 10 - automatic collection blocked for missingNavigation, manual fallback works
+  ---
+  duration_ms: 8.958055
+  ...
+# Subtest: automatic collection blocked for attempted, manual fallback works
+ok 11 - automatic collection blocked for attempted, manual fallback works
+  ---
+  duration_ms: 5.71262
+  ...
+# Subtest: already-collected product shows status without another POST
+ok 12 - already-collected product shows status without another POST
+  ---
+  duration_ms: 4.713372
+  ...
+# Subtest: lost automatic response is read back; retry and reload do not auto POST again
+ok 13 - lost automatic response is read back; retry and reload do not auto POST again
+  ---
+  duration_ms: 12.443365
+  ...
+# Subtest: expired session during auto POST never falls through to customer creation
+ok 14 - expired session during auto POST never falls through to customer creation
+  ---
+  duration_ms: 5.185954
+  ...
+# Subtest: one reward button directly posts, no checkbox/dialog; state survives reread
+ok 15 - one reward button directly posts, no checkbox/dialog; state survives reread
+  ---
+  duration_ms: 9.229855
+  ...
+# Subtest: navigation interrupted before session response cannot auto collect: pagehide
+ok 16 - navigation interrupted before session response cannot auto collect: pagehide
+  ---
+  duration_ms: 4.630781
+  ...
+# Subtest: navigation interrupted before session response cannot auto collect: visibility
+ok 17 - navigation interrupted before session response cannot auto collect: visibility
+  ---
+  duration_ms: 4.515646
+  ...
+# Subtest: actual scanner loop crops native input, ignores outside/multiple codes, posts once
+ok 18 - actual scanner loop crops native input, ignores outside/multiple codes, posts once
+  ---
+  duration_ms: 15.311474
+  ...
+# Subtest: lost reward response is reconciled to completed state without an active retry button
+ok 19 - lost reward response is reconciled to completed state without an active retry button
+  ---
+  duration_ms: 4.956985
+  ...
+# Subtest: scanner closed while native decode is pending cannot collect
+ok 20 - scanner closed while native decode is pending cannot collect
+  ---
+  duration_ms: 5.524716
+  ...
+# Subtest: actual jsQR fallback loop uses the same crop as native loop
+ok 21 - actual jsQR fallback loop uses the same crop as native loop
+  ---
+  duration_ms: 1815.979076
+  ...
+# Subtest: V1.2 renders ten ornaments in original product order with season/select metadata
+ok 22 - V1.2 renders ten ornaments in original product order with season/select metadata
+  ---
+  duration_ms: 3.578571
+  ...
+# Subtest: V1.2 branded tree displays restored collection without changing customer data
+ok 23 - V1.2 branded tree displays restored collection without changing customer data
+  ---
+  duration_ms: 3.398598
+  ...
+# Subtest: V1.2 ten ornaments remain collected after one-button reward and reopening
+ok 24 - V1.2 ten ornaments remain collected after one-button reward and reopening
+  ---
+  duration_ms: 9.540601
+  ...
+# Subtest: V1.3 every registered menu has a fixed decorative artwork slot and matching SVG symbol
+ok 25 - V1.3 every registered menu has a fixed decorative artwork slot and matching SVG symbol
+  ---
+  duration_ms: 6.725992
+  ...
+# Subtest: V1.3 collected items alone receive ink ring and check; all items retain artwork geometry
+ok 26 - V1.3 collected items alone receive ink ring and check; all items retain artwork geometry
+  ---
+  duration_ms: 4.22199
+  ...
+# Subtest: V1.3 unregistered product ID falls back to existing icon without changing event data
+ok 27 - V1.3 unregistered product ID falls back to existing icon without changing event data
+  ---
+  duration_ms: 3.541717
+  ...
+# Subtest: cover maps landscape source into the visible central square
+ok 28 - cover maps landscape source into the visible central square
+  ---
+  duration_ms: 3.069952
+  ...
+# Subtest: portrait/rotated metadata recalculates source coordinates
+ok 29 - portrait/rotated metadata recalculates source coordinates
+  ---
+  duration_ms: 0.157599
+  ...
+# Subtest: page offsets, aspect ratio and finder inner border are represented
+ok 30 - page offsets, aspect ratio and finder inner border are represented
+  ---
+  duration_ms: 0.138908
+  ...
+# Subtest: contain handles centered letterbox; finder in bars is rejected
+ok 31 - contain handles centered letterbox; finder in bars is rejected
+  ---
+  duration_ms: 1.590382
+  ...
+# Subtest: invalid or unavailable video geometry never falls back to full frame
+ok 32 - invalid or unavailable video geometry never falls back to full frame
+  ---
+  duration_ms: 0.252633
+  ...
+# Subtest: only a fully contained single QR covering the target is selected
+ok 33 - only a fully contained single QR covering the target is selected
+  ---
+  duration_ms: 0.370734
+  ...
+# Subtest: native detector receives cropped canvas and rejects multiple results
+ok 34 - native detector receives cropped canvas and rejects multiple results
+  ---
+  duration_ms: 0.462808
+  ...
+# Subtest: real jsQR pixels: center code selected, outside neighbors excluded
+ok 35 - real jsQR pixels: center code selected, outside neighbors excluded
+  ---
+  duration_ms: 118.294658
+  ...
+# Subtest: real jsQR pixels: no center code means outside QR never selected
+ok 36 - real jsQR pixels: no center code means outside QR never selected
+  ---
+  duration_ms: 22.356217
+  ...
+# Subtest: real jsQR pixels: two QR codes within ROI are ambiguous
+ok 37 - real jsQR pixels: two QR codes within ROI are ambiguous
+  ---
+  duration_ms: 40.129318
+  ...
+# Subtest: jsQR second pass masks the first quadrilateral and rejects a second code
+ok 38 - jsQR second pass masks the first quadrilateral and rejects a second code
+  ---
+  duration_ms: 2.806144
+  ...
+# Subtest: real jsQR pixels: rotated center QR decodes without extra rotation
+ok 39 - real jsQR pixels: rotated center QR decodes without extra rotation
+  ---
+  duration_ms: 37.178977
+  ...
+# Subtest: three stable frames, in-flight lock, per-session dedupe and interruption reset
+ok 40 - three stable frames, in-flight lock, per-session dedupe and interruption reset
+  ---
+  duration_ms: 0.386596
+  ...
+# Subtest: automatic collection requires all explicit safety signals
+ok 41 - automatic collection requires all explicit safety signals
+  ---
+  duration_ms: 0.331706
+  ...
+1..41
+# tests 41
+# suites 0
+# pass 41
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2235.914159

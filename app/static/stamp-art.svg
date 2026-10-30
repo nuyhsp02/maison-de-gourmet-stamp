@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+<!-- V1.3 abstract placeholders, not photo-derived artwork. Keep IDs/viewBox when replacing paths. -->
+<defs>
+<symbol id="menu-season-01" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h25v12c0 8-5 11-12 11s-13-3-13-11V17Zm25 3h3a6 6 0 0 1 0 12h-4M8 42h30M18 6v5m8-7v7"/></g></symbol>
+<symbol id="menu-season-02" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 23h24l-3 19H15l-3-19ZM15 23c-5-5 0-9 6-10-3-3 1-7 5-8-2 6 9 6 6 12 8 0 7 6 4 6M14 31h20"/></g></symbol>
+<symbol id="menu-season-03" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20h27v9c0 8-6 12-13 12S8 37 8 29v-9Zm27 2h3a5 5 0 0 1 0 10h-3M7 43h31M23 20v9l5 3v7h-9v-7l4-3M20 5c-5 5 4 6 0 11"/></g></symbol>
+<symbol id="menu-season-04" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15h25l-4 28H16l-4-28Zm19 0L35 4h7M14 25h21M20 29l6-3 4 6-6 3-4-6Z"/><path d="M8 13A7 7 0 1 1 21 9"/></g></symbol>
+<symbol id="menu-select-01" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="24" cy="25" rx="13" ry="19" transform="rotate(38 24 25)"/><path d="M33 10c-17 3-1 25-18 30"/></g></symbol>
+<symbol id="menu-select-02" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 40V24C-1 11 14 3 24 10c12-8 25 3 14 14v16H11Zm0-7h27M18 19l-2 7m10-9-2 9m9-6-2 6"/></g></symbol>
+<symbol id="menu-select-03" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 23 25-11 8 11v18H8V23Zm0 0h33M8 32h33M25 14c-6-10 7-12 7-6 0 4-4 5-7 6Z"/></g></symbol>
+<symbol id="menu-select-04" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M35 8a9 9 0 0 0 9 13A20 20 0 1 1 35 8Z"/><path d="m16 16 2 2m-5 11 2 1m11 7 2-1m2-12 1 2m-9-3 2-1"/></g></symbol>
+<symbol id="menu-select-05" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h25v12c0 8-5 11-12 11s-13-3-13-11V17Zm25 3h3a6 6 0 0 1 0 12h-4M8 42h30M18 6v5m8-7v7"/></g></symbol>
+<symbol id="menu-select-06" viewBox="0 0 48 48"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16h25l4 26H8l4-26Zm6 3V12a7 7 0 0 1 14 0v7M21 27c-8 7 5 12 9 3-7 2-5-4-9-3Z"/></g></symbol>
+</defs>
+</svg>

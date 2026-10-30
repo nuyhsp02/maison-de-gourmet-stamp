@@ -1,0 +1,6 @@
+# 실제 도메인으로 바꾼 후 caddy run --config Caddyfile 로 실행합니다.
+# DNS, 외부 80/443 연결, 방화벽이 먼저 준비되어야 합니다.
+# 이 파일은 배포를 실행하지 않는 예시입니다. 접근 로그는 켜지 않습니다.
+stamp.example.com {
+    reverse_proxy 127.0.0.1:8765
+}

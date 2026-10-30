@@ -1,0 +1,41 @@
+{
+  "original_v13_app_files": 40,
+  "unchanged_app_files": 40,
+  "preserved_files_checked": [
+    "existing customer database",
+    "existing mobile-test database",
+    "existing database backup",
+    "existing event configuration",
+    "original V1.3 source archive"
+  ],
+  "all_preserved_hashes_match": true,
+  "production_db_included": false,
+  "real_credentials_included": false,
+  "event_config_included": "draft example only",
+  "runtime_wheels": {
+    "312": [
+      "blinker-1.9.0-py3-none-any.whl",
+      "click-8.1.8-py3-none-any.whl",
+      "colorama-0.4.6-py2.py3-none-any.whl",
+      "flask-3.1.2-py3-none-any.whl",
+      "itsdangerous-2.2.0-py3-none-any.whl",
+      "jinja2-3.1.6-py3-none-any.whl",
+      "markupsafe-3.0.4-cp312-cp312-win_amd64.whl",
+      "qrcode-8.2-py3-none-any.whl",
+      "waitress-3.0.2-py3-none-any.whl",
+      "werkzeug-3.1.9-py3-none-any.whl"
+    ],
+    "313": [
+      "blinker-1.9.0-py3-none-any.whl",
+      "click-8.1.8-py3-none-any.whl",
+      "colorama-0.4.6-py2.py3-none-any.whl",
+      "flask-3.1.2-py3-none-any.whl",
+      "itsdangerous-2.2.0-py3-none-any.whl",
+      "jinja2-3.1.6-py3-none-any.whl",
+      "markupsafe-3.0.4-cp313-cp313-win_amd64.whl",
+      "qrcode-8.2-py3-none-any.whl",
+      "waitress-3.0.2-py3-none-any.whl",
+      "werkzeug-3.1.9-py3-none-any.whl"
+    ]
+  }
+}

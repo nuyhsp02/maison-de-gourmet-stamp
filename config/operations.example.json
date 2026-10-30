@@ -1,0 +1,9 @@
+{
+  "PublicUrl": "",
+  "Port": 8765,
+  "MetricsPort": 20241,
+  "ExternalBackupPaths": [],
+  "DailyBackupTime": "03:00",
+  "MinimumFreeMB": 256,
+  "Version": "1.4"
+}
