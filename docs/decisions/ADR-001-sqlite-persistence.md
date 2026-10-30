@@ -38,4 +38,4 @@ SQLite의 WAL, 외래키, 트랜잭션, 고유 제약을 사용합니다. 운영
 
 ### 후속 관측: 병합 후 간헐 503 재발
 
-[DEV-006](../devlog/DEV-006-windows-concurrency-investigation.md)에서 같은 코드의 Windows CI 재발을 조사합니다. 이전의 통과만으로 현재 쓰기 조정이 모든 간헐 실패를 해결했다고 판단하지 않습니다. 원래 사건의 admission timeout/SQLite 오류 분기는 직접 증거가 부족해 미확정입니다. 추가 비계측 Windows 3.12 재현에서는 admission timeout 100건과 SQLite 오류 0건을 확인했으나, 장시간 보유/대기 순서의 근본 원인은 미확정입니다. 저장소 선택·스키마·잠금/내구성 정책은 변경하지 않습니다.
+[DEV-006](../devlog/DEV-006-windows-concurrency-investigation.md)에서 같은 코드의 Windows CI 재발을 조사합니다. 이전의 통과만으로 현재 쓰기 조정이 모든 간헐 실패를 해결했다고 판단하지 않습니다. 원래 사건의 admission timeout/SQLite 오류 분기는 직접 증거가 부족해 미확정입니다. 추가 Windows 3.12/3.13 재현에서는 admission timeout과 SQLite 오류 0건을 직접 확인했습니다. 계측 실패 구간에서도 쓰기는 진행됐지만 누적 큐 대기가 15초 한도를 넘겼으며, 그 지연의 근본 원인은 미확정입니다. 원본 부하의 실패를 유지하고 진단 PR은 병합하지 않습니다. 저장소 선택·스키마·잠금/내구성 정책은 변경하지 않습니다.
