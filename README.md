@@ -164,6 +164,16 @@ CI는 Ubuntu/Windows hosted runner의 Python 3.12·3.13 테스트, 프런트 검
 
 Windows 10 보안 업데이트 제공 상태, 실제 도메인·이벤트 기간·상품명·보상, 외부 백업 매체, 노트북 전원/절전·네트워크 정책은 운영 전에 확정해야 합니다. 세부 미검증 사항은 [Windows 인수표](docs/WINDOWS_ACCEPTANCE.md)를 참고하세요.
 
+## 기술적 의사결정과 개발 기록
+
+AI를 활용한 설계·구현·검수 프로젝트입니다. 확인된 코드/자동 실행 결과와 소유자의 직접 이해·재현 경험을 구분해 기록합니다.
+
+- [ADR 6개 · 선택 근거와 위험](docs/decisions/README.md)
+- [개발 로그 5개 · 문제와 검증 근거](docs/devlog/README.md)
+- [포트폴리오 기록 원칙](docs/PORTFOLIO_RECORDS.md) · [새 로그 템플릿](docs/devlog/TEMPLATE.md)
+
+캐시/JavaScript 버전 불일치 사례는 재현·원인·수정 근거가 부족해 미확인으로 표시했습니다. 회고 문서가 추가됐다는 이유로 당시 비교 검토·개인 실물 테스트·운영 성과를 새로 주장하지 않습니다.
+
 ## 버전 관리와 후속 작업
 
 - `main`은 병합 검사 대상, `feature/*`·`fix/*`·`chore/*`·`docs/*`에서 작업 후 PR로 반영합니다.
