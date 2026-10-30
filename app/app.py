@@ -1,6 +1,6 @@
 """One event, one laptop, anonymous collections. No GET writes customer data."""
 import hashlib
-from contextlib import closing
+from contextlib import closing, contextmanager
 import json
 import re
 import secrets
@@ -58,9 +58,13 @@ def load_event(path):
 
 def connect_db(path):
     db = sqlite3.connect(str(path), timeout=15, isolation_level=None)
-    db.row_factory = sqlite3.Row
-    db.execute("PRAGMA foreign_keys = ON")
-    db.execute("PRAGMA busy_timeout = 15000")
+    try:
+        db.row_factory = sqlite3.Row
+        db.execute("PRAGMA foreign_keys = ON")
+        db.execute("PRAGMA busy_timeout = 15000")
+    except BaseException:
+        db.close()
+        raise
     return db
 
 
@@ -148,12 +152,40 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     @app.teardown_appcontext
     def close_db(_error):
         connection = g.pop("db", None)
+        if connection is not None:
+            connection.close()
+
+    @contextmanager
+    def write_transaction():
+        # Open/configure before admission; request validation also happens outside.
+        connection = db()
+        if not app.write_lock.acquire(timeout=15):
+            app.logger.warning("Write admission timed out")
+            raise APIError("잠시 후 다시 시도하세요. 서버가 기록을 처리하고 있습니다.",
+                           503, "storage_unavailable")
         try:
-            if connection is not None:
-                connection.close()
+            if getattr(app, "storage_failed", False):
+                raise APIError("잠시 후 다시 시도하세요. 서버가 기록을 처리하고 있습니다.",
+                               503, "storage_unavailable")
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                yield connection
+                connection.commit()
+            except BaseException:
+                # Includes cancellation. Do not admit another writer while a failed
+                # commit still owns a SQLite transaction.
+                try:
+                    connection.rollback()
+                except BaseException:
+                    g.pop("db", None)
+                    try:
+                        connection.close()
+                    except BaseException:
+                        app.storage_failed = True
+                        app.logger.critical("Database cleanup failed; writes disabled until restart")
+                raise
         finally:
-            if g.pop("owns_write_lock", False):
-                app.write_lock.release()
+            app.write_lock.release()
 
     def phase():
         now = int(time.time())
@@ -211,10 +243,6 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                 raise APIError("JSON 요청만 허용됩니다.", 415)
             # 30 visitors behind one café NAT must remain usable.
             limited(("writes", request.remote_addr), 1800)
-            if not app.write_lock.acquire(timeout=15):
-                raise APIError("잠시 후 다시 시도하세요. 서버가 기록을 처리하고 있습니다.",
-                               503, "storage_unavailable")
-            g.owns_write_lock = True
 
     @app.after_request
     def security_headers(response):
@@ -250,6 +278,18 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                        code="storage_unavailable"), 503
 
     def snapshot(who=None, qr=None):
+        # One read snapshot for the customer/status/stamp queries. This may reflect
+        # a later committed write, but never mixes those queries across commits.
+        if who is None:
+            return build_snapshot(who, qr)
+        connection = db()
+        connection.execute("BEGIN")
+        try:
+            return build_snapshot(who, qr)
+        finally:
+            connection.rollback()  # read-only transaction; GET still writes no rows
+
+    def build_snapshot(who=None, qr=None):
         # Products never disclose the fixed QR URLs to the stamp board.
         public_event = {k: v for k, v in event.items() if k != "id"}
         result = {"event": public_event, "phase": phase(), "reward_open": reward_open(),
@@ -320,15 +360,11 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         require_active()
         limited(("new", request.remote_addr), 120)
         customer_id = secrets.token_hex(16)
-        db().execute("BEGIN IMMEDIATE")
-        try:
+        with write_transaction():
+            require_active()
             db().execute("DELETE FROM sessions WHERE expires_at<=?", (int(time.time()),))
             db().execute("INSERT INTO customers VALUES (?, ?, NULL)", (customer_id, int(time.time())))
             token = new_session(customer_id)
-            db().commit()
-        except Exception:
-            db().rollback()
-            raise
         # Client reads state again to prove the browser accepted its cookie.
         return set_cookie(jsonify(ok=True), token)
 
@@ -343,18 +379,15 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         product = db().execute("SELECT id FROM products WHERE qr_key=?", (qr,)).fetchone()
         if not product:
             raise APIError("이 이벤트의 QR이 아닙니다.", 404, "invalid_qr")
-        db().execute("BEGIN IMMEDIATE")
-        try:
+        with write_transaction():
+            who = require_identity()
+            require_active()
             redeemed = db().execute("SELECT redeemed_at FROM customers WHERE id=?", (who["customer_id"],)).fetchone()[0]
             added = False
             if not redeemed:
                 cursor = db().execute("INSERT OR IGNORE INTO stamps VALUES (?, ?, ?)",
                                       (who["customer_id"], product["id"], int(time.time())))
                 added = cursor.rowcount == 1
-            db().commit()
-        except Exception:
-            db().rollback()
-            raise
         return jsonify(**snapshot(who), added=added, product_id=product["id"])
 
     @app.post("/api/recovery-link")
@@ -365,9 +398,11 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         limited(("issue_recovery", who["customer_id"]), 10)
         token = secrets.token_urlsafe(32)
         expiry = int(time.time()) + LIFETIME
-        db().execute("INSERT INTO recovery VALUES (?, ?, ?) ON CONFLICT(customer_id) DO UPDATE "
-                     "SET token_hash=excluded.token_hash, expires_at=excluded.expires_at",
-                     (who["customer_id"], digest(token), expiry))
+        with write_transaction():
+            who = require_identity()
+            db().execute("INSERT INTO recovery VALUES (?, ?, ?) ON CONFLICT(customer_id) DO UPDATE "
+                         "SET token_hash=excluded.token_hash, expires_at=excluded.expires_at",
+                         (who["customer_id"], digest(token), expiry))
         return jsonify(url=f"{origin}/recover#{token}", expires_at=expiry)
 
     @app.post("/api/recover")
@@ -377,8 +412,7 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         token = data.get("token", "")
         if not isinstance(token, str) or not TOKEN_RE.fullmatch(token):
             raise APIError("복구 링크가 잘못되었거나 만료되었습니다.", 400, "invalid_recovery")
-        db().execute("BEGIN IMMEDIATE")
-        try:
+        with write_transaction():
             target = db().execute("SELECT * FROM recovery WHERE token_hash=? AND expires_at>?",
                                   (digest(token), int(time.time()))).fetchone()
             if not target:
@@ -391,10 +425,6 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                 require_identity()
                 db().execute("DELETE FROM sessions WHERE token_hash=?", (current["token_hash"],))
             cookie = new_session(target["customer_id"])
-            db().commit()
-        except Exception:
-            db().rollback()
-            raise
         return set_cookie(jsonify(ok=True), cookie)
 
     @app.post("/api/redeem")
@@ -403,25 +433,20 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         if body().get("confirm_received") is not True:
             raise APIError("실물 보상을 지급한 뒤 확인해 주세요.")
         limited(("redeem", who["customer_id"]), 20)
-        db().execute("BEGIN IMMEDIATE")
-        try:
+        with write_transaction():
+            who = require_identity()
             customer_id = who["customer_id"]
             row = db().execute("SELECT redeemed_at FROM customers WHERE id=?", (customer_id,)).fetchone()
-            if row[0] is not None:
-                db().commit()
-                return jsonify(**snapshot(who), already_redeemed=True)
-            if not reward_open():
-                raise APIError("보상 지급 기간이 아닙니다. 직원에게 문의해 주세요.", 409, "reward_closed")
-            count = db().execute("SELECT COUNT(*) FROM stamps WHERE customer_id=?", (customer_id,)).fetchone()[0]
-            if count != 10:
-                raise APIError("10개 상품을 모두 모아야 보상을 받을 수 있습니다.", 409, "incomplete")
-            now = int(time.time())
-            db().execute("UPDATE customers SET redeemed_at=? WHERE id=? AND redeemed_at IS NULL", (now, customer_id))
-            db().execute("INSERT INTO reward_audit VALUES (?, ?, 'unauthenticated_customer_screen')", (customer_id, now))
-            db().commit()
-        except Exception:
-            db().rollback()
-            raise
-        return jsonify(**snapshot(who), already_redeemed=False)
+            already_redeemed = row[0] is not None
+            if not already_redeemed:
+                if not reward_open():
+                    raise APIError("보상 지급 기간이 아닙니다. 직원에게 문의해 주세요.", 409, "reward_closed")
+                count = db().execute("SELECT COUNT(*) FROM stamps WHERE customer_id=?", (customer_id,)).fetchone()[0]
+                if count != 10:
+                    raise APIError("10개 상품을 모두 모아야 보상을 받을 수 있습니다.", 409, "incomplete")
+                now = int(time.time())
+                db().execute("UPDATE customers SET redeemed_at=? WHERE id=? AND redeemed_at IS NULL", (now, customer_id))
+                db().execute("INSERT INTO reward_audit VALUES (?, ?, 'unauthenticated_customer_screen')", (customer_id, now))
+        return jsonify(**snapshot(who), already_redeemed=already_redeemed)
 
     return app
