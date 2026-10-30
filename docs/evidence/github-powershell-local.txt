@@ -1,0 +1,14 @@
+Syntax PASS: Backup.ps1
+Syntax PASS: Common.ps1
+Syntax PASS: Control-Server.ps1
+Syntax PASS: Import-Database.ps1
+Syntax PASS: Install.ps1
+Syntax PASS: Menu.ps1
+Syntax PASS: Register-Autostart.ps1
+Syntax PASS: Remove-Tunnel.ps1
+Syntax PASS: Restore.ps1
+Syntax PASS: Run-Server.ps1
+Syntax PASS: Setup-Tunnel.ps1
+Syntax PASS: Unregister-Autostart.ps1
+Syntax PASS: Update.ps1
+PASS 13 syntax parses + 3 helper checks (no Windows execution).

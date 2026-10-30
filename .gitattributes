@@ -1,0 +1,7 @@
+# Preserve the exact V1.4 bytes, including BOM/CRLF in Windows scripts.
+# The installed updater compares operation-script SHA256 across releases.
+* -text
+*.ps1 whitespace=cr-at-eol
+*.cmd whitespace=cr-at-eol
+app/static/vendor/* whitespace=-blank-at-eof
+docs/evidence/* whitespace=-blank-at-eof

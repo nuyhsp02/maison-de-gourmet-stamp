@@ -37,5 +37,10 @@
       "waitress-3.0.2-py3-none-any.whl",
       "werkzeug-3.1.9-py3-none-any.whl"
     ]
-  }
+  },
+  "scope": "Historical original V1.4 build before public Git preparation",
+  "public_source_unchanged_app_files": 39,
+  "public_source_delta": [
+    "app/app.py: explicitly close initialization connection and coordinate single-process writers after Windows CI findings"
+  ]
 }

@@ -1,5 +1,6 @@
 """Portable operation tests. Windows services/Task Scheduler are NOT exercised here."""
 import hashlib
+from contextlib import closing
 import importlib.util
 import json
 import shutil
@@ -60,7 +61,7 @@ def populated(root):
     app,client=visitor(root)
     assert post(client,'/api/session',{}).status_code==200
     csrf=state(client)['csrf']
-    with ops.readonly(root/'data/collection.sqlite') as db:
+    with closing(ops.readonly(root/'data/collection.sqlite')) as db:
         keys=[r[0] for r in db.execute('SELECT qr_key FROM products ORDER BY id')]
     assert post(client,'/api/collect',{'qr':keys[0]},csrf).json['added']
     token=post(client,'/api/recovery-link',{'confirm_rotation':True},csrf).json['url'].split('#')[1]
@@ -109,7 +110,7 @@ def test_safe_snapshot_live_data_and_existing_target_refused(installed,tmp_path)
     populated(installed)
     db=installed/'data/collection.sqlite';out=tmp_path/'backup with spaces.sqlite'
     _,event=ops.event_for(installed)
-    with sqlite3.connect(db) as connection:
+    with closing(sqlite3.connect(db)) as connection:
         connection.execute('BEGIN IMMEDIATE')
         ops.snapshot(db,out,16,event)
     assert ops.inspect_database(out,event)=={'customers':1,'stamps':1,'reward_audit':0}
@@ -326,3 +327,49 @@ def test_restore_publish_failure_rolls_back_original(installed,monkeypatch):
     assert sha(installed/'data/collection.sqlite')==before
     assert ops.inspect_database(installed/'data/collection.sqlite')['stamps']==1
     assert list((installed/'backups/pre-restore').glob('*.sqlite'))
+
+
+def test_init_db_closes_connections_on_success_and_event_mismatch(installed, monkeypatch):
+    module,event=ops.event_for(installed)
+    original=module.connect_db
+    opened=[]
+    def tracked(path):
+        connection=original(path)
+        opened.append(connection)
+        return connection
+    monkeypatch.setattr(module,'connect_db',tracked)
+    module.init_db(installed/'data/collection.sqlite',event)
+    other=dict(event,id='different-event')
+    with pytest.raises(ValueError):module.init_db(installed/'data/collection.sqlite',other)
+    assert len(opened)==2
+    for connection in opened:
+        with pytest.raises(sqlite3.ProgrammingError,match='closed'):
+            connection.execute('SELECT 1')
+
+
+def test_request_write_coordination_keeps_get_readonly_and_releases_after_error(installed):
+    module,_=ops.event_for(installed)
+    app,client=visitor(installed)
+    assert post(client,'/api/session',{}).status_code==200
+    csrf=state(client)['csrf']
+    # GET does not acquire the writer slot, even while another writer owns it.
+    assert app.write_lock.acquire(timeout=1)
+    try:assert state(client)['customer']['count']==0
+    finally:app.write_lock.release()
+    # Validation failures after admission must release the slot for the next write.
+    response=post(client,'/api/collect',{'qr':'not-a-real-qr'},csrf)
+    assert response.status_code==404
+    assert app.write_lock.acquire(timeout=1)
+    app.write_lock.release()
+    assert post(client,'/api/session',{},csrf).status_code==200
+
+
+def test_database_exception_releases_request_writer_slot(installed,monkeypatch):
+    module,_=ops.event_for(installed)
+    app,client=visitor(installed)
+    original=module.connect_db
+    def unavailable(_path):raise sqlite3.OperationalError('synthetic failure')
+    monkeypatch.setattr(module,'connect_db',unavailable)
+    assert post(client,'/api/session',{}).status_code==503
+    monkeypatch.setattr(module,'connect_db',original)
+    assert post(client,'/api/session',{}).status_code==200

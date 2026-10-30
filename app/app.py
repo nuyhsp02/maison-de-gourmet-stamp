@@ -1,5 +1,6 @@
 """One event, one laptop, anonymous collections. No GET writes customer data."""
 import hashlib
+from contextlib import closing
 import json
 import re
 import secrets
@@ -66,7 +67,9 @@ def connect_db(path):
 def init_db(path, event):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with connect_db(path) as db:
+    # SQLite connection context managers commit/rollback but do not close the handle.
+    # Close explicitly so Windows can move a stopped database during recovery.
+    with closing(connect_db(path)) as db:
         db.executescript((ROOT / "schema.sql").read_text())
         signature = json.dumps([event["id"], sorted(p["id"] for p in event["products"])])
         db.execute("BEGIN IMMEDIATE")
@@ -132,6 +135,9 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     app.public_url = origin
     app.cookie_name = "collection_dev" if dev else "__Host-collection"
     app.limits = Limits()
+    # One Waitress process, one SQLite writer. Coordinate request writers here
+    # instead of letting Windows busy retries repeatedly race for the DB lock.
+    app.write_lock = threading.Lock()
     init_db(app.config["DATABASE"], event)
 
     def db():
@@ -142,8 +148,12 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     @app.teardown_appcontext
     def close_db(_error):
         connection = g.pop("db", None)
-        if connection is not None:
-            connection.close()
+        try:
+            if connection is not None:
+                connection.close()
+        finally:
+            if g.pop("owns_write_lock", False):
+                app.write_lock.release()
 
     def phase():
         now = int(time.time())
@@ -201,6 +211,10 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                 raise APIError("JSON 요청만 허용됩니다.", 415)
             # 30 visitors behind one café NAT must remain usable.
             limited(("writes", request.remote_addr), 1800)
+            if not app.write_lock.acquire(timeout=15):
+                raise APIError("잠시 후 다시 시도하세요. 서버가 기록을 처리하고 있습니다.",
+                               503, "storage_unavailable")
+            g.owns_write_lock = True
 
     @app.after_request
     def security_headers(response):
@@ -230,7 +244,8 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
 
     @app.errorhandler(sqlite3.OperationalError)
     def database_error(error):
-        app.logger.error("Database operation failed: %s", type(error).__name__)
+        app.logger.error("Database operation failed: %s (%s)", type(error).__name__,
+                         getattr(error, "sqlite_errorname", "unknown"))
         return jsonify(error="잠시 후 다시 시도하세요. 서버가 기록을 처리하고 있습니다.",
                        code="storage_unavailable"), 503
 
