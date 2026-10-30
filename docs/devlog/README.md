@@ -9,8 +9,9 @@
 | [DEV-003 · Windows SQLite CI](DEV-003-windows-sqlite-ci.md) | 연결 잔류·쓰기 경합·수정 후 통과 | 실패 실행·커밋·최종 CI 확인 |
 | [DEV-004 · Windows 패키지·백업](DEV-004-windows-package-and-backups.md) | 데이터 분리·예약·안전 백업/복원 | 구현/자동 검사 확인, 현장 운영 미확인 |
 | [DEV-005 · Public GitHub·CI](DEV-005-public-github-and-ci.md) | 최초 Git 이력·공개 검수·PR/Release | Git/PR/Release/CI 기록 확인 |
+| [DEV-006 · Windows 동시성 재발 조사](DEV-006-windows-concurrency-investigation.md) | 같은 503의 분기 진단·통제 실험·반복 검증 | 원래 간헐 실패 원인 미확정 |
 
-모든 기록의 공통 구현 기준은 [V1.4.0 / 1284c52](https://github.com/nuyhsp02/maison-de-gourmet-stamp/commit/1284c52e04e5e323af4a7fb182d78a2b27a01b8f)입니다. Git 도입 전 사건의 최초 날짜/수정 커밋은 없을 수 있습니다. 기존 검수 문서에 적힌 날짜와 실제 문제 발생일을 구분합니다.
+DEV-001~005의 공통 구현 기준은 [V1.4.0 / 1284c52](https://github.com/nuyhsp02/maison-de-gourmet-stamp/commit/1284c52e04e5e323af4a7fb182d78a2b27a01b8f)입니다. Git 도입 전 사건의 최초 날짜/수정 커밋은 없을 수 있습니다. 기존 검수 문서에 적힌 날짜와 실제 문제 발생일을 구분합니다.
 
 ## 새 기록 작성
 
