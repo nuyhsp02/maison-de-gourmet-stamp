@@ -35,3 +35,8 @@
 
 
 필수 matrix 확장 직후 [41080943401](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41080943401/attempts/1)은 YAML plain scalar의 `:all:` 인용 누락으로 job 생성 전 실패했습니다. 로컬 YAML parser에서도 44행 오류를 재현하고 명령 전체를 인용해 수정했습니다. 앱/의존성 검사 실패나 성공으로 집계하지 않습니다.
+
+
+필수 CI 확장에서는 [Ubuntu 3.15.2 / 41081422115](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41081422115/attempts/1)의 실제 엔진이 시스템 SQLite 3.45.1(`2024-01-30 ...alt1`)로 수정 범위 검사에 실패했습니다. Windows NuGet/Windows setup-python의 배포와 다르며 Python 버전만으로 엔진을 판정하지 않아야 한다는 근거입니다. Ubuntu vendor 백포트는 검증하지 않았습니다. Linux 런타임 교체를 이번 작업에 추가하지 않습니다.
+
+엄격한 운영 엔진 검사는 이 프로젝트의 운영 대상인 Windows 3.15.2에서 필수로 유지합니다. Ubuntu 3.12/3.13/3.15.2는 실제 엔진을 출력하고 원본 전체 테스트를 모두 실행하는 호환성 CI로 구분합니다. Ubuntu의 데이터/부하 검사 강도나 성공 조건을 줄이지 않으며, 그 CI 성공을 Ubuntu 운영 엔진 안전성 승인으로 취급하지 않습니다.
