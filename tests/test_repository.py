@@ -82,13 +82,14 @@ def package_fixture(root):
 def test_release_uses_committed_tree_preserves_windows_bytes_excludes_untracked(repository,tmp_path):
     package_fixture(repository)
     original=(repository/'scripts/Install.ps1').read_bytes()
+    committed_app=git(repository,'show','HEAD:app/app.py')
     (repository/'data').mkdir();(repository/'data/live.sqlite').write_bytes(b'private untracked')
     (repository/'app/app.py').write_text('uncommitted change')
     result=build_release.build(repository,tmp_path/'release',version='v1.4.0')
     with zipfile.ZipFile(result['zip']) as archive:
         names=archive.namelist()
         assert not any('live.sqlite' in n for n in names)
-        assert archive.read('maison-cafe-v1.4/app/app.py')==b'fixture only\n'
+        assert archive.read('maison-cafe-v1.4/app/app.py')==committed_app
         assert archive.read('maison-cafe-v1.4/scripts/Install.ps1')==original
         manifest=json.loads(archive.read('maison-cafe-v1.4/PACKAGE_MANIFEST.json'))
         assert manifest['source_commit']==git(repository,'rev-parse','HEAD').decode().strip()

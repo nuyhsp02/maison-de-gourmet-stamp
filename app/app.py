@@ -1,5 +1,6 @@
 """One event, one laptop, anonymous collections. No GET writes customer data."""
 import hashlib
+from contextlib import closing
 import json
 import re
 import secrets
@@ -66,7 +67,9 @@ def connect_db(path):
 def init_db(path, event):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with connect_db(path) as db:
+    # SQLite connection context managers commit/rollback but do not close the handle.
+    # Close explicitly so Windows can move a stopped database during recovery.
+    with closing(connect_db(path)) as db:
         db.executescript((ROOT / "schema.sql").read_text())
         signature = json.dumps([event["id"], sorted(p["id"] for p in event["products"])])
         db.execute("BEGIN IMMEDIATE")
