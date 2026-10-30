@@ -43,3 +43,12 @@ snapshot과 정상 close는 잠금 밖입니다. snapshot의 여러 SELECT는 �
 ## 학습 자료
 
 [실제 핵심 코드와 따라 할 검사](../BACKEND_LEARNING.md). 구현은 AI 지원 작업이며 소유자의 이해·재현·운영 경험으로 자동 간주하지 않습니다.
+
+## 구현 코드 83a5d35 검증 결과
+
+- 로컬 전체 Python: 98 passed, 45.11초. MAISON_HTTP_TESTS=1 및 소켓 실행 권한을 부여해 실제 Waitress 재시작/복원 검사를 포함했습니다. 최초 권한 제한 실행의 2개 소켓 PermissionError는 앱 실패와 구분하고 허용 환경에서 재검증했습니다.
+- JavaScript: 41 passed / 0 failed.
+- [Windows 반복 실행 41073128683](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41073128683/attempts/1): 3.12/3.13 각각 2회, job마다 원본 비계측/동일 함수 계측 및 경합·정리 검사 15개 모두 통과. 매 부하 400고객/4000스탬프/400지급, 무결성과 중복 조건은 원본 검사가 확인합니다. 계측마다 획득/해제 5200회입니다. 취소 0건.
+- [실제 엔진/source ID/통계 원본](../evidence/transaction-write-scope-windows.json): Windows 3.12.10은 SQLite 3.49.1, 3.13.16은 3.50.4로 수정 범위 미충족. 보유 평균은 사례별 5.911~8.368ms, 보유 p99는 19.142~25.579ms, 대기 최대 376.689~432.611ms였습니다. 이전 PR #3 A/B와 호스트·코드·응답 읽기 경계가 달라 수치를 직접 합치거나 성능 배수로 일반화하지 않습니다.
+
+공식 setup-python 공급 목록에 3.13.17 x64도 있어 별도의 격리 Windows probe로 실제 엔진/source ID를 확인합니다. 기존 3.12/3.13 설치 구성은 바꾸지 않습니다. 이 probe의 결과는 완료 후 추가합니다.
