@@ -1,10 +1,11 @@
 # Windows 설치 설명서 — 설치 담당자용
 
-Python 3.15.2의 Windows CI 검증을 추가했으나 실제 카페 Windows 10 노트북의 현장 검증은 아직 하지 않았습니다. 카페 고객을 받기 전에 WINDOWS_ACCEPTANCE.md를 완료하세요. 이 문서의 PowerShell은 **64비트 Windows PowerShell 5.1 관리자 창**에서 실행합니다. 기본 경로 예시이며 공백 경로는 따옴표를 유지하세요. 패키지는 `C:\Maison Package\maison-cafe-v1.4`처럼 설치 폴더 밖에 풉니다.
+Python 3.15.2의 Windows CI 검증을 추가했으나 실제 카페 Windows 10 노트북의 현장 검증은 아직 하지 않았습니다. 카페 고객을 받기 전에 [WINDOWS_ACCEPTANCE.md](WINDOWS_ACCEPTANCE.md)의 격리 시험·제안 기준 확정·실기기 인수를 완료하세요. 이 문서의 PowerShell은 **64비트 Windows PowerShell 5.1 관리자 창**에서 실행합니다. 기본 경로 예시이며 공백 경로는 따옴표를 유지하세요. 패키지는 `C:\Maison Package\maison-cafe-v1.4`처럼 설치 폴더 밖에 풉니다.
 
 ## 1. 미리 준비
 
 - Windows 10 22H2 x64, 빌드 19045 이상, 보안 업데이트 제공 상태 확인. 일반 지원 종료 및 연장 지원 자격은 Microsoft 안내를 확인합니다. 관리자 계정/승인이 필요합니다.
+- 카페의 업무용 Windows 10은 [Microsoft 업무용 ESU](https://learn.microsoft.com/en-us/windows/whats-new/extended-security-updates) 적용·활성 상태와 최근 보안 업데이트 수신을 별도로 확인합니다. 개인용 무료 ESU가 카페 서버에 적용된다고 가정하지 않습니다. 구체적 증거와 운영 보류 조건은 [현장 인수 준비](WINDOWS_ACCEPTANCE.md#1-격리와-실행-전-준비)를 사용합니다. 설치기는 ESU를 등록하거나 실제 수신 상태를 자동 보증하지 않습니다.
 - 운영 후보는 **공식 CPython 3.15.2 x64 일반 GIL**입니다. Windows 10 이상 지원은 [공식 3.15 문서](https://docs.python.org/3.15/using/windows.html)에 따릅니다. 기존 3.12/3.13 앱 호환성 검사는 유지하지만 현재 관측된 SQLite 3.49.1/3.50.4는 운영 사전 검사에서 거부됩니다. Python 번호만으로 엔진 안전성을 판단하지 않습니다.
 - Python 3.15 설치 관리자의 기본 런타임은 사용자 전용입니다. SYSTEM 작업에는 관리자 소유 공유 경로의 전체 런타임이 필요합니다. 이 작업에서 직접 검증한 공급은 [공식 문서의 CPython NuGet 패키지](https://docs.python.org/3.15/using/windows.html#the-nuget-org-packages) `python` 3.15.2입니다. 사용자용 Store/Conda/free-threaded 환경이나 DLL만 섞는 방법은 사용하지 않습니다. 공유 런타임에는 SYSTEM 읽기/실행, 관리자만 쓰기 권한이 있어야 합니다.
 - 인터넷 연결(Python 패키지 설치, 이후 Cloudflare 통신), 로컬 NTFS 디스크 여유, 전원 연결. 동기화 폴더/네트워크/USB에는 **운영 DB**를 두지 않습니다. 기본 경로를 권장하며 깊은 긴 경로는 피합니다.

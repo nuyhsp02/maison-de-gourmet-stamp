@@ -6,7 +6,7 @@ Maison de Gourmet의 겨울·크리스마스 시즌을 위한 **회원가입 없
 
 현재 공개 소스와 Windows 운영 준비 단계입니다. **실제 카페 운영 실적·실사용 고객 수·한 달 무중단 성과는 확인되지 않았습니다.** 동시 30명·고객 데이터 400명은 설계 목표이며 실제 장비의 보장 성능이 아닙니다.
 
-[Windows 설치 안내](docs/WINDOWS_INSTALL.md) · [직원 매뉴얼](docs/STAFF_GUIDE.md) · [Git 사용 안내](docs/GIT_GUIDE.md) · [릴리스와 Windows 업데이트](docs/GITHUB_RELEASES.md) · [검증 결과](TEST_REPORT.md)
+[Windows 설치 안내](docs/WINDOWS_INSTALL.md) · [격리 현장 인수 계획](docs/WINDOWS_ACCEPTANCE.md) · [직원 매뉴얼](docs/STAFF_GUIDE.md) · [Git 사용 안내](docs/GIT_GUIDE.md) · [릴리스와 Windows 업데이트](docs/GITHUB_RELEASES.md) · [검증 결과](TEST_REPORT.md)
 
 ## 카페에서 필요한 흐름
 
@@ -169,7 +169,7 @@ Windows 10 보안 업데이트 제공 상태, 실제 도메인·이벤트 기간
 AI를 활용한 설계·구현·검수 프로젝트입니다. 확인된 코드/자동 실행 결과와 소유자의 직접 이해·재현 경험을 구분해 기록합니다.
 
 - [ADR 6개 · 선택 근거와 위험](docs/decisions/README.md)
-- [개발 로그 5개 · 문제와 검증 근거](docs/devlog/README.md)
+- [개발 로그 · 문제와 검증 근거](docs/devlog/README.md)
 - [포트폴리오 기록 원칙](docs/PORTFOLIO_RECORDS.md) · [새 로그 템플릿](docs/devlog/TEMPLATE.md)
 
 캐시/JavaScript 버전 불일치 사례는 재현·원인·수정 근거가 부족해 미확인으로 표시했습니다. 회고 문서가 추가됐다는 이유로 당시 비교 검토·개인 실물 테스트·운영 성과를 새로 주장하지 않습니다.
@@ -185,3 +185,5 @@ AI를 활용한 설계·구현·검수 프로젝트입니다. 확인된 코드/�
 프로젝트 자체 재사용 라이선스는 아직 정하지 않았습니다. 포함된 jsQR의 Apache-2.0 라이선스와 출처는 [THIRD_PARTY.md](app/THIRD_PARTY.md)에 보존합니다. Public 공개가 별도 재사용 허가를 의미한다고 표시하지 않습니다.
 
 B 트랜잭션 잠금 후보의 [검증 및 운영 차단 항목](docs/devlog/DEV-007-transaction-write-scope.md)과 [한국어 백엔드 학습 안내](docs/BACKEND_LEARNING.md)를 제공합니다. [공식 Python 3.15.2 검증](docs/devlog/DEV-008-python315-runtime.md)을 추가했습니다. 코드 검토와 현장 운영 승인은 별개이며 새 릴리스는 아직 없습니다.
+
+운영 전 검증은 [현장 인수 계획](docs/WINDOWS_ACCEPTANCE.md)의 실제 Waitress HTTP 시나리오·미승인 제안 기준과 [빈 결과 양식](docs/evidence/FIELD_ACCEPTANCE_TEMPLATE.md)을 사용합니다. 실장비 항목은 아직 미실행이며, [DEV-009](docs/devlog/DEV-009-b-admission-bounded-investigation.md)의 간헐 admission timeout은 미해결입니다. 이 문서 준비로 PR #4 Draft 해제·병합·운영 배포를 승인하지 않습니다.
