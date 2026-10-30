@@ -1,6 +1,6 @@
 # B 방식으로 배우는 백엔드
 
-이 문서는 AI가 구현한 후보 코드를 직접 읽고 검증하기 위한 안내입니다. [변경/검증 기록](devlog/DEV-007-transaction-write-scope.md)과 [기존 기록 원칙](PORTFOLIO_RECORDS.md)을 함께 읽습니다. 운영 가능 판정은 아직 보류입니다.
+이 문서는 AI가 구현한 후보 코드를 직접 읽고 검증하기 위한 안내입니다. [변경/검증 기록](devlog/DEV-007-transaction-write-scope.md)과 [기존 기록 원칙](PORTFOLIO_RECORDS.md)을 함께 읽습니다. [현재 런타임/운영 승인 상태](devlog/DEV-008-python315-runtime.md)는 후속 검증 기록을 확인합니다.
 
 ## 핵심 코드 세 곳과 읽는 순서
 

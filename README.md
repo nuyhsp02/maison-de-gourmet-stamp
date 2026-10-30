@@ -49,7 +49,7 @@ flowchart LR
 | Cloudflare Tunnel | 고정 HTTPS 주소와 서로 다른 고객 네트워크 접속을 준비 |
 | pytest / Node test runner / GitHub Actions | API·DB·QR 기하·화면 상태 회귀를 자동 검사 |
 
-운영 의존성은 [requirements-windows.lock](requirements-windows.lock)에 고정했습니다. Python 3.12/3.13 x64 일반 CPython을 대상으로 합니다. 새 프레임워크나 관리자 웹 대시보드는 도입하지 않았습니다.
+운영 의존성은 [requirements-windows.lock](requirements-windows.lock)에 고정했습니다. 운영 검증 대상은 CPython 3.15.2 x64 일반 GIL입니다. 3.12/3.13은 앱 호환성 CI를 유지하지만 현재 관측된 구 SQLite는 운영 사전 검사에서 거부합니다. 새 프레임워크나 관리자 웹 대시보드는 도입하지 않았습니다.
 
 ## 익명 식별과 개인 복구
 
@@ -160,7 +160,7 @@ V1.4 로컬 기준: Python **70개**, JavaScript **41개** 통과, PowerShell 13
 
 Windows CI에서 DB 초기화 연결이 남아 파일 교체를 막는 문제가 드러나 `init_db` 종료 시 연결을 닫고, 단일 프로세스의 쓰기 요청을 조정하도록 보완했습니다. 스키마·적립·복구·보상 정책과 기존 운영 스크립트는 유지합니다.
 
-CI는 Ubuntu/Windows hosted runner의 Python 3.12·3.13 테스트, 프런트 검사, Windows PowerShell 구문·보조 함수 검사, 추적 파일·도달 가능한 Git 이력 공개 검수를 수행하도록 구성했습니다. CI 성공만으로 Windows 10 실기기의 설치·로그인 전 부팅·SYSTEM 권한·터널 서비스·모바일 카메라 검증 완료를 뜻하지 않습니다. **실제 Windows 운영 서버로 자동 배포하는 작업은 없습니다.**
+CI는 Ubuntu/Windows hosted runner의 Python 3.12·3.13·3.15.2 호환성 테스트 및 Windows 3.15.2 운영 엔진 검사, 프런트 검사, Windows PowerShell 구문·보조 함수 검사, 추적 파일·도달 가능한 Git 이력 공개 검수를 수행하도록 구성했습니다. CI 성공만으로 Windows 10 실기기의 설치·로그인 전 부팅·SYSTEM 권한·터널 서비스·모바일 카메라 검증 완료를 뜻하지 않습니다. **실제 Windows 운영 서버로 자동 배포하는 작업은 없습니다.**
 
 Windows 10 보안 업데이트 제공 상태, 실제 도메인·이벤트 기간·상품명·보상, 외부 백업 매체, 노트북 전원/절전·네트워크 정책은 운영 전에 확정해야 합니다. 세부 미검증 사항은 [Windows 인수표](docs/WINDOWS_ACCEPTANCE.md)를 참고하세요.
 

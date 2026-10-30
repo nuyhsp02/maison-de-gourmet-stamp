@@ -1,5 +1,7 @@
 # DEV-007 · 트랜잭션 중심 쓰기 잠금 구현 후보
 
+> 아래는 3.12/3.13 조사 시점의 기록입니다. 현재 Python 3.15.2 후속 상태는 [DEV-008](DEV-008-python315-runtime.md)을 확인합니다.
+
 상태: main cceed35 기준 별도 브랜치 `fix/transaction-write-scope`. 운영 채택 보류 / [Draft PR #4](https://github.com/nuyhsp02/maison-de-gourmet-stamp/pull/4). 릴리스·현장 배포 없음.
 
 ## 변경과 검토 근거
