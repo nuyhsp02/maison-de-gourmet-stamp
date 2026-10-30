@@ -2,7 +2,7 @@ name: Official Python 3.15.2 compatibility
 on:
   push:
     branches: [fix/transaction-write-scope]
-    paths: ['.github/workflows/python315-validation.yml', 'requirements*.lock']
+    paths: ['.github/workflows/python315-validation.yml', 'requirements*.lock', 'scripts/**', 'tests/install315_smoke.py', 'tools/check_sqlite_runtime.py']
 permissions:
   contents: read
 jobs:
