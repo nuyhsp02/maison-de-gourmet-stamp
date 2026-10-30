@@ -1,6 +1,6 @@
 name: Concurrency investigation
 
-# Branch-limited test-only experiment; does not deploy or replace required CI.
+# Branch-limited experiment; never deploys or replaces required CI.
 on:
   push:
     branches: [fix/windows-concurrency]
@@ -15,22 +15,18 @@ permissions:
 
 jobs:
   scope:
-    name: Scope ${{ matrix.variant }} / ${{ matrix.mode }} / Python ${{ matrix.python }} / repeat ${{ matrix.repeat }}
+    name: Paired scopes / Python ${{ matrix.python }} / repeat ${{ matrix.repeat }}
     runs-on: windows-latest
     timeout-minutes: 10
     strategy:
       fail-fast: false
-      max-parallel: 8
       matrix:
         python: ['3.12', '3.13']
-        variant: [A, B]
-        mode: [profiled, unprofiled]
         repeat: [1, 2]
     env:
       PYTHONUTF8: '1'
       PYTHONIOENCODING: utf-8
-      MAISON_SCOPE_VARIANT: ${{ matrix.variant }}
-      MAISON_SCOPE_PROFILE: ${{ matrix.mode == 'profiled' && '1' || '0' }}
+      SCOPE_REPEAT: ${{ matrix.repeat }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -40,5 +36,21 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install --disable-pip-version-check -r requirements-test.lock
       - run: python -m pip check
-      - name: Original workload, timings and audit even on assertion failure
-        run: python -m pytest -q -s --tb=short app/tests/test_scope_experiment.py
+      - name: Same runner, fresh test DB per case; preserve every failed assertion
+        shell: powershell
+        run: |
+          $cases = @(
+            @{ Variant='A'; Profile='1' },
+            @{ Variant='B'; Profile='1' },
+            @{ Variant='B'; Profile='0' },
+            @{ Variant='A'; Profile='0' }
+          )
+          if ($env:SCOPE_REPEAT -eq '2') { [array]::Reverse($cases) }
+          $failed = $false
+          foreach ($case in $cases) {
+            $env:MAISON_SCOPE_VARIANT = $case.Variant
+            $env:MAISON_SCOPE_PROFILE = $case.Profile
+            & python -m pytest -q -s --tb=short app/tests/test_scope_experiment.py
+            if ($LASTEXITCODE -ne 0) { $failed = $true }
+          }
+          if ($failed) { exit 1 }

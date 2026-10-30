@@ -118,6 +118,37 @@ def test_b_rechecks_session_revoked_while_waiting(app, keys, monkeypatch):
         assert visitor.read()['customer']['count'] == 0
 
 
+@pytest.mark.parametrize('operation', ['collect', 'start'])
+def test_b_rechecks_event_that_ends_while_waiting(app, keys, monkeypatch, operation):
+    import threading
+    from flask import request
+    ready, resume = threading.Event(), threading.Event()
+    with experiment(app, monkeypatch, 'B', False):
+        visitor = Visitor(app, start=operation != 'start')
+        original_acquire = Connection.acquire
+        def pause_before_gate(connection):
+            if request.endpoint == operation:
+                ready.set()
+                assert resume.wait(5)
+            return original_acquire(connection)
+        with monkeypatch.context() as patch:
+            patch.setattr(Connection, 'acquire', pause_before_gate)
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                pending = pool.submit(visitor.post, '/api/' + ('session' if operation == 'start' else 'collect'),
+                                      {} if operation == 'start' else {'qr': keys[0]})
+                try:
+                    assert ready.wait(5)
+                    # Change only this test app's in-memory event, never event.json.
+                    app.event.update(draft=False, starts_at='2000-01-01T00:00:00+00:00',
+                                     ends_at='2000-01-02T00:00:00+00:00', reward_until='2099-01-01T00:00:00+00:00')
+                finally:
+                    resume.set()
+                response = pending.result(timeout=5)
+                assert response.status_code == 409 and response.json['code'] == 'event_closed'
+        state = visitor.read()['customer']
+        assert state is None if operation == 'start' else state['count'] == 0
+
+
 def test_audit_detects_missing_acknowledged_stamp(app, keys):
     from app import digest
     visitor = Visitor(app)
@@ -149,13 +180,18 @@ def test_failed_workload_still_audits_and_preserves_assertion(app, keys, monkeyp
                     reason='Opt-in manual A/B experiment only')
 def test_scope_original_400_30(app, keys, monkeypatch, caplog):
     import test_load
-    from app import digest
+    from app import connect_db, digest
     variant = os.environ['MAISON_SCOPE_VARIANT']
     profiled = os.environ.get('MAISON_SCOPE_PROFILE') == '1'
-    ledger, responses = deque(), deque()
+    ledger, responses, exceptions = deque(), deque(), deque()
     class AcknowledgedVisitor(Visitor):
         def post(self, path, body):
-            response = super().post(path, body)
+            try:
+                response = super().post(path, body)
+            except Exception as error:
+                exceptions.append(type(error).__name__ if type(error).__name__ in
+                                  ('IntegrityError', 'OperationalError', 'ProgrammingError') else 'other')
+                raise
             responses.append(response.status_code)
             if response.status_code == 200:
                 token_hash = digest(self.cookie())
@@ -167,6 +203,12 @@ def test_scope_original_400_30(app, keys, monkeypatch, caplog):
                 elif path == '/api/redeem' and not data['already_redeemed']:
                     ledger.append(('reward', token_hash, None))
             return response
+    # Capture actual runtime/connection settings before timing, never file paths.
+    runtime = runtime_info()
+    with closing(connect_db(app.config['DATABASE'])) as db:
+        runtime['sqlite_source_id'] = db.execute('SELECT sqlite_source_id()').fetchone()[0]
+        runtime['pragmas'] = {name: db.execute('PRAGMA ' + name).fetchone()[0]
+                              for name in ('journal_mode', 'synchronous', 'foreign_keys', 'busy_timeout')}
     completed = False
     started = time.perf_counter()
     profile = None
@@ -181,11 +223,13 @@ def test_scope_original_400_30(app, keys, monkeypatch, caplog):
         # Runs even when the unchanged original assertion fails. All workers have
         # joined before this finally; hard CI termination may prevent the audit.
         audit = audit_database(app.config['DATABASE'], ledger)
-        result = {'variant': variant, 'profiled': profiled, 'runtime': runtime_info(),
+        result = {'variant': variant, 'profiled': profiled, 'runtime': runtime,
                   'original_workload_completed': completed, 'elapsed_s': round(elapsed, 3),
-                  'post_responses': dict(Counter(responses)),
-                  'post_failure_rate': round(sum(s != 200 for s in responses) / max(1, len(responses)), 6),
-                  'observed_posts_per_s': round(len(responses) / elapsed, 3),
+                  'attempted_posts': len(responses) + len(exceptions),
+                  'post_responses': dict(Counter(responses)), 'post_exceptions': dict(Counter(exceptions)),
+                  'post_failure_rate': round((sum(s != 200 for s in responses) + len(exceptions)) / max(1, len(responses) + len(exceptions)), 6),
+                  'observed_posts_per_s': round((len(responses) + len(exceptions)) / elapsed, 3),
+                  'successful_posts_per_s': round(sum(s == 200 for s in responses) / elapsed, 3),
                   'acknowledged': dict(Counter(row[0] for row in ledger)), 'audit': audit,
                   **failure_counts(caplog.get_records('call'))}
         if profiled:

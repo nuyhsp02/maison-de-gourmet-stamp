@@ -215,7 +215,7 @@ class Connection:
             self.owns_gate = True
             # An authenticated request can wait while another request revokes
             # its session. Reuse actual validation under ownership, before SQL.
-            if self.validate is not None and request.endpoint in ('collect', 'redeem', 'recovery_link'):
+            if self.validate is not None:
                 self.validate()
 
     def release(self):
@@ -287,14 +287,21 @@ def experiment(app, monkeypatch, variant, profiled):
         elif profiled:
             patch.setattr(app, 'write_lock', gate)
         profile.install(app, patch)
-        validate = closure_function(app, 'require_identity') if variant == 'B' else None
+        identity_check = closure_function(app, 'require_identity') if variant == 'B' else None
+        active_check = closure_function(app, 'require_active') if variant == 'B' else None
+        def validate():
+            # Event time may advance during queueing as well as session state.
+            if request.endpoint in ('start', 'collect'):
+                active_check()
+            if request.endpoint in ('collect', 'redeem', 'recovery_link'):
+                identity_check()
         # A without profiling is the actual app with native Lock/SQLite connections.
         if profiled or variant == 'B':
             original_connect = sqlite3.connect
             def connected(*args, **kwargs):
                 with profile.stage('db_connect'):
                     raw = original_connect(*args, **kwargs)
-                return Connection(raw, profile, gate if variant == 'B' else None, app, validate)
+                return Connection(raw, profile, gate if variant == 'B' else None, app, validate if variant == 'B' else None)
             patch.setattr(module.sqlite3, 'connect', connected)
         yield profile, gate
 
