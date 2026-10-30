@@ -212,6 +212,8 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
             # 30 visitors behind one café NAT must remain usable.
             limited(("writes", request.remote_addr), 1800)
             if not app.write_lock.acquire(timeout=15):
+                # Static classification only: no URL, cookie, SQL or customer data.
+                app.logger.warning("Write admission timed out")
                 raise APIError("잠시 후 다시 시도하세요. 서버가 기록을 처리하고 있습니다.",
                                503, "storage_unavailable")
             g.owns_write_lock = True

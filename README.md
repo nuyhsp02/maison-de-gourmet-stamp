@@ -169,7 +169,7 @@ Windows 10 보안 업데이트 제공 상태, 실제 도메인·이벤트 기간
 AI를 활용한 설계·구현·검수 프로젝트입니다. 확인된 코드/자동 실행 결과와 소유자의 직접 이해·재현 경험을 구분해 기록합니다.
 
 - [ADR 6개 · 선택 근거와 위험](docs/decisions/README.md)
-- [개발 로그 5개 · 문제와 검증 근거](docs/devlog/README.md)
+- [개발 로그 6개 · 문제와 검증 근거](docs/devlog/README.md)
 - [포트폴리오 기록 원칙](docs/PORTFOLIO_RECORDS.md) · [새 로그 템플릿](docs/devlog/TEMPLATE.md)
 
 캐시/JavaScript 버전 불일치 사례는 재현·원인·수정 근거가 부족해 미확인으로 표시했습니다. 회고 문서가 추가됐다는 이유로 당시 비교 검토·개인 실물 테스트·운영 성과를 새로 주장하지 않습니다.
