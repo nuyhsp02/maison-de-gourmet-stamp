@@ -32,3 +32,6 @@
 ## 운영 범위
 
 [새 설치 안내](../WINDOWS_INSTALL.md)는 공유 경로의 전체 공식 배포본을 명시하고 기존 venv 자동 마이그레이션을 금지합니다. [백엔드 학습 자료](../BACKEND_LEARNING.md)와 기존 B 논리는 유지합니다. 검증된 후보의 코드 리뷰와 실제 운영 승인/정식 릴리스/배포는 구분합니다. SYSTEM 부팅 작업, 실제 노트북 ACL·전원/절전·Windows 업데이트, 도메인/Tunnel HTTPS, 실물 휴대폰은 현장 인수표에서 확인해야 합니다.
+
+
+필수 matrix 확장 직후 [41080943401](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41080943401/attempts/1)은 YAML plain scalar의 `:all:` 인용 누락으로 job 생성 전 실패했습니다. 로컬 YAML parser에서도 44행 오류를 재현하고 명령 전체를 인용해 수정했습니다. 앱/의존성 검사 실패나 성공으로 집계하지 않습니다.
