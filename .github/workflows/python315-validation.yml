@@ -1,0 +1,50 @@
+name: Official Python 3.15.2 compatibility
+on:
+  push:
+    branches: [fix/transaction-write-scope]
+    paths: ['.github/workflows/python315-validation.yml', 'requirements*.lock']
+permissions:
+  contents: read
+jobs:
+  windows315:
+    name: Official Windows x64 GIL repeat ${{ matrix.repeat }}
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        repeat: [1, 2]
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+      MAISON_HTTP_TESTS: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Official CPython NuGet distribution, isolated from existing interpreters
+        shell: powershell
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP 'official-cpython315'
+          nuget.exe install python -Version 3.15.2 -OutputDirectory $target -Source https://api.nuget.org/v3/index.json -NonInteractive
+          if ($LASTEXITCODE -ne 0) { throw 'Official Python package retrieval failed' }
+          $bin = Join-Path $target 'python.3.15.2\tools'
+          & (Join-Path $bin 'python.exe') -m venv (Join-Path $env:RUNNER_TEMP 'maison315-venv')
+          if ($LASTEXITCODE -ne 0) { throw 'Official runtime venv creation failed' }
+          (Join-Path $env:RUNNER_TEMP 'maison315-venv\Scripts') | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Get-FileHash (Join-Path $target 'python.3.15.2\python.3.15.2.nupkg') -Algorithm SHA256 | Select-Object Algorithm,Hash | ConvertTo-Json -Compress
+      - name: Actual interpreter and fixed SQLite verification
+        run: |
+          python -c "import sys,struct,sysconfig; assert sys.version_info[:3]==(3,15,2); assert sys.implementation.name=='cpython' and struct.calcsize('P')==8 and not sysconfig.get_config_var('Py_GIL_DISABLED') and sys._is_gil_enabled()"
+          python tools/check_sqlite_runtime.py --require-fixed
+      - name: Existing locks, wheels only
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: -r requirements-test.lock
+          python -m pip check
+          python -c "import flask,waitress,qrcode,blinker,click,colorama,itsdangerous,jinja2,markupsafe,werkzeug"
+      - name: Full B regression, original and timed load, backups and real server restart
+        run: python -m pytest -q -s --tb=short app/tests tests
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24'
+      - run: node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs
