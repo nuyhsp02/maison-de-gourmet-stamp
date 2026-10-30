@@ -80,10 +80,12 @@ macOS/Python 3.13.5의 전체 회귀는 89개 통과(70.76초)였습니다. 기�
 | push / 3.13 | 7381.52 / 1264.84 | 29 | 0 / 0 | 통과 |
 | PR attempt 1 / 3.12 | 1657.00 / 282.00 | 58 | 0 / 0 | 89 passed, 363.18초 |
 | PR attempt 1 / 3.13 | 1898.92 / 324.88 | 29 | 0 / 0 | 89 passed, 334.60초 |
+| PR attempt 2 / 3.12 | 1313.00 / 266.00 | 29 | 20 / 0 | 1 failed, 88 passed, 383.03초 |
+| PR attempt 2 / 3.13 | 11738.21 / 1998.93 | 29 | 종료까지 관측 1 / 0 | CI 10분 제한으로 취소, 완료 검사 아님 |
 
 [PR attempt 1](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41052835100/attempts/1)의 성공으로 push 실패를 해결됐다고 취급하지 않습니다. 계측 부하 자체는 네 작업에서 모두 획득/해제 5200/5200, admission/SQLite 오류 0, 종료 전 열린 트랜잭션 관측 0입니다. 실패한 비계측 부하에는 보유 시간/획득 순서를 측정하지 않았으므로 100건의 원인을 starvation이나 디스크 지연 하나로 단정할 수 없습니다.
 
-계측용 추가 mutex의 영향 가능성을 줄이기 위해 후속 진단에서는 원래 잠금을 감싸되 별도 경합 mutex 없이 thread-safe deque append로 집계하고, timeout 시 현재 보유 경과/대기 중 다른 획득 수를 함께 남깁니다. 여전히 관찰 영향이 있을 수 있어 완전 비계측 부하도 유지합니다. 비계측 부하의 실패를 삭제하거나 timeout을 늘리지 않습니다. Windows 3.12/3.13의 추가 반복 결과를 구분해 기록합니다.
+계측용 추가 mutex의 영향 가능성을 줄이기 위해 후속 진단에서는 원래 잠금을 감싸되 별도 경합 mutex 없이 thread-safe deque append로 집계하고, timeout 시 현재 보유 경과/대기 중 다른 획득 수를 함께 남깁니다. 여전히 관찰 영향이 있을 수 있어 완전 비계측 부하도 유지합니다. 비계측 부하의 실패를 삭제하거나 timeout을 늘리지 않습니다. [동일 코드 PR attempt 2](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41052835100/attempts/2)는 세 번째 반복입니다. Windows 3.12는 다시 비계측 부하의 admission timeout으로 실패했고, 3.13은 admission timeout 1건을 남긴 뒤 CI 시간 제한으로 취소됐습니다. 취소를 통과로 세지 않습니다. 새 진단은 외부 CI 제한으로 요약이 중단돼도 수치를 보존하도록 timeout 숫자 표본을 최대 8개 즉시 출력합니다. CI/요청의 시간 제한과 테스트 강도는 변경하지 않습니다. Windows 3.12/3.13의 후속 결과를 구분해 기록합니다.
 
 ## 6. 미검증 사항과 후속 확인
 

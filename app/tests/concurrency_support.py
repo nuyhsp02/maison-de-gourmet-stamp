@@ -1,4 +1,5 @@
 """Test-only observations, without adding a second contended lock."""
+import json
 import platform
 import re
 import sqlite3
@@ -19,6 +20,7 @@ class ObservedLock:
         self.holds = deque()
         self.open_transactions = deque()
         self.timeout_samples = deque(maxlen=8)
+        self.stream_slots = deque(range(8))
         self.active_since = None
 
     def acquire(self, blocking=True, timeout=-1):
@@ -35,10 +37,18 @@ class ObservedLock:
             self.active_since = now
         else:
             held_since = self.active_since
-            self.timeout_samples.append({'wait_ms': round((now - started) * 1000, 2),
+            sample = {'wait_ms': round((now - started) * 1000, 2),
                                          'grants_while_waiting': bypasses,
                                          'current_holder_age_ms': None if held_since is None else
-                                         round((now - held_since) * 1000, 2)})
+                                         round((now - held_since) * 1000, 2)}
+            self.timeout_samples.append(sample)
+            try:
+                self.stream_slots.popleft()
+            except IndexError:
+                pass
+            else:
+                # Survives an outer CI job timeout; at most eight numeric samples.
+                print('STORAGE_TIMEOUT_SAMPLE ' + json.dumps(sample), file=sys.__stdout__, flush=True)
         return acquired
 
     def release(self):
