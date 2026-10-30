@@ -54,7 +54,7 @@ base Python과 venv 각각 검사하고, 실제 SYSTEM 실행도 같은 venv인�
 -NoProfile -NonInteractive -Command "$ErrorActionPreference='Stop'; & 'C:\MaisonCafe-Acceptance\.venv\Scripts\python.exe' 'C:\MaisonCafe-Acceptance\tools\check_sqlite_runtime.py' --require-fixed | Out-File -Encoding utf8 'C:\MaisonCafe-Acceptance\logs\runtime-system.json'; exit $LASTEXITCODE"
 ```
 
-작업 principal=SYSTEM·최근 결과 0·파일의 버전/ID 일치를 함께 확인합니다. 런타임 공유 경로/코드에는 관리자만 쓰기, SYSTEM은 읽기·실행 및 시험 DB/백업/로그 쓰기가 가능해야 합니다. 일반 비관리자의 DB·백업·토큰 읽기 거부를 아래 NTFS 항목에서 확인합니다. SYSTEM 실제 실행을 하지 않았다면 관리자 검사 성공만으로 대체하지 않습니다.
+작업 principal=SYSTEM·최근 결과 0·파일의 버전/ID 일치를 함께 확인합니다. 공유 런타임은 SYSTEM 읽기·실행이 가능하고 일반 사용자 쓰기가 차단돼야 합니다. 설치 Root의 기존 `Set-MaisonAcl`은 **관리자와 SYSTEM에 FullControl**을 부여합니다. 이 정책에서 일반 비관리자의 코드 쓰기는 차단되고 SYSTEM의 DB/백업/로그 쓰기는 가능해야 합니다. 일반 비관리자의 DB·백업·토큰 읽기 거부를 아래 NTFS 항목에서 확인합니다. SYSTEM 실제 실행을 하지 않았다면 관리자 검사 성공만으로 대체하지 않습니다.
 
 ## 2. 실행 순서와 실제 HTTP 사례
 
