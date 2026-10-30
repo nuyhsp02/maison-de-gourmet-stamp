@@ -1,6 +1,6 @@
 # DEV-007 · 트랜잭션 중심 쓰기 잠금 구현 후보
 
-상태: main cceed35 기준 별도 브랜치 `fix/transaction-write-scope`. 운영 채택 보류 / Draft PR 예정. 릴리스·현장 배포 없음.
+상태: main cceed35 기준 별도 브랜치 `fix/transaction-write-scope`. 운영 채택 보류 / [Draft PR #4](https://github.com/nuyhsp02/maison-de-gourmet-stamp/pull/4). 릴리스·현장 배포 없음.
 
 ## 변경과 검토 근거
 
@@ -23,10 +23,10 @@ snapshot과 정상 close는 잠금 밖입니다. snapshot의 여러 SELECT는 �
 [SQLite 공식 WAL-reset 자료](https://sqlite.org/wal.html#walreset)의 수정 버전은 3.51.3 이상 또는 공식 백포트 3.50.7/3.44.6 계열입니다. `tools/check_sqlite_runtime.py`는 실제 sqlite_version과 SELECT sqlite_source_id()를 메모리 DB에서 출력합니다. 알려진 수정 버전 범위와 알 수 없는 vendor 백포트를 구분하며 Python 버전만으로 판정하지 않습니다.
 
 ```powershell
-.\.venv\Scripts\python.exe .\app\tools\check_sqlite_runtime.py --require-fixed
+& 'C:\MaisonCafe\.venv\Scripts\python.exe' .\tools\check_sqlite_runtime.py --require-fixed
 ```
 
-위 경로는 저장소 전체를 `app`에 둔 Windows 배포 구조 기준입니다. 저장소 루트에서 직접 실행할 때는 `python tools/check_sqlite_runtime.py --require-fixed`입니다. 확인되지 않은 엔진이면 종료 코드 1로 운영 승인 검사를 막습니다. 기존 설치 스크립트를 이 후보 때문에 임의로 변경하지 않습니다.
+위 명령은 저장소 루트에서 실행하며 기본 설치 경로의 서버 venv를 사용합니다. 사용자 지정 설치 경로이면 실행 파일 경로를 조정합니다. 점검 도구는 이 소스 저장소에 있으며 기존 v1.4.0 패키지에 자동 설치되지 않습니다. 개발 venv가 활성화된 경우 `python tools/check_sqlite_runtime.py --require-fixed`로 실행합니다. 확인되지 않은 엔진이면 종료 코드 1로 운영 승인 검사를 막습니다. 기존 설치 스크립트를 이 후보 때문에 임의로 변경하지 않습니다.
 
 로컬 CPython 3.13.5는 SQLite 3.45.3, source ID `2024-04-15 13:34:05 8653b758870e6ef0c98d46b3ace27849054af85da891eb121e9aaa537f1e8355`로 수정 범위를 만족하지 않습니다. 이전 Windows 조사 3.12.10/3.13.16은 각각 SQLite 3.49.1/3.50.4였습니다. 새 Windows 검증에서도 런타임을 직접 출력합니다.
 
@@ -52,3 +52,14 @@ snapshot과 정상 close는 잠금 밖입니다. snapshot의 여러 SELECT는 �
 - [실제 엔진/source ID/통계 원본](../evidence/transaction-write-scope-windows.json): Windows 3.12.10은 SQLite 3.49.1, 3.13.16은 3.50.4로 수정 범위 미충족. 보유 평균은 사례별 5.911~8.368ms, 보유 p99는 19.142~25.579ms, 대기 최대 376.689~432.611ms였습니다. 이전 PR #3 A/B와 호스트·코드·응답 읽기 경계가 달라 수치를 직접 합치거나 성능 배수로 일반화하지 않습니다.
 
 공식 setup-python 공급 목록에 3.13.17 x64도 있어 별도의 격리 Windows probe로 실제 엔진/source ID를 확인합니다. 기존 3.12/3.13 설치 구성은 바꾸지 않습니다. 이 probe의 결과는 완료 후 추가합니다.
+
+
+## 공식 최신 패치 probe와 최종 판정
+
+[공식 Python 3.13.17 격리 Windows 실행](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41073836202/attempts/1)은 실제 SQLite 3.50.4 / source ID `2025-07-30 19:33:53 4d8adfb30e03f9cf27f800a2c1ba3c48fb4ca1b08b0f5ed59a4d5ecbf45e20a3`를 확인했습니다. [probe 원본](../evidence/official-python31317-runtime.json)을 보존합니다. 관측 source ID는 [공식 3.50.4 릴리스](https://sqlite.org/releaselog/3_50_4.html)와 일치하고, 3.12.10의 source ID는 [공식 3.49.1 릴리스](https://sqlite.org/releaselog/3_49_1.html)와 일치합니다. 해당 공식 릴리스는 WAL-reset 수정 이전입니다. 별도 vendor 백포트를 검증한 것은 아닙니다. 로컬 --require-fixed 검사는 실제로 종료 코드 1임을 확인했습니다.
+
+구현 코드 83a5d35의 [전체 PR CI](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41073201327/attempts/1)와 [push CI](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41073128531/attempts/1)도 Ubuntu/Windows × 3.12/3.13, JS, PowerShell, 공개 검사에서 성공했습니다. 후속 커밋은 문서/근거/격리 probe만 추가하며 그 CI는 별도로 표시합니다.
+
+추천은 이 B 구현 후보를 유지하되 **공식 수정 엔진 공급 및 그 런타임에서 재검증 전에는 운영 적용하지 않는 것**입니다. 요구 범위의 3.12/3.13/현 설치 체계에서 안전한 공급을 검증하지 못했으므로 독자 빌드·임의 DLL·타 모듈 우회로를 만들지 않습니다. 실제 카페 노트북 런타임은 아직 직접 확인하지 못했습니다. API 실패 후 이미 commit된 요청은 응답 전달 실패와 구별이 어려울 수 있으며 상품/지급 PK가 재요청의 중복을 막습니다. 합성 검사의 반복 통과가 실기기·전원 단절 안정성을 보증하지 않습니다.
+
+PR #3은 조사 원본으로 그대로 Draft·미병합, PR #4도 운영 차단 사유 때문에 Draft·미병합입니다. main 보호·v1.4.0·운영 DB/설정은 유지합니다. 실제 운영 채택/릴리스/배포 결정은 후속 작업입니다.
