@@ -345,3 +345,31 @@ def test_init_db_closes_connections_on_success_and_event_mismatch(installed, mon
     for connection in opened:
         with pytest.raises(sqlite3.ProgrammingError,match='closed'):
             connection.execute('SELECT 1')
+
+
+def test_request_write_coordination_keeps_get_readonly_and_releases_after_error(installed):
+    module,_=ops.event_for(installed)
+    app,client=visitor(installed)
+    assert post(client,'/api/session',{}).status_code==200
+    csrf=state(client)['csrf']
+    # GET does not acquire the writer slot, even while another writer owns it.
+    assert app.write_lock.acquire(timeout=1)
+    try:assert state(client)['customer']['count']==0
+    finally:app.write_lock.release()
+    # Validation failures after admission must release the slot for the next write.
+    response=post(client,'/api/collect',{'qr':'not-a-real-qr'},csrf)
+    assert response.status_code==404
+    assert app.write_lock.acquire(timeout=1)
+    app.write_lock.release()
+    assert post(client,'/api/session',{},csrf).status_code==200
+
+
+def test_database_exception_releases_request_writer_slot(installed,monkeypatch):
+    module,_=ops.event_for(installed)
+    app,client=visitor(installed)
+    original=module.connect_db
+    def unavailable(_path):raise sqlite3.OperationalError('synthetic failure')
+    monkeypatch.setattr(module,'connect_db',unavailable)
+    assert post(client,'/api/session',{}).status_code==503
+    monkeypatch.setattr(module,'connect_db',original)
+    assert post(client,'/api/session',{}).status_code==200

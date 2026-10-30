@@ -41,6 +41,6 @@
   "scope": "Historical original V1.4 build before public Git preparation",
   "public_source_unchanged_app_files": 39,
   "public_source_delta": [
-    "app/app.py: explicitly close init_db connection after Windows CI finding"
+    "app/app.py: explicitly close initialization connection and coordinate single-process writers after Windows CI findings"
   ]
 }

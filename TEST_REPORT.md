@@ -57,6 +57,6 @@ node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs
 
 ## GitHub 공개 준비 검사 (기존 V1.4 이후)
 
-공개용 저장소는 기존 운영 스크립트를 유지하고 Git/CI/문서/릴리스 빌더를 추가합니다. 첫 Windows CI에서 초기화 DB 연결 잔류와 테스트의 줄바꿈 가정을 발견해 앱 `init_db`의 명시적 연결 종료와 테스트 fixture 정리를 보완했습니다. API·스키마·적립·복구·보상 정책은 그대로입니다. 별도 `tests/test_repository.py`에서 공개 파일 차단, 삭제 후에도 남은 Git 이력의 합성 토큰 검출, 커밋된 트리만으로 ZIP 생성, BOM/CRLF 보존, 실제 파일 해시/manifest, 기존 릴리스 덮어쓰기 거부를 검사합니다.
+공개용 저장소는 기존 운영 스크립트를 유지하고 Git/CI/문서/릴리스 빌더를 추가합니다. 첫 Windows CI에서 초기화 DB 연결 잔류와 테스트의 줄바꿈 가정을 발견해 앱 `init_db`의 명시적 연결 종료와 테스트 fixture 정리를 보완했습니다. 단일 프로세스의 동시 쓰기 요청 경합도 조정했습니다. API·스키마·적립·복구·보상 정책은 그대로입니다. 별도 `tests/test_repository.py`에서 공개 파일 차단, 삭제 후에도 남은 Git 이력의 합성 토큰 검출, 커밋된 트리만으로 ZIP 생성, BOM/CRLF 보존, 실제 파일 해시/manifest, 기존 릴리스 덮어쓰기 거부를 검사합니다.
 
-CI 정의는 Ubuntu/Windows hosted runner의 Python 3.12·3.13, 프런트 구문·41개 흐름 검사, Windows PowerShell 파서/보조 함수, 공개 이력 검수입니다. GitHub에서 실제 실행된 결과는 Actions 링크와 별도 전달 기록으로 확인합니다. 이 문서의 기존 70개 통과는 V1.4 로컬 기준이며, 새 공개용 소스의 macOS / CPython 3.13.5 로컬 검사는 **82 passed**(기존 70 + 추가 12)였습니다. JavaScript 41개 및 PowerShell 파서 13개/보조 함수 3개 검사도 통과했습니다. 실제 Windows 10 설치/운영 검증으로 간주하지 않습니다.
+CI 정의는 Ubuntu/Windows hosted runner의 Python 3.12·3.13, 프런트 구문·41개 흐름 검사, Windows PowerShell 파서/보조 함수, 공개 이력 검수입니다. GitHub에서 실제 실행된 결과는 Actions 링크와 별도 전달 기록으로 확인합니다. 이 문서의 기존 70개 통과는 V1.4 로컬 기준이며, 새 공개용 소스의 macOS / CPython 3.13.5 로컬 검사는 **84 passed**(기존 70 + 추가 14)였습니다. JavaScript 41개 및 PowerShell 파서 13개/보조 함수 3개 검사도 통과했습니다. 실제 Windows 10 설치/운영 검증으로 간주하지 않습니다.
