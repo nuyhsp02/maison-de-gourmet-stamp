@@ -60,6 +60,14 @@ _LOAD_DIAGNOSTICS = []
 @pytest.fixture(autouse=True)
 def observe_load_storage(request):
     """Keep the original 400/30 workload unchanged; observe only this test."""
+    if request.node.name == 'test_native_400_visitors_30_concurrent':
+        from concurrency_support import failure_counts, runtime_info
+        caplog = request.getfixturevalue('caplog')
+        yield
+        # No lock wrapper, teardown probe, sleeps or retries on this path.
+        _LOAD_DIAGNOSTICS.append({'mode': 'native_no_observer', 'runtime': runtime_info(),
+                                  **failure_counts(caplog.get_records('call'))})
+        return
     if request.node.name != 'test_400_visitors_30_concurrent':
         yield
         return

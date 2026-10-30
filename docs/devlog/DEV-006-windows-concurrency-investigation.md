@@ -44,6 +44,7 @@ PR #2는 성공한 CI를 거쳐 병합됐지만 main의 Windows/Python 3.13에�
 - [app.py](../../app/app.py): admission timeout에 정적 분류 로그 1개 추가. 공개 상태/JSON·15초·잠금 정책·SQL·스키마/보상 정책 변경 없음.
 - [concurrency_support.py](../../app/tests/concurrency_support.py), [conftest.py](../../app/tests/conftest.py): 원래 부하 테스트에만 관찰자를 붙여 안전한 집계를 터미널 요약에 기록.
 - [test_storage_diagnostics.py](../../app/tests/test_storage_diagnostics.py): 두 분기 구분·민감 오류 메시지 비노출·실제 제한/DB 경합 후 회복 검사.
+- [test_load_native.py](../../app/tests/test_load_native.py)는 같은 원본 함수를 native Lock 그대로 한 번 더 호출합니다. 이 경로에는 타이밍/잠금 관찰자, 추가 teardown probe, sleep/재시도가 없습니다. 관찰에 의한 스케줄링 변화와 분리해 검사합니다.
 - [test_load.py](../../app/tests/test_load.py)는 변경하지 않음. 400명·30개·5200회 변경 요청과 최종 고객/스탬프/지급/중복/무결성 검사를 유지.
 
 원인 근거가 부족해 FIFO 교체, timeout 확대, SQLite 동기화/내구성 변경, 자동 재시도로 실패를 숨기는 수정은 하지 않았습니다. 관찰자 자체도 스케줄링에 영향을 줄 수 있어 통과를 해결 증거로 과장하지 않습니다.
@@ -69,7 +70,7 @@ PR #2는 성공한 CI를 거쳐 병합됐지만 main의 Windows/Python 3.13에�
 
 ### 통제 검사와 최종 반복 계획
 
-로컬 전체 회귀는 88개 통과입니다(기존 84 + 분기/비밀 비노출/두 실제 대기 경로 4개). 최종 코드의 Windows 3.12/3.13은 각 3회 이상의 동일 강도 검증을 진행하고, 개별 실행/attempt와 안전한 집계 결과를 추가 기록합니다. 한 번의 통과로 해결을 선언하지 않습니다.
+macOS/Python 3.13.5의 최종 전체 회귀는 89개 통과(70.76초)입니다. 기존 84개에 분기/비밀 비노출/두 실제 대기 경로 4개와 관찰자 없는 원본 부하 호출 1개를 추가했습니다. 로컬의 관찰/비관찰 부하 모두 admission/SQLite 오류는 0입니다. 최종 코드의 Windows 3.12/3.13은 각 3회 이상의 동일 강도 검증을 진행하고, 개별 실행/attempt와 안전한 집계 결과를 추가 기록합니다. 한 번의 통과로 해결을 선언하지 않습니다.
 
 ## 6. 미검증 사항과 후속 확인
 

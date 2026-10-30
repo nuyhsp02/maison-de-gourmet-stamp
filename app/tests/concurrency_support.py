@@ -65,15 +65,23 @@ class ObservedLock:
                       'max_grants_while_waiting': self.max_grants_while_waiting,
                       'open_transactions_before_close': self.open_transactions,
                       'timeout_samples': list(self.timeout_samples)}
-        result['sqlite_operational_errors'] = sum(r.msg == 'Database operation failed: %s (%s)' for r in records)
-        labels = {}
-        for record in records:
-            if record.msg == 'Database operation failed: %s (%s)':
-                name = record.args[1]
-                name = name if isinstance(name, str) and re.fullmatch(r'SQLITE_[A-Z_]+', name) else 'unknown'
-                labels[name] = labels.get(name, 0) + 1
-        result['sqlite_error_names'] = labels
-        result['admission_timeout_logs'] = sum(r.msg == 'Write admission timed out' for r in records)
-        result['runtime'] = {'os': platform.system(), 'python': sys.version.split()[0],
-                             'sqlite': sqlite3.sqlite_version, 'sqlite_threadsafety': sqlite3.threadsafety}
+        result.update(failure_counts(records))
+        result['mode'] = 'timing_observer'
+        result['runtime'] = runtime_info()
         return result
+
+
+def runtime_info():
+    return {'os': platform.system(), 'python': sys.version.split()[0],
+            'sqlite': sqlite3.sqlite_version, 'sqlite_threadsafety': sqlite3.threadsafety}
+
+
+def failure_counts(records):
+    labels = {}
+    for record in records:
+        if record.msg == 'Database operation failed: %s (%s)':
+            name = record.args[1]
+            name = name if isinstance(name, str) and re.fullmatch(r'SQLITE_[A-Z_]+', name) else 'unknown'
+            labels[name] = labels.get(name, 0) + 1
+    return {'sqlite_operational_errors': sum(labels.values()), 'sqlite_error_names': labels,
+            'admission_timeout_logs': sum(r.msg == 'Write admission timed out' for r in records)}
