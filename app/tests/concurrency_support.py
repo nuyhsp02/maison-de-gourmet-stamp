@@ -1,9 +1,8 @@
-"""Bounded, test-only timing/counter observations; never collect request data."""
+"""Test-only observations, without adding a second contended lock."""
 import platform
 import re
 import sqlite3
 import sys
-import threading
 import time
 from collections import deque
 
@@ -11,62 +10,64 @@ from collections import deque
 class ObservedLock:
     def __init__(self, lock):
         self.lock = lock
-        self.metrics_lock = threading.Lock()
-        self.waiting = self.peak_waiting = 0
-        self.granted = self.released = self.timeouts = 0
-        self.max_wait_ms = self.max_hold_ms = 0.0
-        self.max_grants_while_waiting = 0
-        self.active_since = None
-        self.open_transactions = 0
+        # deque.append is thread-safe; no metrics mutex changes waiter scheduling.
+        # These collections are bounded by the fixed 5200-request test workload.
+        self.events = deque()
+        self.grants = deque()
+        self.releases = deque()
+        self.waits = deque()
+        self.holds = deque()
+        self.open_transactions = deque()
         self.timeout_samples = deque(maxlen=8)
+        self.active_since = None
 
     def acquire(self, blocking=True, timeout=-1):
         started = time.monotonic()
-        with self.metrics_lock:
-            self.waiting += 1
-            self.peak_waiting = max(self.peak_waiting, self.waiting)
-            earlier_grants = self.granted
+        earlier_grants = len(self.grants)
+        self.events.append(1)
         acquired = self.lock.acquire(blocking, timeout)
         now = time.monotonic()
-        with self.metrics_lock:
-            self.waiting -= 1
-            waited = (now - started) * 1000
-            bypasses = self.granted - earlier_grants
-            self.max_wait_ms = max(self.max_wait_ms, waited)
-            self.max_grants_while_waiting = max(self.max_grants_while_waiting, bypasses)
-            if acquired:
-                self.granted += 1
-                self.active_since = now
-            else:
-                self.timeouts += 1
-                self.timeout_samples.append({'wait_ms': round(waited, 2),
-                                             'grants_while_waiting': bypasses})
+        bypasses = len(self.grants) - earlier_grants
+        self.events.append(-1)
+        self.waits.append((now - started, bypasses, acquired))
+        if acquired:
+            self.grants.append(now)
+            self.active_since = now
+        else:
+            held_since = self.active_since
+            self.timeout_samples.append({'wait_ms': round((now - started) * 1000, 2),
+                                         'grants_while_waiting': bypasses,
+                                         'current_holder_age_ms': None if held_since is None else
+                                         round((now - held_since) * 1000, 2)})
         return acquired
 
     def release(self):
-        with self.metrics_lock:
-            if self.active_since is not None:
-                self.max_hold_ms = max(self.max_hold_ms, (time.monotonic() - self.active_since) * 1000)
-            self.active_since = None
-            self.released += 1
+        now = time.monotonic()
+        if self.active_since is not None:
+            self.holds.append(now - self.active_since)
+        self.active_since = None
+        self.releases.append(now)
         self.lock.release()
 
     def observe_transaction(self, active):
         if active:
-            with self.metrics_lock:
-                self.open_transactions += 1
+            self.open_transactions.append(True)
 
     def summary(self, records):
-        with self.metrics_lock:
-            result = {'granted': self.granted, 'released': self.released,
-                      'waiting': self.waiting, 'peak_waiting': self.peak_waiting,
-                      'admission_timeouts': self.timeouts, 'max_wait_ms': round(self.max_wait_ms, 2),
-                      'max_hold_ms': round(self.max_hold_ms, 2),
-                      'max_grants_while_waiting': self.max_grants_while_waiting,
-                      'open_transactions_before_close': self.open_transactions,
-                      'timeout_samples': list(self.timeout_samples)}
+        waiting = peak = 0
+        for delta in self.events:
+            waiting += delta
+            peak = max(peak, waiting)
+        result = {'granted': len(self.grants), 'released': len(self.releases),
+                  'waiting': waiting, 'peak_waiting': peak,
+                  'admission_timeouts': sum(not row[2] for row in self.waits),
+                  'max_wait_ms': round(max((row[0] for row in self.waits), default=0) * 1000, 2),
+                  'max_hold_ms': round(max(self.holds, default=0) * 1000, 2),
+                  'max_grants_while_waiting': max((row[1] for row in self.waits), default=0),
+                  'open_transactions_before_close': len(self.open_transactions),
+                  'timeout_samples': list(self.timeout_samples)}
         result.update(failure_counts(records))
-        result['mode'] = 'timing_observer'
+        result['mode'] = 'timing_observer_no_metrics_mutex'
         result['runtime'] = runtime_info()
         return result
 

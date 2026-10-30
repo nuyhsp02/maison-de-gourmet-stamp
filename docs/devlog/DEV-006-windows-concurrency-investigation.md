@@ -1,6 +1,6 @@
 # DEV-006 · 병합 후 Windows 동시성 503 조사
 
-- 상태: **원래 간헐 실패의 원인 미확정. 해결 완료로 판정하지 않음.**
+- 상태: **Windows에서 native Lock의 admission timeout을 재현. 장시간 보유/대기 순서 중 근본 원인은 아직 미확정이며 해결 완료로 판정하지 않음.**
 - 발생일: 2026-10-30, [main cceed35의 첫 실행](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41038845367/attempts/1).
 - 실행 주체: GitHub hosted runner와 AI 지원 코드/로그 대조·통제 실험. 실제 Windows 10 카페 서버의 재현/배포가 아님.
 - 조사 PR: [#3](https://github.com/nuyhsp02/maison-de-gourmet-stamp/pull/3), 브랜치 fix/windows-concurrency.
@@ -68,13 +68,26 @@ PR #2는 성공한 CI를 거쳐 병합됐지만 main의 Windows/Python 3.13에�
 
 [같은 main 실행의 attempt 2](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41038845367/attempts/2)에서 Windows 3.13 작업이 통과했습니다. 커밋 cceed35와 원래 테스트는 바꾸지 않았습니다. 첫 실패는 attempt 1에 보존돼 있습니다. 이것은 간헐성을 보여 주며 어떤 수정이 해결했다는 증거가 아닙니다.
 
-### 통제 검사와 최종 반복 계획
+### 비계측 원본 부하에서 재현된 실패
 
-macOS/Python 3.13.5의 최종 전체 회귀는 89개 통과(70.76초)입니다. 기존 84개에 분기/비밀 비노출/두 실제 대기 경로 4개와 관찰자 없는 원본 부하 호출 1개를 추가했습니다. 로컬의 관찰/비관찰 부하 모두 admission/SQLite 오류는 0입니다. 최종 코드의 Windows 3.12/3.13은 각 3회 이상의 동일 강도 검증을 진행하고, 개별 실행/attempt와 안전한 집계 결과를 추가 기록합니다. 한 번의 통과로 해결을 선언하지 않습니다.
+macOS/Python 3.13.5의 전체 회귀는 89개 통과(70.76초)였습니다. 기존 84개에 분기/비밀 비노출/두 실제 대기 경로 4개와 관찰자 없는 원본 부하 호출 1개를 추가했습니다.
+
+그러나 같은 [6909495](https://github.com/nuyhsp02/maison-de-gourmet-stamp/commit/690949552ae72af66dd60558b00a67f2a9ed4338)의 [push 실행](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41052826136/attempts/1)은 Windows 3.12의 비계측 검사에서 **1 failed / 88 passed, 530.79초**였습니다. 비계측 부하 요약은 admission timeout 로그 **100건**, SQLite OperationalError **0건**입니다. 원본 테스트의 모든 검사와 native Lock을 유지한 상태에서 새 실패의 503 분기를 직접 구분했습니다. 이 사실로 원래 cceed35의 과거 요청까지 확정하지는 않습니다.
+
+| 6909495 실행 / 환경 | 계측 최대 대기/보유 ms | 계측 중 다른 획득 최대 | 비계측 admission / SQLite | 전체 결과 |
+|---|---:|---:|---|---|
+| push / 3.12 | 7969.00 / 2250.00 | 29 | 100 / 0 | 1 failed, 88 passed |
+| push / 3.13 | 7381.52 / 1264.84 | 29 | 0 / 0 | 통과 |
+| PR attempt 1 / 3.12 | 1657.00 / 282.00 | 58 | 0 / 0 | 89 passed, 363.18초 |
+| PR attempt 1 / 3.13 | 1898.92 / 324.88 | 29 | 0 / 0 | 89 passed, 334.60초 |
+
+[PR attempt 1](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41052835100/attempts/1)의 성공으로 push 실패를 해결됐다고 취급하지 않습니다. 계측 부하 자체는 네 작업에서 모두 획득/해제 5200/5200, admission/SQLite 오류 0, 종료 전 열린 트랜잭션 관측 0입니다. 실패한 비계측 부하에는 보유 시간/획득 순서를 측정하지 않았으므로 100건의 원인을 starvation이나 디스크 지연 하나로 단정할 수 없습니다.
+
+계측용 추가 mutex의 영향 가능성을 줄이기 위해 후속 진단에서는 원래 잠금을 감싸되 별도 경합 mutex 없이 thread-safe deque append로 집계하고, timeout 시 현재 보유 경과/대기 중 다른 획득 수를 함께 남깁니다. 여전히 관찰 영향이 있을 수 있어 완전 비계측 부하도 유지합니다. 비계측 부하의 실패를 삭제하거나 timeout을 늘리지 않습니다. Windows 3.12/3.13의 추가 반복 결과를 구분해 기록합니다.
 
 ## 6. 미검증 사항과 후속 확인
 
-다음 실패에서 admission 표식/SQLite 오류 이름과 집계 수치를 함께 확인해야 원래 사건의 분기를 직접 구분할 수 있습니다. 관찰자 없는 실제 부하, VM의 IO/스케줄링 지연, 장시간 운용은 미확인입니다. 성공한 실행을 반복했다고 모든 간헐 오류가 제거됐다고 할 수 없습니다. 현장 서버 배포·고객 DB 수정·기존 v1.4.0 태그/Release 변경은 하지 않습니다.
+다음 실패에서 admission 표식/SQLite 오류 이름과 집계 수치를 함께 확인해야 원래 사건의 분기를 직접 구분할 수 있습니다. 비계측 부하의 503은 확인했지만 그 순간의 보유 시간/획득 순서는 미측정입니다. VM의 IO/스케줄링 지연과 장시간 운용은 미확인입니다. 성공한 실행을 반복했다고 모든 간헐 오류가 제거됐다고 할 수 없습니다. 현장 서버 배포·고객 DB 수정·기존 v1.4.0 태그/Release 변경은 하지 않습니다.
 
 ## 7. 관련 근거와 학습 확인
 
