@@ -52,3 +52,37 @@ class Visitor:
 
     def cookie(self):
         return self.client.get_cookie(self.app.cookie_name, domain=self.domain).value
+
+
+_LOAD_DIAGNOSTICS = []
+
+
+@pytest.fixture(autouse=True)
+def observe_load_storage(request):
+    """Keep the original 400/30 workload unchanged; observe only this test."""
+    if request.node.name != 'test_400_visitors_30_concurrent':
+        yield
+        return
+    from flask import g
+    from concurrency_support import ObservedLock
+    app = request.getfixturevalue('app')
+    caplog = request.getfixturevalue('caplog')
+    observed = ObservedLock(app.write_lock)
+    app.write_lock = observed
+
+    @app.teardown_appcontext
+    def observe_before_close(_error):
+        connection = g.get('db')
+        if connection is not None:
+            observed.observe_transaction(connection.in_transaction)
+
+    yield
+    # Only static runtime labels, counts and durations; no request/DB values.
+    summary = observed.summary(caplog.get_records('call'))
+    _LOAD_DIAGNOSTICS.append(summary)
+    request.node.user_properties.append(('storage_diagnostics', json.dumps(summary)))
+
+
+def pytest_terminal_summary(terminalreporter):
+    for summary in _LOAD_DIAGNOSTICS:
+        terminalreporter.write_line('STORAGE_DIAGNOSTICS ' + json.dumps(summary))
