@@ -62,6 +62,17 @@
 
 [필수 CI 41082413934](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41082413934/attempts/1)도 Ubuntu/Windows × 3.12/3.13/3.15.2, 프런트, PS parser/helper, 공개 검사에서 성공했습니다. Windows 3.15.2는 수정 엔진 검사도 필수입니다. Ubuntu는 앱 호환성 검증이며 운영 SQLite 안전성은 승인하지 않습니다.
 
-판정: **공식 Windows 3.15.2 x64/GIL 및 SQLite 3.53.4 조합에서 PR #4를 코드 리뷰 가능한 후보로 준비합니다.** 기존 3.12/3.13 엔진으로 운영하던 차단 항목을 자동 마이그레이션으로 우회하지 않습니다. 새로운 공식 3.15.2 전체 런타임을 공유 경로에 별도 준비하고 실제 source ID/venv 검사를 통과해야 합니다. PR #4 병합은 리뷰/필수 CI를 전제로 하며 이번 작업에서 병합하지 않습니다. 검토 가능은 현장 운영 승인이나 배포 완료가 아닙니다.
+런타임 판정: **공식 Windows 3.15.2 x64/GIL 및 SQLite 3.53.4의 엔진 조건은 해소했습니다. PR 상태는 아래 최종 중복 CI 재발 기록에 따라 Draft로 유지합니다.** 기존 3.12/3.13 엔진으로 운영하던 차단 항목을 자동 마이그레이션으로 우회하지 않습니다. 새로운 공식 3.15.2 전체 런타임을 공유 경로에 별도 준비하고 실제 source ID/venv 검사를 통과해야 합니다. PR #4 병합은 리뷰/필수 CI를 전제로 하며 이번 작업에서 병합하지 않습니다. 검토 가능은 현장 운영 승인이나 배포 완료가 아닙니다.
 
 실제 카페 Windows 10 부팅/SYSTEM 자동 실행, 공유 런타임·데이터 ACL, 전원/절전·장애 복구, 도메인/Tunnel/HTTPS 및 아이폰·갤럭시는 아직 현장 인수 대상입니다. PR #3·main·v1.4.0 Release·운영 DB/설정을 유지하며 새 정식 릴리스/실배포는 하지 않았습니다. 이 결과를 추가한 최종 문서 커밋의 CI는 위 코드 검증과 별도로 표시합니다.
+
+
+## 최종 중복 CI에서 재발: Draft 유지가 최종 판정
+
+같은 최종 문서 커밋 5501539의 [PR CI 41083555315](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41083555315/attempts/1)는 모든 필수 검사를 통과했지만, [push CI 41083540047 / Windows 3.15.2 job 124158634903](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41083540047/job/124158634903)은 **1 failed / 97 passed, 392.71초**입니다. 시간 제한 취소가 아닙니다.
+
+실패는 원본 `test_400_visitors_30_concurrent`의 503 storage_unavailable입니다. 실제 엔진/source ID는 앞선 수정 엔진과 동일합니다. 캡처된 admission timeout 경고 7건, SQLite OperationalError 로그 0건입니다. [비식별 실패 근거](../evidence/python315-retained-load-failure.json)를 보존합니다. 이 실패에서 원본 함수의 마지막 고객 400/스탬프 4000/지급 400 및 integrity assertions에 도달하지 못했으므로 해당 DB 정합성까지 검증 완료로 주장하지 않습니다.
+
+판정을 구분합니다: 공식 Windows 런타임/WAL-reset 수정/기존 wheel-only lock/import/초기·별도 반복·실제 준비 설치 및 이전 엔진 데이터 호환은 확인했습니다. 그러나 수정 엔진에서도 B 원본 부하의 간헐 15초 admission 실패가 남았습니다. WAL-reset 수정은 이 대기 실패까지 해결한다는 증거가 아닙니다. 구체적인 OS/I/O/스케줄링 원인은 이번 한정 호환성 검증에서 확정하지 않았습니다.
+
+**최종 PR #4 상태는 Draft·미병합, 병합/운영 승인 보류입니다.** 앞선 성공 결과나 현재 필수 PR CI 성공만으로 해제하지 않습니다. 재시도로 실패를 숨기거나 15초/내구성을 완화하지 않습니다. 앱 아키텍처 재설계나 새로운 대규모 원인 조사는 이번 작업에서 추가하지 않습니다. 문서 추가에 따라 CI가 자동으로 재실행돼도 위 동일 코드 실패는 보존하고 해결됐다고 간주하지 않습니다. main·PR #3·v1.4.0·실제 DB/설정·카페 배포는 변경하지 않았습니다.
