@@ -1,0 +1,5220 @@
+{
+  "run_id": 41065285056,
+  "attempt": 1,
+  "source_commit": "9ed6ec9efc00d16fbadd9ee8e1d48de257fcd052",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "job_id": 124094770638,
+      "name": "Scope B / profiled / Python 3.12 / repeat 1",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "B",
+          "profiled": true,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.12.10",
+            "sqlite": "3.49.1",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 52.379,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 99.277,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0,
+          "timing": {
+            "post_total": {
+              "n": 5200,
+              "total_ms": 1521793.761,
+              "mean_ms": 292.653,
+              "max_ms": 2266.503,
+              "p95_ms": 428.157,
+              "p99_ms": 1079.016
+            },
+            "lock_hold": {
+              "n": 5200,
+              "total_ms": 51571.581,
+              "mean_ms": 9.918,
+              "max_ms": 348.368,
+              "p95_ms": 15.355,
+              "p99_ms": 37.198
+            },
+            "segments": {
+              "lock_wait": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1415112.55,
+                  "mean_ms": 272.137,
+                  "max_ms": 2212.177,
+                  "p95_ms": 406.458,
+                  "p99_ms": 991.381
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1415112.55,
+                  "mean_ms": 272.137,
+                  "max_ms": 2212.177,
+                  "p95_ms": 406.458,
+                  "p99_ms": 991.381
+                }
+              },
+              "validation": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1411.47,
+                  "mean_ms": 0.271,
+                  "max_ms": 2.545,
+                  "p95_ms": 0.365,
+                  "p99_ms": 0.581
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 30136.541,
+                  "mean_ms": 5.795,
+                  "max_ms": 347.823,
+                  "p95_ms": 12.164,
+                  "p99_ms": 24.828
+                }
+              },
+              "db_connect": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 5759.773,
+                  "mean_ms": 1.108,
+                  "max_ms": 26.352,
+                  "p95_ms": 2.353,
+                  "p99_ms": 4.179
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 5759.773,
+                  "mean_ms": 1.108,
+                  "max_ms": 26.352,
+                  "p95_ms": 2.353,
+                  "p99_ms": 4.179
+                }
+              },
+              "pragma": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1183.173,
+                  "mean_ms": 0.228,
+                  "max_ms": 3.561,
+                  "p95_ms": 0.882,
+                  "p99_ms": 1.572
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1183.173,
+                  "mean_ms": 0.228,
+                  "max_ms": 3.561,
+                  "p95_ms": 0.882,
+                  "p99_ms": 1.572
+                }
+              },
+              "begin": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1780.642,
+                  "mean_ms": 0.342,
+                  "max_ms": 147.713,
+                  "p95_ms": 0.805,
+                  "p99_ms": 2.946
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1780.642,
+                  "mean_ms": 0.342,
+                  "max_ms": 147.713,
+                  "p95_ms": 0.805,
+                  "p99_ms": 2.946
+                }
+              },
+              "write_sql": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 2107.487,
+                  "mean_ms": 0.405,
+                  "max_ms": 3.717,
+                  "p95_ms": 1.075,
+                  "p99_ms": 1.754
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 2107.487,
+                  "mean_ms": 0.405,
+                  "max_ms": 3.717,
+                  "p95_ms": 1.075,
+                  "p99_ms": 1.754
+                }
+              },
+              "commit": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 42689.395,
+                  "mean_ms": 8.209,
+                  "max_ms": 347.017,
+                  "p95_ms": 13.031,
+                  "p99_ms": 34.856
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 42689.395,
+                  "mean_ms": 8.209,
+                  "max_ms": 347.017,
+                  "p95_ms": 13.031,
+                  "p99_ms": 34.856
+                }
+              },
+              "rollback": {
+                "exclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              },
+              "db_read": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 32937.598,
+                  "mean_ms": 6.862,
+                  "max_ms": 348.935,
+                  "p95_ms": 14.001,
+                  "p99_ms": 28.411
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 32937.598,
+                  "mean_ms": 6.862,
+                  "max_ms": 348.935,
+                  "p95_ms": 14.001,
+                  "p99_ms": 28.411
+                }
+              },
+              "snapshot": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 580.622,
+                  "mean_ms": 0.121,
+                  "max_ms": 2.14,
+                  "p95_ms": 0.147,
+                  "p99_ms": 0.18
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 7599.862,
+                  "mean_ms": 1.583,
+                  "max_ms": 17.554,
+                  "p95_ms": 4.505,
+                  "p99_ms": 7.755
+                }
+              },
+              "close": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 15669.146,
+                  "mean_ms": 3.013,
+                  "max_ms": 244.575,
+                  "p95_ms": 8.171,
+                  "p99_ms": 17.683
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 15669.146,
+                  "mean_ms": 3.013,
+                  "max_ms": 244.575,
+                  "p95_ms": 8.171,
+                  "p99_ms": 17.683
+                }
+              },
+              "lock_release": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 99.133,
+                  "mean_ms": 0.019,
+                  "max_ms": 0.135,
+                  "p95_ms": 0.024,
+                  "p99_ms": 0.044
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 99.133,
+                  "mean_ms": 0.019,
+                  "max_ms": 0.135,
+                  "p95_ms": 0.024,
+                  "p99_ms": 0.044
+                }
+              },
+              "other": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 2462.772,
+                  "mean_ms": 0.474,
+                  "max_ms": 2.383,
+                  "p95_ms": 0.578,
+                  "p99_ms": 0.73
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              }
+            },
+            "slow_posts": [
+              {
+                "status": 200,
+                "total_ms": 2266.503,
+                "hold_ms": 33.864,
+                "exclusive_ms": {
+                  "validation": 0.309,
+                  "db_connect": 0.433,
+                  "pragma": 0.023,
+                  "db_read": 7.313,
+                  "lock_wait": 2212.177,
+                  "begin": 0.082,
+                  "write_sql": 0.548,
+                  "commit": 32.334,
+                  "lock_release": 0.02,
+                  "snapshot": 0.119,
+                  "close": 12.563,
+                  "other": 0.582
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2234.821,
+                "hold_ms": 26.305,
+                "exclusive_ms": {
+                  "validation": 0.326,
+                  "db_connect": 0.339,
+                  "pragma": 0.023,
+                  "db_read": 9.246,
+                  "lock_wait": 2184.788,
+                  "begin": 0.043,
+                  "write_sql": 0.36,
+                  "commit": 24.9,
+                  "lock_release": 0.02,
+                  "snapshot": 0.114,
+                  "close": 14.133,
+                  "other": 0.528
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2223.493,
+                "hold_ms": 17.275,
+                "exclusive_ms": {
+                  "validation": 0.34,
+                  "db_connect": 1.123,
+                  "pragma": 0.199,
+                  "db_read": 3.769,
+                  "lock_wait": 2200.469,
+                  "begin": 0.04,
+                  "write_sql": 0.29,
+                  "commit": 16.173,
+                  "lock_release": 0.017,
+                  "snapshot": 0.114,
+                  "close": 0.344,
+                  "other": 0.614
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2220.753,
+                "hold_ms": 19.941,
+                "exclusive_ms": {
+                  "validation": 0.445,
+                  "db_connect": 1.265,
+                  "pragma": 0.124,
+                  "db_read": 3.608,
+                  "lock_wait": 2172.385,
+                  "begin": 0.283,
+                  "write_sql": 0.102,
+                  "commit": 18.74,
+                  "lock_release": 0.021,
+                  "snapshot": 0.111,
+                  "close": 23.123,
+                  "other": 0.547
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2211.082,
+                "hold_ms": 22.421,
+                "exclusive_ms": {
+                  "validation": 0.277,
+                  "db_connect": 0.209,
+                  "pragma": 0.016,
+                  "db_read": 10.623,
+                  "lock_wait": 2161.053,
+                  "begin": 0.262,
+                  "write_sql": 0.484,
+                  "commit": 20.911,
+                  "lock_release": 0.018,
+                  "snapshot": 0.116,
+                  "close": 16.591,
+                  "other": 0.522
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2196.8,
+                "hold_ms": 23.554,
+                "exclusive_ms": {
+                  "validation": 0.345,
+                  "db_connect": 0.313,
+                  "pragma": 0.271,
+                  "db_read": 113.227,
+                  "lock_wait": 2058.99,
+                  "begin": 0.216,
+                  "write_sql": 0.371,
+                  "commit": 22.238,
+                  "lock_release": 0.021,
+                  "snapshot": 0.13,
+                  "close": 0.147,
+                  "other": 0.53
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2182.096,
+                "hold_ms": 22.898,
+                "exclusive_ms": {
+                  "validation": 0.285,
+                  "db_connect": 0.267,
+                  "pragma": 0.053,
+                  "db_read": 10.024,
+                  "lock_wait": 2148.431,
+                  "begin": 0.208,
+                  "write_sql": 0.297,
+                  "commit": 21.593,
+                  "lock_release": 0.022,
+                  "snapshot": 0.166,
+                  "close": 0.278,
+                  "other": 0.471
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2176.039,
+                "hold_ms": 16.101,
+                "exclusive_ms": {
+                  "validation": 0.343,
+                  "db_connect": 1.336,
+                  "pragma": 0.331,
+                  "db_read": 3.709,
+                  "lock_wait": 2154.375,
+                  "begin": 0.092,
+                  "write_sql": 0.126,
+                  "commit": 14.769,
+                  "lock_release": 0.017,
+                  "snapshot": 0.112,
+                  "close": 0.306,
+                  "other": 0.523
+                }
+              }
+            ],
+            "slow_holds": [
+              {
+                "status": 200,
+                "total_ms": 1854.211,
+                "hold_ms": 348.368,
+                "exclusive_ms": {
+                  "validation": 0.327,
+                  "db_connect": 0.371,
+                  "pragma": 0.023,
+                  "db_read": 9.882,
+                  "lock_wait": 1386.602,
+                  "begin": 0.191,
+                  "write_sql": 0.373,
+                  "commit": 347.017,
+                  "lock_release": 0.024,
+                  "snapshot": 0.132,
+                  "close": 108.559,
+                  "other": 0.709
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1003.032,
+                "hold_ms": 267.581,
+                "exclusive_ms": {
+                  "validation": 0.105,
+                  "db_connect": 3.867,
+                  "pragma": 0.341,
+                  "lock_wait": 730.275,
+                  "begin": 1.254,
+                  "write_sql": 0.661,
+                  "commit": 265.502,
+                  "lock_release": 0.022,
+                  "close": 0.331,
+                  "other": 0.676
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 504.777,
+                "hold_ms": 247.729,
+                "exclusive_ms": {
+                  "validation": 0.26,
+                  "db_connect": 1.567,
+                  "pragma": 0.381,
+                  "db_read": 3.321,
+                  "lock_wait": 244.299,
+                  "begin": 0.04,
+                  "write_sql": 0.245,
+                  "commit": 246.576,
+                  "lock_release": 0.019,
+                  "snapshot": 0.128,
+                  "close": 7.469,
+                  "other": 0.47
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 292.17,
+                "hold_ms": 233.9,
+                "exclusive_ms": {
+                  "validation": 0.121,
+                  "db_connect": 1.081,
+                  "pragma": 0.831,
+                  "lock_wait": 47.58,
+                  "begin": 147.713,
+                  "write_sql": 0.909,
+                  "commit": 84.864,
+                  "lock_release": 0.015,
+                  "close": 7.481,
+                  "other": 1.575
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 609.971,
+                "hold_ms": 223.844,
+                "exclusive_ms": {
+                  "validation": 0.27,
+                  "db_connect": 0.197,
+                  "pragma": 0.015,
+                  "db_read": 9.92,
+                  "lock_wait": 372.029,
+                  "begin": 0.406,
+                  "write_sql": 0.236,
+                  "commit": 222.386,
+                  "lock_release": 0.02,
+                  "snapshot": 0.135,
+                  "close": 3.785,
+                  "other": 0.571
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1404.982,
+                "hold_ms": 190.381,
+                "exclusive_ms": {
+                  "validation": 0.263,
+                  "db_connect": 0.252,
+                  "pragma": 0.016,
+                  "db_read": 7.714,
+                  "lock_wait": 1206.297,
+                  "begin": 0.337,
+                  "write_sql": 0.102,
+                  "commit": 189.071,
+                  "lock_release": 0.021,
+                  "snapshot": 0.126,
+                  "close": 0.311,
+                  "other": 0.472
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1042.609,
+                "hold_ms": 187.996,
+                "exclusive_ms": {
+                  "validation": 0.292,
+                  "db_connect": 1.837,
+                  "pragma": 0.095,
+                  "db_read": 2.442,
+                  "lock_wait": 849.487,
+                  "begin": 0.06,
+                  "write_sql": 0.336,
+                  "commit": 187.029,
+                  "lock_release": 0.02,
+                  "snapshot": 0.128,
+                  "close": 0.343,
+                  "other": 0.541
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1404.263,
+                "hold_ms": 186.899,
+                "exclusive_ms": {
+                  "validation": 0.318,
+                  "db_connect": 1.499,
+                  "pragma": 0.188,
+                  "db_read": 3.507,
+                  "lock_wait": 1025.69,
+                  "begin": 0.27,
+                  "write_sql": 0.32,
+                  "commit": 185.445,
+                  "lock_release": 0.019,
+                  "snapshot": 0.124,
+                  "close": 186.251,
+                  "other": 0.631
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "job_id": 124094770968,
+      "name": "Scope A / unprofiled / Python 3.13 / repeat 2",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "A",
+          "profiled": false,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.13.16",
+            "sqlite": "3.50.4",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 111.717,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 46.546,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0
+        }
+      ]
+    },
+    {
+      "job_id": 124094771028,
+      "name": "Scope B / unprofiled / Python 3.12 / repeat 2",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "B",
+          "profiled": false,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.12.10",
+            "sqlite": "3.49.1",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 35.902,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 144.838,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0
+        }
+      ]
+    },
+    {
+      "job_id": 124094771110,
+      "name": "Scope B / unprofiled / Python 3.12 / repeat 1",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "B",
+          "profiled": false,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.12.10",
+            "sqlite": "3.49.1",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 253.664,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 20.5,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0
+        }
+      ]
+    },
+    {
+      "job_id": 124094771131,
+      "name": "Scope B / profiled / Python 3.13 / repeat 2",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "B",
+          "profiled": true,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.13.16",
+            "sqlite": "3.50.4",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 63.976,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 81.28,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0,
+          "timing": {
+            "post_total": {
+              "n": 5200,
+              "total_ms": 1861364.792,
+              "mean_ms": 357.955,
+              "max_ms": 1238.737,
+              "p95_ms": 655.847,
+              "p99_ms": 888.668
+            },
+            "lock_hold": {
+              "n": 5200,
+              "total_ms": 63118.41,
+              "mean_ms": 12.138,
+              "max_ms": 392.945,
+              "p95_ms": 22.673,
+              "p99_ms": 113.944
+            },
+            "segments": {
+              "lock_wait": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1740088.776,
+                  "mean_ms": 334.632,
+                  "max_ms": 1222.375,
+                  "p95_ms": 627.063,
+                  "p99_ms": 811.186
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1740088.776,
+                  "mean_ms": 334.632,
+                  "max_ms": 1222.375,
+                  "p95_ms": 627.063,
+                  "p99_ms": 811.186
+                }
+              },
+              "validation": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 924.351,
+                  "mean_ms": 0.178,
+                  "max_ms": 3.31,
+                  "p95_ms": 0.223,
+                  "p99_ms": 0.29
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 33023.863,
+                  "mean_ms": 6.351,
+                  "max_ms": 386.143,
+                  "p95_ms": 12.743,
+                  "p99_ms": 64.398
+                }
+              },
+              "db_connect": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 10122.07,
+                  "mean_ms": 1.947,
+                  "max_ms": 384.97,
+                  "p95_ms": 2.667,
+                  "p99_ms": 7.826
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 10122.07,
+                  "mean_ms": 1.947,
+                  "max_ms": 384.97,
+                  "p95_ms": 2.667,
+                  "p99_ms": 7.826
+                }
+              },
+              "pragma": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 467.669,
+                  "mean_ms": 0.09,
+                  "max_ms": 2.439,
+                  "p95_ms": 0.254,
+                  "p99_ms": 0.7
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 467.669,
+                  "mean_ms": 0.09,
+                  "max_ms": 2.439,
+                  "p95_ms": 0.254,
+                  "p99_ms": 0.7
+                }
+              },
+              "begin": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 654.977,
+                  "mean_ms": 0.126,
+                  "max_ms": 3.004,
+                  "p95_ms": 0.571,
+                  "p99_ms": 0.808
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 654.977,
+                  "mean_ms": 0.126,
+                  "max_ms": 3.004,
+                  "p95_ms": 0.571,
+                  "p99_ms": 0.808
+                }
+              },
+              "write_sql": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1079.559,
+                  "mean_ms": 0.208,
+                  "max_ms": 4.105,
+                  "p95_ms": 0.557,
+                  "p99_ms": 1.048
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1079.559,
+                  "mean_ms": 0.208,
+                  "max_ms": 4.105,
+                  "p95_ms": 0.557,
+                  "p99_ms": 1.048
+                }
+              },
+              "commit": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 59259.919,
+                  "mean_ms": 11.396,
+                  "max_ms": 392.379,
+                  "p95_ms": 21.801,
+                  "p99_ms": 113.117
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 59259.919,
+                  "mean_ms": 11.396,
+                  "max_ms": 392.379,
+                  "p95_ms": 21.801,
+                  "p99_ms": 113.117
+                }
+              },
+              "rollback": {
+                "exclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              },
+              "db_read": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 26602.533,
+                  "mean_ms": 5.542,
+                  "max_ms": 337.055,
+                  "p95_ms": 12.897,
+                  "p99_ms": 45.022
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 26602.533,
+                  "mean_ms": 5.542,
+                  "max_ms": 337.055,
+                  "p95_ms": 12.897,
+                  "p99_ms": 45.022
+                }
+              },
+              "snapshot": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 350.676,
+                  "mean_ms": 0.073,
+                  "max_ms": 3.156,
+                  "p95_ms": 0.088,
+                  "p99_ms": 0.104
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 3145.387,
+                  "mean_ms": 0.655,
+                  "max_ms": 7.255,
+                  "p95_ms": 1.682,
+                  "p99_ms": 3.12
+                }
+              },
+              "close": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 20046.802,
+                  "mean_ms": 3.855,
+                  "max_ms": 342.931,
+                  "p95_ms": 9.606,
+                  "p99_ms": 38.067
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 20046.802,
+                  "mean_ms": 3.855,
+                  "max_ms": 342.931,
+                  "p95_ms": 9.606,
+                  "p99_ms": 38.067
+                }
+              },
+              "lock_release": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 57.993,
+                  "mean_ms": 0.011,
+                  "max_ms": 0.123,
+                  "p95_ms": 0.013,
+                  "p99_ms": 0.017
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 57.993,
+                  "mean_ms": 0.011,
+                  "max_ms": 0.123,
+                  "p95_ms": 0.013,
+                  "p99_ms": 0.017
+                }
+              },
+              "other": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1709.466,
+                  "mean_ms": 0.329,
+                  "max_ms": 1.619,
+                  "p95_ms": 0.391,
+                  "p99_ms": 0.471
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              }
+            },
+            "slow_posts": [
+              {
+                "status": 200,
+                "total_ms": 1238.737,
+                "hold_ms": 6.688,
+                "exclusive_ms": {
+                  "validation": 0.226,
+                  "db_connect": 2.701,
+                  "pragma": 0.091,
+                  "db_read": 1.433,
+                  "lock_wait": 1221.096,
+                  "begin": 0.019,
+                  "write_sql": 0.348,
+                  "commit": 5.668,
+                  "lock_release": 0.01,
+                  "snapshot": 0.074,
+                  "close": 6.707,
+                  "other": 0.365
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1238.563,
+                "hold_ms": 9.559,
+                "exclusive_ms": {
+                  "validation": 0.175,
+                  "db_connect": 2.137,
+                  "pragma": 0.231,
+                  "db_read": 1.093,
+                  "lock_wait": 1222.375,
+                  "begin": 0.044,
+                  "write_sql": 0.07,
+                  "commit": 9.183,
+                  "lock_release": 0.011,
+                  "snapshot": 0.07,
+                  "close": 2.87,
+                  "other": 0.304
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1238.497,
+                "hold_ms": 9.439,
+                "exclusive_ms": {
+                  "validation": 0.178,
+                  "db_connect": 0.198,
+                  "pragma": 0.012,
+                  "db_read": 14.57,
+                  "lock_wait": 1213.762,
+                  "begin": 0.061,
+                  "write_sql": 0.205,
+                  "commit": 8.858,
+                  "lock_release": 0.011,
+                  "snapshot": 0.105,
+                  "close": 0.201,
+                  "other": 0.336
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1236.437,
+                "hold_ms": 179.859,
+                "exclusive_ms": {
+                  "validation": 0.189,
+                  "db_connect": 2.015,
+                  "pragma": 0.103,
+                  "db_read": 1.646,
+                  "lock_wait": 1049.54,
+                  "begin": 0.104,
+                  "write_sql": 0.175,
+                  "commit": 179.146,
+                  "lock_release": 0.012,
+                  "snapshot": 0.106,
+                  "close": 2.984,
+                  "other": 0.418
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1231.753,
+                "hold_ms": 5.635,
+                "exclusive_ms": {
+                  "validation": 0.173,
+                  "db_connect": 1.954,
+                  "pragma": 0.097,
+                  "db_read": 1.548,
+                  "lock_wait": 1222.151,
+                  "begin": 0.043,
+                  "write_sql": 0.212,
+                  "commit": 5.049,
+                  "lock_release": 0.027,
+                  "snapshot": 0.067,
+                  "close": 0.101,
+                  "other": 0.331
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1226.094,
+                "hold_ms": 4.938,
+                "exclusive_ms": {
+                  "validation": 0.176,
+                  "db_connect": 2.041,
+                  "pragma": 0.091,
+                  "db_read": 1.138,
+                  "lock_wait": 1210.483,
+                  "begin": 0.144,
+                  "write_sql": 0.041,
+                  "commit": 4.455,
+                  "lock_release": 0.011,
+                  "snapshot": 0.068,
+                  "close": 7.123,
+                  "other": 0.322
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1225.744,
+                "hold_ms": 9.965,
+                "exclusive_ms": {
+                  "validation": 0.17,
+                  "db_connect": 3.959,
+                  "pragma": 0.098,
+                  "db_read": 1.141,
+                  "lock_wait": 1208.041,
+                  "begin": 0.017,
+                  "write_sql": 0.051,
+                  "commit": 9.616,
+                  "lock_release": 0.012,
+                  "snapshot": 0.07,
+                  "close": 2.288,
+                  "other": 0.281
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1225.653,
+                "hold_ms": 9.261,
+                "exclusive_ms": {
+                  "validation": 0.169,
+                  "db_connect": 1.933,
+                  "pragma": 0.089,
+                  "db_read": 1.306,
+                  "lock_wait": 1210.721,
+                  "begin": 0.15,
+                  "write_sql": 0.059,
+                  "commit": 8.605,
+                  "lock_release": 0.013,
+                  "snapshot": 0.066,
+                  "close": 2.236,
+                  "other": 0.307
+                }
+              }
+            ],
+            "slow_holds": [
+              {
+                "status": 200,
+                "total_ms": 1076.504,
+                "hold_ms": 392.945,
+                "exclusive_ms": {
+                  "validation": 0.153,
+                  "db_connect": 0.171,
+                  "pragma": 0.012,
+                  "db_read": 7.731,
+                  "lock_wait": 675.054,
+                  "begin": 0.026,
+                  "write_sql": 0.191,
+                  "commit": 392.379,
+                  "lock_release": 0.013,
+                  "snapshot": 0.099,
+                  "close": 0.238,
+                  "other": 0.437
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 820.316,
+                "hold_ms": 345.494,
+                "exclusive_ms": {
+                  "validation": 0.174,
+                  "db_connect": 1.936,
+                  "pragma": 0.053,
+                  "db_read": 1.569,
+                  "lock_wait": 470.662,
+                  "begin": 0.069,
+                  "write_sql": 0.075,
+                  "commit": 345.101,
+                  "lock_release": 0.013,
+                  "snapshot": 0.079,
+                  "close": 0.254,
+                  "other": 0.33
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 603.676,
+                "hold_ms": 337.094,
+                "exclusive_ms": {
+                  "validation": 0.183,
+                  "db_connect": 1.662,
+                  "pragma": 0.015,
+                  "db_read": 11.612,
+                  "lock_wait": 252.782,
+                  "begin": 0.169,
+                  "write_sql": 0.062,
+                  "commit": 336.465,
+                  "lock_release": 0.013,
+                  "snapshot": 0.098,
+                  "close": 0.139,
+                  "other": 0.476
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 721.891,
+                "hold_ms": 250.311,
+                "exclusive_ms": {
+                  "validation": 0.183,
+                  "db_connect": 1.99,
+                  "pragma": 0.108,
+                  "db_read": 1.057,
+                  "lock_wait": 467.932,
+                  "begin": 0.116,
+                  "write_sql": 0.183,
+                  "commit": 249.632,
+                  "lock_release": 0.01,
+                  "snapshot": 0.087,
+                  "close": 0.175,
+                  "other": 0.416
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 671.872,
+                "hold_ms": 246.42,
+                "exclusive_ms": {
+                  "validation": 0.167,
+                  "db_connect": 1.955,
+                  "pragma": 0.09,
+                  "db_read": 1.293,
+                  "lock_wait": 421.615,
+                  "begin": 0.026,
+                  "write_sql": 0.296,
+                  "commit": 245.738,
+                  "lock_release": 0.013,
+                  "snapshot": 0.104,
+                  "close": 0.146,
+                  "other": 0.429
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 708.401,
+                "hold_ms": 242.219,
+                "exclusive_ms": {
+                  "validation": 0.244,
+                  "db_connect": 1.763,
+                  "pragma": 0.051,
+                  "db_read": 1.431,
+                  "lock_wait": 462.174,
+                  "begin": 0.027,
+                  "write_sql": 0.265,
+                  "commit": 241.587,
+                  "lock_release": 0.013,
+                  "snapshot": 0.124,
+                  "close": 0.259,
+                  "other": 0.463
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 742.35,
+                "hold_ms": 219.788,
+                "exclusive_ms": {
+                  "validation": 0.161,
+                  "db_connect": 0.171,
+                  "pragma": 0.012,
+                  "db_read": 6.904,
+                  "lock_wait": 510.603,
+                  "begin": 0.022,
+                  "write_sql": 0.215,
+                  "commit": 219.219,
+                  "lock_release": 0.014,
+                  "snapshot": 0.103,
+                  "close": 4.514,
+                  "other": 0.412
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 790.263,
+                "hold_ms": 217.843,
+                "exclusive_ms": {
+                  "validation": 0.17,
+                  "db_connect": 0.181,
+                  "pragma": 0.013,
+                  "db_read": 8.155,
+                  "lock_wait": 559.56,
+                  "begin": 0.033,
+                  "write_sql": 0.041,
+                  "commit": 217.395,
+                  "lock_release": 0.013,
+                  "snapshot": 0.069,
+                  "close": 4.274,
+                  "other": 0.36
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "job_id": 124094771169,
+      "name": "Scope A / unprofiled / Python 3.12 / repeat 1",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "A",
+          "profiled": false,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.12.10",
+            "sqlite": "3.49.1",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 128.189,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 40.565,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0
+        }
+      ]
+    },
+    {
+      "job_id": 124094771219,
+      "name": "Scope A / unprofiled / Python 3.12 / repeat 2",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "A",
+          "profiled": false,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.12.10",
+            "sqlite": "3.49.1",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 142.133,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 36.585,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0
+        }
+      ]
+    },
+    {
+      "job_id": 124094771221,
+      "name": "Scope A / profiled / Python 3.12 / repeat 2",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "A",
+          "profiled": true,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.12.10",
+            "sqlite": "3.49.1",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 130.77,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 39.764,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0,
+          "timing": {
+            "post_total": {
+              "n": 5200,
+              "total_ms": 3846690.202,
+              "mean_ms": 739.748,
+              "max_ms": 1253.805,
+              "p95_ms": 1016.25,
+              "p99_ms": 1141.381
+            },
+            "lock_hold": {
+              "n": 5200,
+              "total_ms": 127728.224,
+              "mean_ms": 24.563,
+              "max_ms": 179.999,
+              "p95_ms": 38.293,
+              "p99_ms": 57.915
+            },
+            "segments": {
+              "lock_wait": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 3718175.79,
+                  "mean_ms": 715.034,
+                  "max_ms": 1227.905,
+                  "p95_ms": 983.805,
+                  "p99_ms": 1108.031
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 3718175.79,
+                  "mean_ms": 715.034,
+                  "max_ms": 1227.905,
+                  "p95_ms": 983.805,
+                  "p99_ms": 1108.031
+                }
+              },
+              "validation": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1069.204,
+                  "mean_ms": 0.206,
+                  "max_ms": 1.902,
+                  "p95_ms": 0.252,
+                  "p99_ms": 0.292
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 3727852.665,
+                  "mean_ms": 716.895,
+                  "max_ms": 1229.398,
+                  "p95_ms": 985.064,
+                  "p99_ms": 1108.186
+                }
+              },
+              "db_connect": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1364.667,
+                  "mean_ms": 0.262,
+                  "max_ms": 2.588,
+                  "p95_ms": 0.354,
+                  "p99_ms": 0.494
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1364.667,
+                  "mean_ms": 0.262,
+                  "max_ms": 2.588,
+                  "p95_ms": 0.354,
+                  "p99_ms": 0.494
+                }
+              },
+              "pragma": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 111.295,
+                  "mean_ms": 0.021,
+                  "max_ms": 0.897,
+                  "p95_ms": 0.041,
+                  "p99_ms": 0.11
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 111.295,
+                  "mean_ms": 0.021,
+                  "max_ms": 0.897,
+                  "p95_ms": 0.041,
+                  "p99_ms": 0.11
+                }
+              },
+              "begin": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 2214.031,
+                  "mean_ms": 0.426,
+                  "max_ms": 22.021,
+                  "p95_ms": 2.916,
+                  "p99_ms": 11.4
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 2214.031,
+                  "mean_ms": 0.426,
+                  "max_ms": 22.021,
+                  "p95_ms": 2.916,
+                  "p99_ms": 11.4
+                }
+              },
+              "write_sql": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 297.271,
+                  "mean_ms": 0.057,
+                  "max_ms": 1.67,
+                  "p95_ms": 0.215,
+                  "p99_ms": 0.426
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 297.271,
+                  "mean_ms": 0.057,
+                  "max_ms": 1.67,
+                  "p95_ms": 0.215,
+                  "p99_ms": 0.426
+                }
+              },
+              "commit": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 76410.279,
+                  "mean_ms": 14.694,
+                  "max_ms": 172.54,
+                  "p95_ms": 19.86,
+                  "p99_ms": 38.664
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 76410.279,
+                  "mean_ms": 14.694,
+                  "max_ms": 172.54,
+                  "p95_ms": 19.86,
+                  "p99_ms": 38.664
+                }
+              },
+              "rollback": {
+                "exclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              },
+              "db_read": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 8260.46,
+                  "mean_ms": 1.721,
+                  "max_ms": 29.885,
+                  "p95_ms": 6.788,
+                  "p99_ms": 14.133
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 8260.46,
+                  "mean_ms": 1.721,
+                  "max_ms": 29.885,
+                  "p95_ms": 6.788,
+                  "p99_ms": 14.133
+                }
+              },
+              "snapshot": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 369.043,
+                  "mean_ms": 0.077,
+                  "max_ms": 2.332,
+                  "p95_ms": 0.101,
+                  "p99_ms": 0.379
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 1045.789,
+                  "mean_ms": 0.218,
+                  "max_ms": 2.459,
+                  "p95_ms": 0.375,
+                  "p99_ms": 0.849
+                }
+              },
+              "close": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 36170.457,
+                  "mean_ms": 6.956,
+                  "max_ms": 146.893,
+                  "p95_ms": 12.943,
+                  "p99_ms": 20.014
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 36170.457,
+                  "mean_ms": 6.956,
+                  "max_ms": 146.893,
+                  "p95_ms": 12.943,
+                  "p99_ms": 20.014
+                }
+              },
+              "lock_release": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 100.863,
+                  "mean_ms": 0.019,
+                  "max_ms": 0.619,
+                  "p95_ms": 0.025,
+                  "p99_ms": 0.035
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 100.863,
+                  "mean_ms": 0.019,
+                  "max_ms": 0.619,
+                  "p95_ms": 0.025,
+                  "p99_ms": 0.035
+                }
+              },
+              "other": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 2146.842,
+                  "mean_ms": 0.413,
+                  "max_ms": 3.5,
+                  "p95_ms": 0.522,
+                  "p99_ms": 0.624
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              }
+            },
+            "slow_posts": [
+              {
+                "status": 200,
+                "total_ms": 1253.805,
+                "hold_ms": 25.771,
+                "exclusive_ms": {
+                  "lock_wait": 1227.905,
+                  "validation": 0.305,
+                  "db_connect": 0.322,
+                  "pragma": 0.02,
+                  "db_read": 1.043,
+                  "begin": 0.012,
+                  "write_sql": 0.033,
+                  "commit": 14.957,
+                  "snapshot": 2.332,
+                  "close": 6.458,
+                  "lock_release": 0.018,
+                  "other": 0.401
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1253.446,
+                "hold_ms": 179.999,
+                "exclusive_ms": {
+                  "lock_wait": 1073.304,
+                  "validation": 0.195,
+                  "db_connect": 0.224,
+                  "pragma": 0.045,
+                  "db_read": 0.979,
+                  "begin": 0.012,
+                  "write_sql": 0.028,
+                  "commit": 172.54,
+                  "snapshot": 0.086,
+                  "close": 5.541,
+                  "lock_release": 0.02,
+                  "other": 0.471
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1251.401,
+                "hold_ms": 32.682,
+                "exclusive_ms": {
+                  "lock_wait": 1218.579,
+                  "validation": 0.262,
+                  "db_connect": 0.282,
+                  "pragma": 0.02,
+                  "db_read": 1.792,
+                  "begin": 0.012,
+                  "write_sql": 0.044,
+                  "commit": 15.573,
+                  "snapshot": 0.067,
+                  "close": 14.332,
+                  "lock_release": 0.018,
+                  "other": 0.419
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1230.529,
+                "hold_ms": 57.881,
+                "exclusive_ms": {
+                  "lock_wait": 1172.493,
+                  "validation": 0.134,
+                  "db_connect": 0.234,
+                  "pragma": 0.021,
+                  "begin": 16.447,
+                  "write_sql": 0.259,
+                  "commit": 21.671,
+                  "close": 18.612,
+                  "lock_release": 0.019,
+                  "other": 0.639
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1216.685,
+                "hold_ms": 23.057,
+                "exclusive_ms": {
+                  "lock_wait": 1193.475,
+                  "validation": 0.221,
+                  "db_connect": 0.264,
+                  "pragma": 0.019,
+                  "db_read": 0.921,
+                  "begin": 0.012,
+                  "write_sql": 0.033,
+                  "commit": 15.401,
+                  "snapshot": 0.061,
+                  "close": 5.881,
+                  "lock_release": 0.018,
+                  "other": 0.379
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1211.264,
+                "hold_ms": 23.673,
+                "exclusive_ms": {
+                  "lock_wait": 1187.448,
+                  "validation": 0.208,
+                  "db_connect": 0.237,
+                  "pragma": 0.016,
+                  "db_read": 0.948,
+                  "begin": 0.012,
+                  "write_sql": 0.028,
+                  "commit": 16.575,
+                  "snapshot": 0.06,
+                  "close": 5.325,
+                  "lock_release": 0.017,
+                  "other": 0.391
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1208.736,
+                "hold_ms": 23.196,
+                "exclusive_ms": {
+                  "lock_wait": 1185.398,
+                  "validation": 0.259,
+                  "db_connect": 0.312,
+                  "pragma": 0.043,
+                  "db_read": 1.205,
+                  "begin": 0.012,
+                  "write_sql": 0.033,
+                  "commit": 14.259,
+                  "snapshot": 0.061,
+                  "close": 6.771,
+                  "lock_release": 0.018,
+                  "other": 0.365
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1208.054,
+                "hold_ms": 54.396,
+                "exclusive_ms": {
+                  "lock_wait": 1153.509,
+                  "validation": 0.134,
+                  "db_connect": 0.215,
+                  "pragma": 0.018,
+                  "begin": 22.021,
+                  "write_sql": 0.837,
+                  "commit": 19.396,
+                  "close": 11.265,
+                  "lock_release": 0.019,
+                  "other": 0.641
+                }
+              }
+            ],
+            "slow_holds": [
+              {
+                "status": 200,
+                "total_ms": 1253.446,
+                "hold_ms": 179.999,
+                "exclusive_ms": {
+                  "lock_wait": 1073.304,
+                  "validation": 0.195,
+                  "db_connect": 0.224,
+                  "pragma": 0.045,
+                  "db_read": 0.979,
+                  "begin": 0.012,
+                  "write_sql": 0.028,
+                  "commit": 172.54,
+                  "snapshot": 0.086,
+                  "close": 5.541,
+                  "lock_release": 0.02,
+                  "other": 0.471
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 486.415,
+                "hold_ms": 150.463,
+                "exclusive_ms": {
+                  "lock_wait": 335.764,
+                  "validation": 0.213,
+                  "db_connect": 0.211,
+                  "pragma": 0.052,
+                  "db_read": 2.49,
+                  "begin": 0.095,
+                  "write_sql": 0.093,
+                  "commit": 0.046,
+                  "snapshot": 0.08,
+                  "close": 146.893,
+                  "lock_release": 0.029,
+                  "other": 0.447
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 845.363,
+                "hold_ms": 112.658,
+                "exclusive_ms": {
+                  "lock_wait": 732.56,
+                  "validation": 0.216,
+                  "db_connect": 0.324,
+                  "pragma": 0.02,
+                  "db_read": 1.05,
+                  "begin": 0.012,
+                  "write_sql": 0.031,
+                  "commit": 103.691,
+                  "snapshot": 0.092,
+                  "close": 6.867,
+                  "lock_release": 0.019,
+                  "other": 0.481
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 791.834,
+                "hold_ms": 103.113,
+                "exclusive_ms": {
+                  "lock_wait": 688.569,
+                  "validation": 0.217,
+                  "db_connect": 0.239,
+                  "pragma": 0.017,
+                  "db_read": 1.203,
+                  "begin": 0.015,
+                  "write_sql": 0.041,
+                  "commit": 90.501,
+                  "snapshot": 0.106,
+                  "close": 10.39,
+                  "lock_release": 0.021,
+                  "other": 0.514
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 851.606,
+                "hold_ms": 102.14,
+                "exclusive_ms": {
+                  "lock_wait": 749.307,
+                  "validation": 0.221,
+                  "db_connect": 0.279,
+                  "pragma": 0.018,
+                  "db_read": 0.993,
+                  "begin": 0.012,
+                  "write_sql": 0.061,
+                  "commit": 93.978,
+                  "snapshot": 0.086,
+                  "close": 6.124,
+                  "lock_release": 0.019,
+                  "other": 0.508
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 820.627,
+                "hold_ms": 95.047,
+                "exclusive_ms": {
+                  "lock_wait": 725.413,
+                  "validation": 0.234,
+                  "db_connect": 0.291,
+                  "pragma": 0.022,
+                  "db_read": 1.232,
+                  "begin": 0.011,
+                  "write_sql": 0.034,
+                  "commit": 85.274,
+                  "snapshot": 0.091,
+                  "close": 7.498,
+                  "lock_release": 0.021,
+                  "other": 0.506
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 837.586,
+                "hold_ms": 85.416,
+                "exclusive_ms": {
+                  "lock_wait": 751.998,
+                  "validation": 0.241,
+                  "db_connect": 0.226,
+                  "pragma": 0.016,
+                  "db_read": 2.04,
+                  "begin": 0.02,
+                  "write_sql": 0.037,
+                  "commit": 67.816,
+                  "snapshot": 0.096,
+                  "close": 14.505,
+                  "lock_release": 0.024,
+                  "other": 0.567
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 825.374,
+                "hold_ms": 77.945,
+                "exclusive_ms": {
+                  "lock_wait": 747.248,
+                  "validation": 0.22,
+                  "db_connect": 0.261,
+                  "pragma": 0.019,
+                  "db_read": 1.025,
+                  "begin": 0.012,
+                  "write_sql": 0.031,
+                  "commit": 13.371,
+                  "snapshot": 0.069,
+                  "close": 62.616,
+                  "lock_release": 0.017,
+                  "other": 0.484
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "job_id": 124094771229,
+      "name": "Scope B / profiled / Python 3.12 / repeat 2",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "B",
+          "profiled": true,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.12.10",
+            "sqlite": "3.49.1",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 53.038,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 98.043,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0,
+          "timing": {
+            "post_total": {
+              "n": 5200,
+              "total_ms": 1525999.394,
+              "mean_ms": 293.461,
+              "max_ms": 541.973,
+              "p95_ms": 411.465,
+              "p99_ms": 470.918
+            },
+            "lock_hold": {
+              "n": 5200,
+              "total_ms": 52049.192,
+              "mean_ms": 10.009,
+              "max_ms": 251.976,
+              "p95_ms": 17.064,
+              "p99_ms": 25.808
+            },
+            "segments": {
+              "lock_wait": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1417525.766,
+                  "mean_ms": 272.601,
+                  "max_ms": 523.451,
+                  "p95_ms": 391.17,
+                  "p99_ms": 450.639
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1417525.766,
+                  "mean_ms": 272.601,
+                  "max_ms": 523.451,
+                  "p95_ms": 391.17,
+                  "p99_ms": 450.639
+                }
+              },
+              "validation": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1592.9,
+                  "mean_ms": 0.306,
+                  "max_ms": 3.428,
+                  "p95_ms": 0.401,
+                  "p99_ms": 0.771
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 30850.807,
+                  "mean_ms": 5.933,
+                  "max_ms": 184.373,
+                  "p95_ms": 13.256,
+                  "p99_ms": 22.145
+                }
+              },
+              "db_connect": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 5925.281,
+                  "mean_ms": 1.139,
+                  "max_ms": 10.792,
+                  "p95_ms": 2.904,
+                  "p99_ms": 5.193
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 5925.281,
+                  "mean_ms": 1.139,
+                  "max_ms": 10.792,
+                  "p95_ms": 2.904,
+                  "p99_ms": 5.193
+                }
+              },
+              "pragma": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1298.429,
+                  "mean_ms": 0.25,
+                  "max_ms": 4.04,
+                  "p95_ms": 0.959,
+                  "p99_ms": 1.748
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1298.429,
+                  "mean_ms": 0.25,
+                  "max_ms": 4.04,
+                  "p95_ms": 0.959,
+                  "p99_ms": 1.748
+                }
+              },
+              "begin": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1651.152,
+                  "mean_ms": 0.318,
+                  "max_ms": 21.159,
+                  "p95_ms": 0.874,
+                  "p99_ms": 2.553
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1651.152,
+                  "mean_ms": 0.318,
+                  "max_ms": 21.159,
+                  "p95_ms": 0.874,
+                  "p99_ms": 2.553
+                }
+              },
+              "write_sql": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 2279.826,
+                  "mean_ms": 0.438,
+                  "max_ms": 6.359,
+                  "p95_ms": 1.179,
+                  "p99_ms": 1.856
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 2279.826,
+                  "mean_ms": 0.438,
+                  "max_ms": 6.359,
+                  "p95_ms": 1.179,
+                  "p99_ms": 1.856
+                }
+              },
+              "commit": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 42886.433,
+                  "mean_ms": 8.247,
+                  "max_ms": 250.947,
+                  "p95_ms": 14.901,
+                  "p99_ms": 22.737
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 42886.433,
+                  "mean_ms": 8.247,
+                  "max_ms": 250.947,
+                  "p95_ms": 14.901,
+                  "p99_ms": 22.737
+                }
+              },
+              "rollback": {
+                "exclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              },
+              "db_read": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 33897.809,
+                  "mean_ms": 7.062,
+                  "max_ms": 405.386,
+                  "p95_ms": 15.242,
+                  "p99_ms": 25.002
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 33897.809,
+                  "mean_ms": 7.062,
+                  "max_ms": 405.386,
+                  "p95_ms": 15.242,
+                  "p99_ms": 25.002
+                }
+              },
+              "snapshot": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 618.891,
+                  "mean_ms": 0.129,
+                  "max_ms": 4.403,
+                  "p95_ms": 0.155,
+                  "p99_ms": 0.18
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 8237.91,
+                  "mean_ms": 1.716,
+                  "max_ms": 404.116,
+                  "p95_ms": 4.569,
+                  "p99_ms": 7.595
+                }
+              },
+              "close": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 15431.082,
+                  "mean_ms": 2.968,
+                  "max_ms": 203.238,
+                  "p95_ms": 9.366,
+                  "p99_ms": 15.853
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 15431.082,
+                  "mean_ms": 2.968,
+                  "max_ms": 203.238,
+                  "p95_ms": 9.366,
+                  "p99_ms": 15.853
+                }
+              },
+              "lock_release": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 100.875,
+                  "mean_ms": 0.019,
+                  "max_ms": 0.347,
+                  "p95_ms": 0.025,
+                  "p99_ms": 0.033
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 100.875,
+                  "mean_ms": 0.019,
+                  "max_ms": 0.347,
+                  "p95_ms": 0.025,
+                  "p99_ms": 0.033
+                }
+              },
+              "other": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 2790.95,
+                  "mean_ms": 0.537,
+                  "max_ms": 3.373,
+                  "p95_ms": 0.652,
+                  "p99_ms": 0.818
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              }
+            },
+            "slow_posts": [
+              {
+                "status": 200,
+                "total_ms": 541.973,
+                "hold_ms": 12.006,
+                "exclusive_ms": {
+                  "validation": 0.275,
+                  "db_connect": 0.253,
+                  "pragma": 0.017,
+                  "db_read": 12.435,
+                  "lock_wait": 517.393,
+                  "begin": 0.203,
+                  "write_sql": 0.693,
+                  "commit": 9.891,
+                  "lock_release": 0.021,
+                  "snapshot": 0.151,
+                  "close": 0.144,
+                  "other": 0.497
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 540.766,
+                "hold_ms": 18.343,
+                "exclusive_ms": {
+                  "validation": 0.27,
+                  "db_connect": 0.256,
+                  "pragma": 0.017,
+                  "db_read": 7.183,
+                  "lock_wait": 514.913,
+                  "begin": 0.274,
+                  "write_sql": 0.255,
+                  "commit": 16.816,
+                  "lock_release": 0.02,
+                  "snapshot": 0.128,
+                  "close": 0.119,
+                  "other": 0.516
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 539.667,
+                "hold_ms": 5.613,
+                "exclusive_ms": {
+                  "validation": 0.302,
+                  "db_connect": 0.209,
+                  "pragma": 0.017,
+                  "db_read": 10.057,
+                  "lock_wait": 523.451,
+                  "begin": 0.277,
+                  "write_sql": 0.29,
+                  "commit": 4.244,
+                  "lock_release": 0.016,
+                  "snapshot": 0.127,
+                  "close": 0.229,
+                  "other": 0.448
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 538.069,
+                "hold_ms": 64.645,
+                "exclusive_ms": {
+                  "validation": 0.304,
+                  "db_connect": 1.168,
+                  "pragma": 0.393,
+                  "db_read": 9.292,
+                  "lock_wait": 461.96,
+                  "begin": 0.021,
+                  "write_sql": 0.751,
+                  "commit": 63.394,
+                  "lock_release": 0.001,
+                  "snapshot": 0.126,
+                  "close": 0.146,
+                  "other": 0.512
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 537.604,
+                "hold_ms": 7.298,
+                "exclusive_ms": {
+                  "validation": 0.267,
+                  "db_connect": 0.257,
+                  "pragma": 0.024,
+                  "db_read": 10.081,
+                  "lock_wait": 519.775,
+                  "begin": 0.251,
+                  "write_sql": 0.297,
+                  "commit": 5.798,
+                  "lock_release": 0.017,
+                  "snapshot": 0.105,
+                  "close": 0.26,
+                  "other": 0.471
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 537.305,
+                "hold_ms": 9.42,
+                "exclusive_ms": {
+                  "validation": 0.236,
+                  "db_connect": 0.22,
+                  "pragma": 0.016,
+                  "db_read": 5.755,
+                  "lock_wait": 521.552,
+                  "begin": 0.384,
+                  "write_sql": 0.326,
+                  "commit": 8.11,
+                  "lock_release": 0.018,
+                  "snapshot": 0.099,
+                  "close": 0.112,
+                  "other": 0.474
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 537.259,
+                "hold_ms": 5.284,
+                "exclusive_ms": {
+                  "validation": 0.261,
+                  "db_connect": 0.218,
+                  "pragma": 0.017,
+                  "db_read": 9.746,
+                  "lock_wait": 521.436,
+                  "begin": 0.461,
+                  "write_sql": 0.297,
+                  "commit": 3.949,
+                  "lock_release": 0.017,
+                  "snapshot": 0.103,
+                  "close": 0.26,
+                  "other": 0.493
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 537.177,
+                "hold_ms": 9.64,
+                "exclusive_ms": {
+                  "validation": 0.301,
+                  "db_connect": 0.225,
+                  "pragma": 0.018,
+                  "db_read": 70.035,
+                  "lock_wait": 457.011,
+                  "begin": 0.131,
+                  "write_sql": 0.339,
+                  "commit": 8.248,
+                  "lock_release": 0.023,
+                  "snapshot": 0.153,
+                  "close": 0.221,
+                  "other": 0.471
+                }
+              }
+            ],
+            "slow_holds": [
+              {
+                "status": 200,
+                "total_ms": 534.828,
+                "hold_ms": 251.976,
+                "exclusive_ms": {
+                  "validation": 0.377,
+                  "db_connect": 1.587,
+                  "pragma": 0.303,
+                  "db_read": 2.22,
+                  "lock_wait": 217.803,
+                  "begin": 0.017,
+                  "write_sql": 0.561,
+                  "commit": 250.947,
+                  "lock_release": 0.006,
+                  "snapshot": 0.141,
+                  "close": 60.281,
+                  "other": 0.584
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 527.863,
+                "hold_ms": 207.682,
+                "exclusive_ms": {
+                  "validation": 0.273,
+                  "db_connect": 0.272,
+                  "pragma": 0.017,
+                  "db_read": 6.821,
+                  "lock_wait": 312.702,
+                  "begin": 0.203,
+                  "write_sql": 0.14,
+                  "commit": 206.389,
+                  "lock_release": 0.018,
+                  "snapshot": 0.153,
+                  "close": 0.388,
+                  "other": 0.486
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 413.514,
+                "hold_ms": 185.081,
+                "exclusive_ms": {
+                  "validation": 0.275,
+                  "db_connect": 0.21,
+                  "pragma": 0.016,
+                  "db_read": 12.519,
+                  "lock_wait": 216.693,
+                  "begin": 0.038,
+                  "write_sql": 0.127,
+                  "commit": 182.71,
+                  "lock_release": 0.02,
+                  "snapshot": 0.141,
+                  "close": 0.159,
+                  "other": 0.605
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 233.627,
+                "hold_ms": 153.482,
+                "exclusive_ms": {
+                  "validation": 0.357,
+                  "db_connect": 3.114,
+                  "pragma": 0.805,
+                  "db_read": 1.676,
+                  "lock_wait": 73.463,
+                  "begin": 0.02,
+                  "write_sql": 0.072,
+                  "commit": 152.996,
+                  "lock_release": 0.004,
+                  "snapshot": 0.124,
+                  "close": 0.487,
+                  "other": 0.509
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 448.439,
+                "hold_ms": 132.316,
+                "exclusive_ms": {
+                  "validation": 0.294,
+                  "db_connect": 1.669,
+                  "pragma": 0.137,
+                  "db_read": 2.701,
+                  "lock_wait": 311.592,
+                  "begin": 0.213,
+                  "write_sql": 0.062,
+                  "commit": 130.876,
+                  "lock_release": 0.016,
+                  "snapshot": 0.131,
+                  "close": 0.155,
+                  "other": 0.593
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 200.93,
+                "hold_ms": 127.607,
+                "exclusive_ms": {
+                  "validation": 0.282,
+                  "db_connect": 0.234,
+                  "pragma": 0.017,
+                  "db_read": 7.41,
+                  "lock_wait": 65.057,
+                  "begin": 0.381,
+                  "write_sql": 0.403,
+                  "commit": 126.175,
+                  "lock_release": 0.014,
+                  "snapshot": 0.114,
+                  "close": 0.242,
+                  "other": 0.602
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 360.301,
+                "hold_ms": 126.963,
+                "exclusive_ms": {
+                  "validation": 0.284,
+                  "db_connect": 0.4,
+                  "pragma": 0.02,
+                  "db_read": 6.183,
+                  "lock_wait": 226.321,
+                  "begin": 0.088,
+                  "write_sql": 1.263,
+                  "commit": 124.784,
+                  "lock_release": 0.015,
+                  "snapshot": 0.117,
+                  "close": 0.206,
+                  "other": 0.62
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 421.559,
+                "hold_ms": 120.772,
+                "exclusive_ms": {
+                  "validation": 0.299,
+                  "db_connect": 1.676,
+                  "pragma": 0.155,
+                  "db_read": 2.973,
+                  "lock_wait": 295.716,
+                  "begin": 0.218,
+                  "write_sql": 0.041,
+                  "commit": 119.491,
+                  "lock_release": 0.004,
+                  "snapshot": 0.133,
+                  "close": 0.279,
+                  "other": 0.573
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "job_id": 124094771317,
+      "name": "Scope A / profiled / Python 3.12 / repeat 1",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "A",
+          "profiled": true,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.12.10",
+            "sqlite": "3.49.1",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 236.941,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 21.946,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0,
+          "timing": {
+            "post_total": {
+              "n": 5200,
+              "total_ms": 6897955.744,
+              "mean_ms": 1326.53,
+              "max_ms": 9356.723,
+              "p95_ms": 2315.308,
+              "p99_ms": 3564.086
+            },
+            "lock_hold": {
+              "n": 5200,
+              "total_ms": 234422.462,
+              "mean_ms": 45.081,
+              "max_ms": 1662.312,
+              "p95_ms": 128.939,
+              "p99_ms": 285.62
+            },
+            "segments": {
+              "lock_wait": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 6662885.713,
+                  "mean_ms": 1281.324,
+                  "max_ms": 9271.783,
+                  "p95_ms": 2255.241,
+                  "p99_ms": 3498.545
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 6662885.713,
+                  "mean_ms": 1281.324,
+                  "max_ms": 9271.783,
+                  "p95_ms": 2255.241,
+                  "p99_ms": 3498.545
+                }
+              },
+              "validation": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 891.234,
+                  "mean_ms": 0.171,
+                  "max_ms": 0.941,
+                  "p95_ms": 0.204,
+                  "p99_ms": 0.224
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 6669758.886,
+                  "mean_ms": 1282.646,
+                  "max_ms": 9272.828,
+                  "p95_ms": 2256.566,
+                  "p99_ms": 3498.648
+                }
+              },
+              "db_connect": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1062.76,
+                  "mean_ms": 0.204,
+                  "max_ms": 11.124,
+                  "p95_ms": 0.252,
+                  "p99_ms": 0.312
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1062.76,
+                  "mean_ms": 0.204,
+                  "max_ms": 11.124,
+                  "p95_ms": 0.252,
+                  "p99_ms": 0.312
+                }
+              },
+              "pragma": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 95.82,
+                  "mean_ms": 0.018,
+                  "max_ms": 0.295,
+                  "p95_ms": 0.032,
+                  "p99_ms": 0.084
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 95.82,
+                  "mean_ms": 0.018,
+                  "max_ms": 0.295,
+                  "p95_ms": 0.032,
+                  "p99_ms": 0.084
+                }
+              },
+              "begin": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1908.139,
+                  "mean_ms": 0.367,
+                  "max_ms": 21.186,
+                  "p95_ms": 2.586,
+                  "p99_ms": 10.186
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1908.139,
+                  "mean_ms": 0.367,
+                  "max_ms": 21.186,
+                  "p95_ms": 2.586,
+                  "p99_ms": 10.186
+                }
+              },
+              "write_sql": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 218.761,
+                  "mean_ms": 0.042,
+                  "max_ms": 1.347,
+                  "p95_ms": 0.162,
+                  "p99_ms": 0.28
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 218.761,
+                  "mean_ms": 0.042,
+                  "max_ms": 1.347,
+                  "p95_ms": 0.162,
+                  "p99_ms": 0.28
+                }
+              },
+              "commit": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 149816.213,
+                  "mean_ms": 28.811,
+                  "max_ms": 1182.209,
+                  "p95_ms": 83.466,
+                  "p99_ms": 214.742
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 149816.213,
+                  "mean_ms": 28.811,
+                  "max_ms": 1182.209,
+                  "p95_ms": 83.466,
+                  "p99_ms": 214.742
+                }
+              },
+              "rollback": {
+                "exclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              },
+              "db_read": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 5694.26,
+                  "mean_ms": 1.186,
+                  "max_ms": 20.421,
+                  "p95_ms": 3.143,
+                  "p99_ms": 14.062
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 5694.26,
+                  "mean_ms": 1.186,
+                  "max_ms": 20.421,
+                  "p95_ms": 3.143,
+                  "p99_ms": 14.062
+                }
+              },
+              "snapshot": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 271.932,
+                  "mean_ms": 0.057,
+                  "max_ms": 1.478,
+                  "p95_ms": 0.075,
+                  "p99_ms": 0.104
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 840.661,
+                  "mean_ms": 0.175,
+                  "max_ms": 1.802,
+                  "p95_ms": 0.415,
+                  "p99_ms": 0.679
+                }
+              },
+              "close": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 73244.619,
+                  "mean_ms": 14.086,
+                  "max_ms": 556.727,
+                  "p95_ms": 35.419,
+                  "p99_ms": 155.804
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 73244.619,
+                  "mean_ms": 14.086,
+                  "max_ms": 556.727,
+                  "p95_ms": 35.419,
+                  "p99_ms": 155.804
+                }
+              },
+              "lock_release": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 68.768,
+                  "mean_ms": 0.013,
+                  "max_ms": 0.1,
+                  "p95_ms": 0.017,
+                  "p99_ms": 0.025
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 68.768,
+                  "mean_ms": 0.013,
+                  "max_ms": 0.1,
+                  "p95_ms": 0.017,
+                  "p99_ms": 0.025
+                }
+              },
+              "other": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1797.525,
+                  "mean_ms": 0.346,
+                  "max_ms": 2.473,
+                  "p95_ms": 0.446,
+                  "p99_ms": 0.525
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              }
+            },
+            "slow_posts": [
+              {
+                "status": 200,
+                "total_ms": 9356.723,
+                "hold_ms": 84.795,
+                "exclusive_ms": {
+                  "lock_wait": 9271.783,
+                  "validation": 0.194,
+                  "db_connect": 0.227,
+                  "pragma": 0.019,
+                  "db_read": 0.784,
+                  "begin": 0.008,
+                  "write_sql": 0.034,
+                  "commit": 39.41,
+                  "snapshot": 0.064,
+                  "close": 43.737,
+                  "lock_release": 0.013,
+                  "other": 0.449
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 9296.348,
+                "hold_ms": 212.961,
+                "exclusive_ms": {
+                  "lock_wait": 9083.259,
+                  "validation": 0.189,
+                  "db_connect": 0.221,
+                  "pragma": 0.02,
+                  "db_read": 0.788,
+                  "begin": 0.014,
+                  "write_sql": 0.027,
+                  "commit": 187.47,
+                  "snapshot": 0.079,
+                  "close": 23.824,
+                  "lock_release": 0.014,
+                  "other": 0.444
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 9293.577,
+                "hold_ms": 312.919,
+                "exclusive_ms": {
+                  "lock_wait": 8980.516,
+                  "validation": 0.19,
+                  "db_connect": 0.257,
+                  "pragma": 0.018,
+                  "db_read": 0.808,
+                  "begin": 0.008,
+                  "write_sql": 0.024,
+                  "commit": 232.895,
+                  "snapshot": 0.076,
+                  "close": 78.307,
+                  "lock_release": 0.014,
+                  "other": 0.466
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 9172.563,
+                "hold_ms": 72.628,
+                "exclusive_ms": {
+                  "lock_wait": 9099.759,
+                  "validation": 0.202,
+                  "db_connect": 0.224,
+                  "pragma": 0.025,
+                  "db_read": 0.901,
+                  "begin": 0.008,
+                  "write_sql": 0.025,
+                  "commit": 64.215,
+                  "snapshot": 0.087,
+                  "close": 6.572,
+                  "lock_release": 0.015,
+                  "other": 0.529
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 9105.689,
+                "hold_ms": 71.378,
+                "exclusive_ms": {
+                  "lock_wait": 9034.156,
+                  "validation": 0.196,
+                  "db_connect": 0.236,
+                  "pragma": 0.028,
+                  "db_read": 0.812,
+                  "begin": 0.008,
+                  "write_sql": 0.028,
+                  "commit": 52.265,
+                  "snapshot": 0.075,
+                  "close": 17.419,
+                  "lock_release": 0.016,
+                  "other": 0.45
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 9061.368,
+                "hold_ms": 78.465,
+                "exclusive_ms": {
+                  "lock_wait": 8982.73,
+                  "validation": 0.221,
+                  "db_connect": 0.29,
+                  "pragma": 0.024,
+                  "db_read": 1.004,
+                  "begin": 0.013,
+                  "write_sql": 0.041,
+                  "commit": 44.543,
+                  "snapshot": 0.079,
+                  "close": 31.888,
+                  "lock_release": 0.006,
+                  "other": 0.529
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 9060.357,
+                "hold_ms": 1205.597,
+                "exclusive_ms": {
+                  "lock_wait": 7854.599,
+                  "validation": 0.203,
+                  "db_connect": 0.235,
+                  "pragma": 0.029,
+                  "db_read": 0.848,
+                  "begin": 0.008,
+                  "write_sql": 0.028,
+                  "commit": 647.081,
+                  "snapshot": 0.095,
+                  "close": 556.727,
+                  "lock_release": 0.014,
+                  "other": 0.491
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 9009.072,
+                "hold_ms": 84.495,
+                "exclusive_ms": {
+                  "lock_wait": 8924.415,
+                  "validation": 0.201,
+                  "db_connect": 0.197,
+                  "pragma": 0.021,
+                  "db_read": 0.769,
+                  "begin": 0.008,
+                  "write_sql": 0.026,
+                  "commit": 53.735,
+                  "snapshot": 0.06,
+                  "close": 29.211,
+                  "lock_release": 0.013,
+                  "other": 0.414
+                }
+              }
+            ],
+            "slow_holds": [
+              {
+                "status": 200,
+                "total_ms": 4963.134,
+                "hold_ms": 1662.312,
+                "exclusive_ms": {
+                  "lock_wait": 3300.681,
+                  "validation": 0.192,
+                  "db_connect": 0.237,
+                  "pragma": 0.026,
+                  "db_read": 0.841,
+                  "begin": 0.008,
+                  "write_sql": 0.026,
+                  "commit": 1182.209,
+                  "snapshot": 0.077,
+                  "close": 478.299,
+                  "lock_release": 0.012,
+                  "other": 0.525
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 9060.357,
+                "hold_ms": 1205.597,
+                "exclusive_ms": {
+                  "lock_wait": 7854.599,
+                  "validation": 0.203,
+                  "db_connect": 0.235,
+                  "pragma": 0.029,
+                  "db_read": 0.848,
+                  "begin": 0.008,
+                  "write_sql": 0.028,
+                  "commit": 647.081,
+                  "snapshot": 0.095,
+                  "close": 556.727,
+                  "lock_release": 0.014,
+                  "other": 0.491
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2327.566,
+                "hold_ms": 810.792,
+                "exclusive_ms": {
+                  "lock_wait": 1516.606,
+                  "validation": 0.201,
+                  "db_connect": 0.222,
+                  "pragma": 0.028,
+                  "db_read": 0.799,
+                  "begin": 0.008,
+                  "write_sql": 0.04,
+                  "commit": 787.116,
+                  "snapshot": 0.079,
+                  "close": 21.984,
+                  "lock_release": 0.014,
+                  "other": 0.47
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1771.452,
+                "hold_ms": 809.602,
+                "exclusive_ms": {
+                  "lock_wait": 961.684,
+                  "validation": 0.175,
+                  "db_connect": 0.233,
+                  "pragma": 0.015,
+                  "db_read": 0.8,
+                  "begin": 0.007,
+                  "write_sql": 0.021,
+                  "commit": 737.553,
+                  "snapshot": 0.077,
+                  "close": 70.369,
+                  "lock_release": 0.014,
+                  "other": 0.503
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1410.137,
+                "hold_ms": 767.261,
+                "exclusive_ms": {
+                  "lock_wait": 642.73,
+                  "validation": 0.199,
+                  "db_connect": 0.21,
+                  "pragma": 0.017,
+                  "db_read": 0.812,
+                  "begin": 0.007,
+                  "write_sql": 0.032,
+                  "commit": 477.689,
+                  "snapshot": 0.078,
+                  "close": 287.865,
+                  "lock_release": 0.014,
+                  "other": 0.482
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2294.652,
+                "hold_ms": 721.938,
+                "exclusive_ms": {
+                  "lock_wait": 1572.559,
+                  "validation": 0.172,
+                  "db_connect": 0.187,
+                  "pragma": 0.016,
+                  "db_read": 0.786,
+                  "begin": 0.008,
+                  "write_sql": 0.022,
+                  "commit": 709.051,
+                  "snapshot": 0.076,
+                  "close": 11.303,
+                  "lock_release": 0.013,
+                  "other": 0.456
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2426.078,
+                "hold_ms": 617.992,
+                "exclusive_ms": {
+                  "lock_wait": 1807.961,
+                  "validation": 0.175,
+                  "db_connect": 0.252,
+                  "pragma": 0.014,
+                  "db_read": 3.746,
+                  "begin": 0.011,
+                  "write_sql": 0.042,
+                  "commit": 315.819,
+                  "snapshot": 0.076,
+                  "close": 297.503,
+                  "lock_release": 0.013,
+                  "other": 0.464
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 7667.218,
+                "hold_ms": 582.71,
+                "exclusive_ms": {
+                  "lock_wait": 7084.358,
+                  "validation": 0.196,
+                  "db_connect": 0.231,
+                  "pragma": 0.025,
+                  "db_read": 1.456,
+                  "begin": 0.008,
+                  "write_sql": 0.036,
+                  "commit": 358.003,
+                  "snapshot": 0.085,
+                  "close": 222.338,
+                  "lock_release": 0.014,
+                  "other": 0.468
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "job_id": 124094771347,
+      "name": "Scope B / unprofiled / Python 3.13 / repeat 2",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "B",
+          "profiled": false,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.13.16",
+            "sqlite": "3.50.4",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 49.965,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 104.074,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0
+        }
+      ]
+    },
+    {
+      "job_id": 124094771351,
+      "name": "Scope A / unprofiled / Python 3.13 / repeat 1",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "A",
+          "profiled": false,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.13.16",
+            "sqlite": "3.50.4",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 161.86,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 32.127,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0
+        }
+      ]
+    },
+    {
+      "job_id": 124094771399,
+      "name": "Scope A / profiled / Python 3.13 / repeat 1",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "A",
+          "profiled": true,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.13.16",
+            "sqlite": "3.50.4",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 183.228,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 28.38,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0,
+          "timing": {
+            "post_total": {
+              "n": 5200,
+              "total_ms": 5375778.508,
+              "mean_ms": 1033.804,
+              "max_ms": 3420.22,
+              "p95_ms": 1525.025,
+              "p99_ms": 2521.294
+            },
+            "lock_hold": {
+              "n": 5200,
+              "total_ms": 180119.314,
+              "mean_ms": 34.638,
+              "max_ms": 854.039,
+              "p95_ms": 64.363,
+              "p99_ms": 97.79
+            },
+            "segments": {
+              "lock_wait": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 5194844.327,
+                  "mean_ms": 999.009,
+                  "max_ms": 3376.857,
+                  "p95_ms": 1479.372,
+                  "p99_ms": 2437.281
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 5194844.327,
+                  "mean_ms": 999.009,
+                  "max_ms": 3376.857,
+                  "p95_ms": 1479.372,
+                  "p99_ms": 2437.281
+                }
+              },
+              "validation": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1063.86,
+                  "mean_ms": 0.205,
+                  "max_ms": 0.412,
+                  "p95_ms": 0.259,
+                  "p99_ms": 0.291
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 5204061.543,
+                  "mean_ms": 1000.781,
+                  "max_ms": 3376.97,
+                  "p95_ms": 1480.933,
+                  "p99_ms": 2438.924
+                }
+              },
+              "db_connect": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1317.47,
+                  "mean_ms": 0.253,
+                  "max_ms": 3.675,
+                  "p95_ms": 0.334,
+                  "p99_ms": 0.412
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1317.47,
+                  "mean_ms": 0.253,
+                  "max_ms": 3.675,
+                  "p95_ms": 0.334,
+                  "p99_ms": 0.412
+                }
+              },
+              "pragma": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 115.772,
+                  "mean_ms": 0.022,
+                  "max_ms": 0.289,
+                  "p95_ms": 0.047,
+                  "p99_ms": 0.102
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 115.772,
+                  "mean_ms": 0.022,
+                  "max_ms": 0.289,
+                  "p95_ms": 0.047,
+                  "p99_ms": 0.102
+                }
+              },
+              "begin": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 2129.565,
+                  "mean_ms": 0.41,
+                  "max_ms": 17.56,
+                  "p95_ms": 3.135,
+                  "p99_ms": 10.641
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 2129.565,
+                  "mean_ms": 0.41,
+                  "max_ms": 17.56,
+                  "p95_ms": 3.135,
+                  "p99_ms": 10.641
+                }
+              },
+              "write_sql": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 276.484,
+                  "mean_ms": 0.053,
+                  "max_ms": 2.04,
+                  "p95_ms": 0.211,
+                  "p99_ms": 0.346
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 276.484,
+                  "mean_ms": 0.053,
+                  "max_ms": 2.04,
+                  "p95_ms": 0.211,
+                  "p99_ms": 0.346
+                }
+              },
+              "commit": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 112463.721,
+                  "mean_ms": 21.628,
+                  "max_ms": 806.343,
+                  "p95_ms": 41.143,
+                  "p99_ms": 61.229
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 112463.721,
+                  "mean_ms": 21.628,
+                  "max_ms": 806.343,
+                  "p95_ms": 41.143,
+                  "p99_ms": 61.229
+                }
+              },
+              "rollback": {
+                "exclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              },
+              "db_read": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 7858.913,
+                  "mean_ms": 1.637,
+                  "max_ms": 18.522,
+                  "p95_ms": 4.14,
+                  "p99_ms": 13.667
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 7858.913,
+                  "mean_ms": 1.637,
+                  "max_ms": 18.522,
+                  "p95_ms": 4.14,
+                  "p99_ms": 13.667
+                }
+              },
+              "snapshot": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 399.535,
+                  "mean_ms": 0.083,
+                  "max_ms": 4.367,
+                  "p95_ms": 0.11,
+                  "p99_ms": 0.145
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 1091.711,
+                  "mean_ms": 0.227,
+                  "max_ms": 4.501,
+                  "p95_ms": 0.321,
+                  "p99_ms": 0.998
+                }
+              },
+              "close": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 52948.242,
+                  "mean_ms": 10.182,
+                  "max_ms": 661.205,
+                  "p95_ms": 22.863,
+                  "p99_ms": 42.669
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 52948.242,
+                  "mean_ms": 10.182,
+                  "max_ms": 661.205,
+                  "p95_ms": 22.863,
+                  "p99_ms": 42.669
+                }
+              },
+              "lock_release": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 107.151,
+                  "mean_ms": 0.021,
+                  "max_ms": 0.795,
+                  "p95_ms": 0.026,
+                  "p99_ms": 0.033
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 107.151,
+                  "mean_ms": 0.021,
+                  "max_ms": 0.795,
+                  "p95_ms": 0.026,
+                  "p99_ms": 0.033
+                }
+              },
+              "other": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 2253.467,
+                  "mean_ms": 0.433,
+                  "max_ms": 1.854,
+                  "p95_ms": 0.591,
+                  "p99_ms": 0.677
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              }
+            },
+            "slow_posts": [
+              {
+                "status": 200,
+                "total_ms": 3420.22,
+                "hold_ms": 53.821,
+                "exclusive_ms": {
+                  "lock_wait": 3366.226,
+                  "validation": 0.128,
+                  "db_connect": 0.209,
+                  "pragma": 0.017,
+                  "begin": 2.488,
+                  "write_sql": 0.185,
+                  "commit": 22.165,
+                  "close": 28.316,
+                  "lock_release": 0.021,
+                  "other": 0.464
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 3416.764,
+                "hold_ms": 39.774,
+                "exclusive_ms": {
+                  "lock_wait": 3376.857,
+                  "validation": 0.113,
+                  "db_connect": 0.202,
+                  "pragma": 0.017,
+                  "begin": 2.992,
+                  "write_sql": 0.185,
+                  "commit": 20.554,
+                  "close": 15.388,
+                  "lock_release": 0.019,
+                  "other": 0.438
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 3415.704,
+                "hold_ms": 58.721,
+                "exclusive_ms": {
+                  "lock_wait": 3356.851,
+                  "validation": 0.111,
+                  "db_connect": 0.199,
+                  "pragma": 0.016,
+                  "begin": 2.736,
+                  "write_sql": 0.188,
+                  "commit": 24.032,
+                  "close": 31.095,
+                  "lock_release": 0.019,
+                  "other": 0.458
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 3400.376,
+                "hold_ms": 67.199,
+                "exclusive_ms": {
+                  "lock_wait": 3333.038,
+                  "validation": 0.138,
+                  "db_connect": 0.214,
+                  "pragma": 0.017,
+                  "begin": 2.926,
+                  "write_sql": 0.234,
+                  "commit": 33.227,
+                  "close": 30.067,
+                  "lock_release": 0.022,
+                  "other": 0.493
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 3377.335,
+                "hold_ms": 854.039,
+                "exclusive_ms": {
+                  "lock_wait": 2523.115,
+                  "validation": 0.11,
+                  "db_connect": 0.202,
+                  "pragma": 0.016,
+                  "begin": 14.504,
+                  "write_sql": 0.234,
+                  "commit": 806.343,
+                  "close": 32.148,
+                  "lock_release": 0.023,
+                  "other": 0.639
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 3356.903,
+                "hold_ms": 34.163,
+                "exclusive_ms": {
+                  "lock_wait": 3322.593,
+                  "validation": 0.224,
+                  "db_connect": 0.208,
+                  "pragma": 0.052,
+                  "db_read": 1.621,
+                  "begin": 0.012,
+                  "write_sql": 0.034,
+                  "commit": 24.064,
+                  "snapshot": 0.079,
+                  "close": 7.591,
+                  "lock_release": 0.019,
+                  "other": 0.405
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 3337.795,
+                "hold_ms": 26.93,
+                "exclusive_ms": {
+                  "lock_wait": 3310.728,
+                  "validation": 0.201,
+                  "db_connect": 0.241,
+                  "pragma": 0.017,
+                  "db_read": 1.059,
+                  "begin": 0.011,
+                  "write_sql": 0.028,
+                  "commit": 18.353,
+                  "snapshot": 0.061,
+                  "close": 6.723,
+                  "lock_release": 0.018,
+                  "other": 0.353
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 3319.013,
+                "hold_ms": 32.708,
+                "exclusive_ms": {
+                  "lock_wait": 3286.168,
+                  "validation": 0.185,
+                  "db_connect": 0.212,
+                  "pragma": 0.016,
+                  "db_read": 1.139,
+                  "begin": 0.012,
+                  "write_sql": 0.027,
+                  "commit": 20.156,
+                  "snapshot": 0.071,
+                  "close": 10.655,
+                  "lock_release": 0.021,
+                  "other": 0.353
+                }
+              }
+            ],
+            "slow_holds": [
+              {
+                "status": 200,
+                "total_ms": 3377.335,
+                "hold_ms": 854.039,
+                "exclusive_ms": {
+                  "lock_wait": 2523.115,
+                  "validation": 0.11,
+                  "db_connect": 0.202,
+                  "pragma": 0.016,
+                  "begin": 14.504,
+                  "write_sql": 0.234,
+                  "commit": 806.343,
+                  "close": 32.148,
+                  "lock_release": 0.023,
+                  "other": 0.639
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2067.805,
+                "hold_ms": 715.903,
+                "exclusive_ms": {
+                  "lock_wait": 1351.741,
+                  "validation": 0.14,
+                  "db_connect": 0.283,
+                  "pragma": 0.017,
+                  "begin": 3.815,
+                  "write_sql": 0.237,
+                  "commit": 49.634,
+                  "close": 661.205,
+                  "lock_release": 0.024,
+                  "other": 0.707
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1393.547,
+                "hold_ms": 315.762,
+                "exclusive_ms": {
+                  "lock_wait": 1077.568,
+                  "validation": 0.216,
+                  "db_connect": 0.232,
+                  "pragma": 0.017,
+                  "db_read": 1.206,
+                  "begin": 0.012,
+                  "write_sql": 0.038,
+                  "commit": 284.022,
+                  "snapshot": 0.11,
+                  "close": 29.54,
+                  "lock_release": 0.026,
+                  "other": 0.561
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1215.611,
+                "hold_ms": 249.186,
+                "exclusive_ms": {
+                  "lock_wait": 966.255,
+                  "validation": 0.224,
+                  "db_connect": 0.253,
+                  "pragma": 0.017,
+                  "db_read": 4.904,
+                  "begin": 0.015,
+                  "write_sql": 0.035,
+                  "commit": 235.867,
+                  "snapshot": 0.097,
+                  "close": 7.382,
+                  "lock_release": 0.02,
+                  "other": 0.542
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1055.137,
+                "hold_ms": 202.574,
+                "exclusive_ms": {
+                  "lock_wait": 852.402,
+                  "validation": 0.227,
+                  "db_connect": 0.294,
+                  "pragma": 0.028,
+                  "db_read": 1.348,
+                  "begin": 0.013,
+                  "write_sql": 0.033,
+                  "commit": 194.275,
+                  "snapshot": 0.091,
+                  "close": 5.888,
+                  "lock_release": 0.023,
+                  "other": 0.515
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1282.981,
+                "hold_ms": 177.46,
+                "exclusive_ms": {
+                  "lock_wait": 1105.315,
+                  "validation": 0.235,
+                  "db_connect": 0.276,
+                  "pragma": 0.021,
+                  "db_read": 1.287,
+                  "begin": 0.012,
+                  "write_sql": 0.032,
+                  "commit": 24.658,
+                  "snapshot": 0.137,
+                  "close": 149.863,
+                  "lock_release": 0.021,
+                  "other": 1.124
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1399.143,
+                "hold_ms": 161.5,
+                "exclusive_ms": {
+                  "lock_wait": 1237.461,
+                  "validation": 0.221,
+                  "db_connect": 0.27,
+                  "pragma": 0.02,
+                  "db_read": 1.195,
+                  "begin": 0.012,
+                  "write_sql": 0.032,
+                  "commit": 149.22,
+                  "snapshot": 0.098,
+                  "close": 10.032,
+                  "lock_release": 0.022,
+                  "other": 0.558
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1191.19,
+                "hold_ms": 157.184,
+                "exclusive_ms": {
+                  "lock_wait": 1033.85,
+                  "validation": 0.206,
+                  "db_connect": 0.261,
+                  "pragma": 0.018,
+                  "db_read": 1.109,
+                  "begin": 0.012,
+                  "write_sql": 0.029,
+                  "commit": 144.147,
+                  "snapshot": 0.099,
+                  "close": 10.945,
+                  "lock_release": 0.019,
+                  "other": 0.494
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "job_id": 124094771407,
+      "name": "Scope A / profiled / Python 3.13 / repeat 2",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "A",
+          "profiled": true,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.13.16",
+            "sqlite": "3.50.4",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 210.472,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 24.706,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0,
+          "timing": {
+            "post_total": {
+              "n": 5200,
+              "total_ms": 6189981.602,
+              "mean_ms": 1190.381,
+              "max_ms": 5417.873,
+              "p95_ms": 1582.414,
+              "p99_ms": 1937.085
+            },
+            "lock_hold": {
+              "n": 5200,
+              "total_ms": 206090.76,
+              "mean_ms": 39.633,
+              "max_ms": 436.135,
+              "p95_ms": 60.009,
+              "p99_ms": 87.891
+            },
+            "segments": {
+              "lock_wait": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 5982700.749,
+                  "mean_ms": 1150.519,
+                  "max_ms": 5321.432,
+                  "p95_ms": 1525.126,
+                  "p99_ms": 1867.229
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 5982700.749,
+                  "mean_ms": 1150.519,
+                  "max_ms": 5321.432,
+                  "p95_ms": 1525.126,
+                  "p99_ms": 1867.229
+                }
+              },
+              "validation": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1532.606,
+                  "mean_ms": 0.295,
+                  "max_ms": 1.858,
+                  "p95_ms": 0.398,
+                  "p99_ms": 0.466
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 5992746.315,
+                  "mean_ms": 1152.451,
+                  "max_ms": 5321.644,
+                  "p95_ms": 1526.796,
+                  "p99_ms": 1869.743
+                }
+              },
+              "db_connect": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1863.305,
+                  "mean_ms": 0.358,
+                  "max_ms": 8.558,
+                  "p95_ms": 0.491,
+                  "p99_ms": 0.74
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1863.305,
+                  "mean_ms": 0.358,
+                  "max_ms": 8.558,
+                  "p95_ms": 0.491,
+                  "p99_ms": 0.74
+                }
+              },
+              "pragma": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 204.018,
+                  "mean_ms": 0.039,
+                  "max_ms": 5.222,
+                  "p95_ms": 0.07,
+                  "p99_ms": 0.15
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 204.018,
+                  "mean_ms": 0.039,
+                  "max_ms": 5.222,
+                  "p95_ms": 0.07,
+                  "p99_ms": 0.15
+                }
+              },
+              "begin": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 2121.623,
+                  "mean_ms": 0.408,
+                  "max_ms": 17.678,
+                  "p95_ms": 2.763,
+                  "p99_ms": 12.302
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 2121.623,
+                  "mean_ms": 0.408,
+                  "max_ms": 17.678,
+                  "p95_ms": 2.763,
+                  "p99_ms": 12.302
+                }
+              },
+              "write_sql": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 356.931,
+                  "mean_ms": 0.069,
+                  "max_ms": 3.149,
+                  "p95_ms": 0.253,
+                  "p99_ms": 0.568
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 356.931,
+                  "mean_ms": 0.069,
+                  "max_ms": 3.149,
+                  "p95_ms": 0.253,
+                  "p99_ms": 0.568
+                }
+              },
+              "commit": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 128045.787,
+                  "mean_ms": 24.624,
+                  "max_ms": 319.185,
+                  "p95_ms": 30.871,
+                  "p99_ms": 63.044
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 128045.787,
+                  "mean_ms": 24.624,
+                  "max_ms": 319.185,
+                  "p95_ms": 30.871,
+                  "p99_ms": 63.044
+                }
+              },
+              "rollback": {
+                "exclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              },
+              "db_read": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 7902.927,
+                  "mean_ms": 1.646,
+                  "max_ms": 29.071,
+                  "p95_ms": 3.325,
+                  "p99_ms": 11.492
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 7902.927,
+                  "mean_ms": 1.646,
+                  "max_ms": 29.071,
+                  "p95_ms": 3.325,
+                  "p99_ms": 11.492
+                }
+              },
+              "snapshot": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 485.85,
+                  "mean_ms": 0.101,
+                  "max_ms": 6.832,
+                  "p95_ms": 0.123,
+                  "p99_ms": 0.167
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 1453.021,
+                  "mean_ms": 0.303,
+                  "max_ms": 7.12,
+                  "p95_ms": 0.391,
+                  "p99_ms": 1.337
+                }
+              },
+              "close": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 61312.502,
+                  "mean_ms": 11.791,
+                  "max_ms": 262.136,
+                  "p95_ms": 20.645,
+                  "p99_ms": 38.765
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 61312.502,
+                  "mean_ms": 11.791,
+                  "max_ms": 262.136,
+                  "p95_ms": 20.645,
+                  "p99_ms": 38.765
+                }
+              },
+              "lock_release": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 102.753,
+                  "mean_ms": 0.02,
+                  "max_ms": 0.301,
+                  "p95_ms": 0.025,
+                  "p99_ms": 0.046
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 102.753,
+                  "mean_ms": 0.02,
+                  "max_ms": 0.301,
+                  "p95_ms": 0.025,
+                  "p99_ms": 0.046
+                }
+              },
+              "other": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 3352.552,
+                  "mean_ms": 0.645,
+                  "max_ms": 3.835,
+                  "p95_ms": 0.794,
+                  "p99_ms": 1.076
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              }
+            },
+            "slow_posts": [
+              {
+                "status": 200,
+                "total_ms": 5417.873,
+                "hold_ms": 96.228,
+                "exclusive_ms": {
+                  "lock_wait": 5321.432,
+                  "validation": 0.212,
+                  "db_connect": 0.991,
+                  "pragma": 0.021,
+                  "begin": 17.276,
+                  "write_sql": 0.669,
+                  "commit": 48.084,
+                  "close": 27.782,
+                  "lock_release": 0.019,
+                  "other": 1.388
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 5364.566,
+                "hold_ms": 99.346,
+                "exclusive_ms": {
+                  "lock_wait": 5265.028,
+                  "validation": 0.18,
+                  "db_connect": 0.379,
+                  "pragma": 0.045,
+                  "begin": 9.942,
+                  "write_sql": 1.364,
+                  "commit": 48.972,
+                  "close": 37.347,
+                  "lock_release": 0.021,
+                  "other": 1.288
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 5305.886,
+                "hold_ms": 130.593,
+                "exclusive_ms": {
+                  "lock_wait": 5175.087,
+                  "validation": 0.163,
+                  "db_connect": 0.259,
+                  "pragma": 0.021,
+                  "begin": 15.042,
+                  "write_sql": 0.285,
+                  "commit": 68.57,
+                  "close": 45.617,
+                  "lock_release": 0.027,
+                  "other": 0.814
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 5208.348,
+                "hold_ms": 117.172,
+                "exclusive_ms": {
+                  "lock_wait": 5090.972,
+                  "validation": 0.229,
+                  "db_connect": 0.536,
+                  "pragma": 0.023,
+                  "begin": 6.144,
+                  "write_sql": 0.28,
+                  "commit": 60.57,
+                  "close": 48.667,
+                  "lock_release": 0.021,
+                  "other": 0.907
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 5140.563,
+                "hold_ms": 101.263,
+                "exclusive_ms": {
+                  "lock_wait": 5039.041,
+                  "validation": 0.164,
+                  "db_connect": 0.316,
+                  "pragma": 0.056,
+                  "begin": 12.715,
+                  "write_sql": 0.297,
+                  "commit": 42.483,
+                  "close": 44.581,
+                  "lock_release": 0.025,
+                  "other": 0.887
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 5087.167,
+                "hold_ms": 91.549,
+                "exclusive_ms": {
+                  "lock_wait": 4995.404,
+                  "validation": 0.178,
+                  "db_connect": 0.373,
+                  "pragma": 0.02,
+                  "begin": 4.316,
+                  "write_sql": 0.372,
+                  "commit": 58.229,
+                  "close": 27.42,
+                  "lock_release": 0.025,
+                  "other": 0.829
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 5027.867,
+                "hold_ms": 72.726,
+                "exclusive_ms": {
+                  "lock_wait": 4954.896,
+                  "validation": 0.187,
+                  "db_connect": 0.364,
+                  "pragma": 0.044,
+                  "begin": 1.096,
+                  "write_sql": 0.68,
+                  "commit": 30.961,
+                  "close": 38.765,
+                  "lock_release": 0.022,
+                  "other": 0.851
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 5015.534,
+                "hold_ms": 64.761,
+                "exclusive_ms": {
+                  "lock_wait": 4950.491,
+                  "validation": 0.336,
+                  "db_connect": 0.258,
+                  "pragma": 0.05,
+                  "db_read": 4.895,
+                  "begin": 0.011,
+                  "write_sql": 0.035,
+                  "commit": 23.792,
+                  "snapshot": 0.094,
+                  "close": 34.866,
+                  "lock_release": 0.024,
+                  "other": 0.681
+                }
+              }
+            ],
+            "slow_holds": [
+              {
+                "status": 200,
+                "total_ms": 1718.834,
+                "hold_ms": 436.135,
+                "exclusive_ms": {
+                  "lock_wait": 1282.479,
+                  "validation": 0.172,
+                  "db_connect": 0.244,
+                  "pragma": 0.019,
+                  "begin": 1.13,
+                  "write_sql": 1.685,
+                  "commit": 319.185,
+                  "close": 112.996,
+                  "lock_release": 0.02,
+                  "other": 0.904
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 3430.564,
+                "hold_ms": 381.329,
+                "exclusive_ms": {
+                  "lock_wait": 3049.003,
+                  "validation": 0.155,
+                  "db_connect": 0.252,
+                  "pragma": 0.019,
+                  "begin": 5.637,
+                  "write_sql": 0.328,
+                  "commit": 112.194,
+                  "close": 262.136,
+                  "lock_release": 0.016,
+                  "other": 0.824
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 4030.679,
+                "hold_ms": 343.614,
+                "exclusive_ms": {
+                  "lock_wait": 3686.831,
+                  "validation": 0.249,
+                  "db_connect": 0.395,
+                  "pragma": 0.034,
+                  "begin": 8.582,
+                  "write_sql": 0.294,
+                  "commit": 105.323,
+                  "close": 228.063,
+                  "lock_release": 0.019,
+                  "other": 0.891
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 3712.108,
+                "hold_ms": 343.237,
+                "exclusive_ms": {
+                  "lock_wait": 3368.642,
+                  "validation": 0.154,
+                  "db_connect": 0.274,
+                  "pragma": 0.018,
+                  "begin": 4.581,
+                  "write_sql": 0.292,
+                  "commit": 132.14,
+                  "close": 204.582,
+                  "lock_release": 0.021,
+                  "other": 1.405
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2883.631,
+                "hold_ms": 324.62,
+                "exclusive_ms": {
+                  "lock_wait": 2558.799,
+                  "validation": 0.154,
+                  "db_connect": 0.211,
+                  "pragma": 0.019,
+                  "begin": 4.174,
+                  "write_sql": 0.245,
+                  "commit": 97.057,
+                  "close": 222.151,
+                  "lock_release": 0.022,
+                  "other": 0.799
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 2600.224,
+                "hold_ms": 324.235,
+                "exclusive_ms": {
+                  "lock_wait": 2275.791,
+                  "validation": 0.146,
+                  "db_connect": 0.224,
+                  "pragma": 0.019,
+                  "begin": 2.291,
+                  "write_sql": 0.218,
+                  "commit": 96.853,
+                  "close": 223.91,
+                  "lock_release": 0.019,
+                  "other": 0.752
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 3090.177,
+                "hold_ms": 251.883,
+                "exclusive_ms": {
+                  "lock_wait": 2838.091,
+                  "validation": 0.168,
+                  "db_connect": 0.377,
+                  "pragma": 0.019,
+                  "begin": 5.037,
+                  "write_sql": 0.306,
+                  "commit": 93.017,
+                  "close": 152.369,
+                  "lock_release": 0.018,
+                  "other": 0.773
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1387.631,
+                "hold_ms": 243.519,
+                "exclusive_ms": {
+                  "lock_wait": 1143.851,
+                  "validation": 0.336,
+                  "db_connect": 0.338,
+                  "pragma": 0.034,
+                  "db_read": 1.463,
+                  "begin": 0.011,
+                  "write_sql": 0.093,
+                  "commit": 23.473,
+                  "snapshot": 0.093,
+                  "close": 217.242,
+                  "lock_release": 0.019,
+                  "other": 0.678
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "job_id": 124094771422,
+      "name": "Scope B / unprofiled / Python 3.13 / repeat 1",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "B",
+          "profiled": false,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.13.16",
+            "sqlite": "3.50.4",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 36.157,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 143.818,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0
+        }
+      ]
+    },
+    {
+      "job_id": 124094771462,
+      "name": "Scope B / profiled / Python 3.13 / repeat 1",
+      "conclusion": "success",
+      "cases": [
+        {
+          "variant": "B",
+          "profiled": true,
+          "runtime": {
+            "os": "Windows",
+            "python": "3.13.16",
+            "sqlite": "3.50.4",
+            "sqlite_threadsafety": 3
+          },
+          "original_workload_completed": true,
+          "elapsed_s": 57.539,
+          "post_responses": {
+            "200": 5200
+          },
+          "post_failure_rate": 0.0,
+          "observed_posts_per_s": 90.373,
+          "acknowledged": {
+            "session": 400,
+            "stamp": 4000,
+            "reward": 400
+          },
+          "audit": {
+            "integrity_ok": true,
+            "foreign_key_errors": 0,
+            "customers": 400,
+            "stamps": 4000,
+            "rewards": 400,
+            "duplicate_stamps": 0,
+            "duplicate_rewards": 0,
+            "missing_ack_sessions": 0,
+            "missing_ack_stamps": 0,
+            "missing_ack_rewards": 0,
+            "reward_mismatch": 0,
+            "redeemed_without_audit": 0,
+            "incomplete_rewards": 0,
+            "ok": true
+          },
+          "sqlite_operational_errors": 0,
+          "sqlite_error_names": {},
+          "admission_timeout_logs": 0,
+          "timing": {
+            "post_total": {
+              "n": 5200,
+              "total_ms": 1663260.491,
+              "mean_ms": 319.858,
+              "max_ms": 1156.602,
+              "p95_ms": 557.3,
+              "p99_ms": 781.187
+            },
+            "lock_hold": {
+              "n": 5200,
+              "total_ms": 56779.542,
+              "mean_ms": 10.919,
+              "max_ms": 368.029,
+              "p95_ms": 23.637,
+              "p99_ms": 73.28
+            },
+            "segments": {
+              "lock_wait": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1555070.509,
+                  "mean_ms": 299.052,
+                  "max_ms": 1135.464,
+                  "p95_ms": 516.987,
+                  "p99_ms": 762.401
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1555070.509,
+                  "mean_ms": 299.052,
+                  "max_ms": 1135.464,
+                  "p95_ms": 516.987,
+                  "p99_ms": 762.401
+                }
+              },
+              "validation": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 947.995,
+                  "mean_ms": 0.182,
+                  "max_ms": 1.858,
+                  "p95_ms": 0.237,
+                  "p99_ms": 0.317
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 28808.211,
+                  "mean_ms": 5.54,
+                  "max_ms": 367.87,
+                  "p95_ms": 12.837,
+                  "p99_ms": 27.228
+                }
+              },
+              "db_connect": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 7621.675,
+                  "mean_ms": 1.466,
+                  "max_ms": 126.442,
+                  "p95_ms": 2.509,
+                  "p99_ms": 10.998
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 7621.675,
+                  "mean_ms": 1.466,
+                  "max_ms": 126.442,
+                  "p95_ms": 2.509,
+                  "p99_ms": 10.998
+                }
+              },
+              "pragma": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 491.336,
+                  "mean_ms": 0.094,
+                  "max_ms": 4.53,
+                  "p95_ms": 0.247,
+                  "p99_ms": 0.84
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 491.336,
+                  "mean_ms": 0.094,
+                  "max_ms": 4.53,
+                  "p95_ms": 0.247,
+                  "p99_ms": 0.84
+                }
+              },
+              "begin": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 677.055,
+                  "mean_ms": 0.13,
+                  "max_ms": 14.239,
+                  "p95_ms": 0.558,
+                  "p99_ms": 0.843
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 677.055,
+                  "mean_ms": 0.13,
+                  "max_ms": 14.239,
+                  "p95_ms": 0.558,
+                  "p99_ms": 0.843
+                }
+              },
+              "write_sql": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1107.49,
+                  "mean_ms": 0.213,
+                  "max_ms": 2.397,
+                  "p95_ms": 0.583,
+                  "p99_ms": 1.079
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 1107.49,
+                  "mean_ms": 0.213,
+                  "max_ms": 2.397,
+                  "p95_ms": 0.583,
+                  "p99_ms": 1.079
+                }
+              },
+              "commit": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 52829.074,
+                  "mean_ms": 10.159,
+                  "max_ms": 367.018,
+                  "p95_ms": 22.931,
+                  "p99_ms": 72.794
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 52829.074,
+                  "mean_ms": 10.159,
+                  "max_ms": 367.018,
+                  "p95_ms": 22.931,
+                  "p99_ms": 72.794
+                }
+              },
+              "rollback": {
+                "exclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              },
+              "db_read": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 24798.902,
+                  "mean_ms": 5.166,
+                  "max_ms": 367.931,
+                  "p95_ms": 12.843,
+                  "p99_ms": 27.217
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 24798.902,
+                  "mean_ms": 5.166,
+                  "max_ms": 367.931,
+                  "p95_ms": 12.843,
+                  "p99_ms": 27.217
+                }
+              },
+              "snapshot": {
+                "exclusive": {
+                  "n": 4800,
+                  "total_ms": 348.255,
+                  "mean_ms": 0.073,
+                  "max_ms": 1.23,
+                  "p95_ms": 0.089,
+                  "p99_ms": 0.105
+                },
+                "inclusive": {
+                  "n": 4800,
+                  "total_ms": 3163.964,
+                  "mean_ms": 0.659,
+                  "max_ms": 6.476,
+                  "p95_ms": 1.687,
+                  "p99_ms": 3.076
+                }
+              },
+              "close": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 17578.38,
+                  "mean_ms": 3.38,
+                  "max_ms": 348.154,
+                  "p95_ms": 9.248,
+                  "p99_ms": 26.198
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 17578.38,
+                  "mean_ms": 3.38,
+                  "max_ms": 348.154,
+                  "p95_ms": 9.248,
+                  "p99_ms": 26.198
+                }
+              },
+              "lock_release": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 58.191,
+                  "mean_ms": 0.011,
+                  "max_ms": 0.146,
+                  "p95_ms": 0.013,
+                  "p99_ms": 0.017
+                },
+                "inclusive": {
+                  "n": 5200,
+                  "total_ms": 58.191,
+                  "mean_ms": 0.011,
+                  "max_ms": 0.146,
+                  "p95_ms": 0.013,
+                  "p99_ms": 0.017
+                }
+              },
+              "other": {
+                "exclusive": {
+                  "n": 5200,
+                  "total_ms": 1731.629,
+                  "mean_ms": 0.333,
+                  "max_ms": 1.675,
+                  "p95_ms": 0.401,
+                  "p99_ms": 0.459
+                },
+                "inclusive": {
+                  "n": 0,
+                  "total_ms": 0,
+                  "mean_ms": null,
+                  "max_ms": null,
+                  "p95_ms": null,
+                  "p99_ms": null
+                }
+              }
+            },
+            "slow_posts": [
+              {
+                "status": 200,
+                "total_ms": 1156.602,
+                "hold_ms": 212.613,
+                "exclusive_ms": {
+                  "validation": 0.172,
+                  "db_connect": 0.205,
+                  "pragma": 0.013,
+                  "db_read": 10.098,
+                  "lock_wait": 926.86,
+                  "begin": 0.053,
+                  "write_sql": 0.045,
+                  "commit": 212.0,
+                  "lock_release": 0.014,
+                  "snapshot": 0.101,
+                  "close": 6.591,
+                  "other": 0.449
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1155.38,
+                "hold_ms": 7.197,
+                "exclusive_ms": {
+                  "validation": 0.164,
+                  "db_connect": 0.153,
+                  "pragma": 0.013,
+                  "db_read": 9.291,
+                  "lock_wait": 1134.486,
+                  "begin": 0.047,
+                  "write_sql": 0.215,
+                  "commit": 6.578,
+                  "lock_release": 0.011,
+                  "snapshot": 0.073,
+                  "close": 4.035,
+                  "other": 0.315
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1154.976,
+                "hold_ms": 8.696,
+                "exclusive_ms": {
+                  "validation": 0.172,
+                  "db_connect": 0.155,
+                  "pragma": 0.012,
+                  "db_read": 8.992,
+                  "lock_wait": 1132.438,
+                  "begin": 0.055,
+                  "write_sql": 0.042,
+                  "commit": 8.207,
+                  "lock_release": 0.011,
+                  "snapshot": 0.07,
+                  "close": 4.512,
+                  "other": 0.309
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1150.801,
+                "hold_ms": 6.879,
+                "exclusive_ms": {
+                  "validation": 0.292,
+                  "db_connect": 0.172,
+                  "pragma": 0.051,
+                  "db_read": 367.931,
+                  "lock_wait": 775.259,
+                  "begin": 0.024,
+                  "write_sql": 0.199,
+                  "commit": 6.356,
+                  "lock_release": 0.011,
+                  "snapshot": 0.062,
+                  "close": 0.099,
+                  "other": 0.344
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1150.781,
+                "hold_ms": 7.235,
+                "exclusive_ms": {
+                  "validation": 0.219,
+                  "db_connect": 1.752,
+                  "pragma": 0.045,
+                  "db_read": 1.636,
+                  "lock_wait": 1135.464,
+                  "begin": 0.051,
+                  "write_sql": 0.23,
+                  "commit": 6.677,
+                  "lock_release": 0.011,
+                  "snapshot": 0.069,
+                  "close": 4.298,
+                  "other": 0.329
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1149.219,
+                "hold_ms": 9.377,
+                "exclusive_ms": {
+                  "validation": 0.237,
+                  "db_connect": 0.158,
+                  "pragma": 0.014,
+                  "db_read": 4.929,
+                  "lock_wait": 1134.278,
+                  "begin": 0.209,
+                  "write_sql": 0.112,
+                  "commit": 8.764,
+                  "lock_release": 0.012,
+                  "snapshot": 0.068,
+                  "close": 0.107,
+                  "other": 0.333
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 943.117,
+                "hold_ms": 23.117,
+                "exclusive_ms": {
+                  "validation": 0.197,
+                  "db_connect": 0.172,
+                  "pragma": 0.156,
+                  "db_read": 5.706,
+                  "lock_wait": 913.566,
+                  "begin": 0.014,
+                  "write_sql": 0.227,
+                  "commit": 22.436,
+                  "lock_release": 0.011,
+                  "snapshot": 0.072,
+                  "close": 0.246,
+                  "other": 0.315
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 942.856,
+                "hold_ms": 350.705,
+                "exclusive_ms": {
+                  "validation": 0.177,
+                  "db_connect": 1.773,
+                  "pragma": 0.214,
+                  "db_read": 1.588,
+                  "lock_wait": 567.799,
+                  "begin": 0.051,
+                  "write_sql": 0.051,
+                  "commit": 350.385,
+                  "lock_release": 0.013,
+                  "snapshot": 0.077,
+                  "close": 20.391,
+                  "other": 0.336
+                }
+              }
+            ],
+            "slow_holds": [
+              {
+                "status": 200,
+                "total_ms": 585.296,
+                "hold_ms": 368.029,
+                "exclusive_ms": {
+                  "validation": 0.184,
+                  "db_connect": 0.177,
+                  "pragma": 0.014,
+                  "db_read": 5.236,
+                  "lock_wait": 211.356,
+                  "begin": 0.069,
+                  "write_sql": 0.552,
+                  "commit": 367.018,
+                  "lock_release": 0.014,
+                  "snapshot": 0.096,
+                  "close": 0.141,
+                  "other": 0.438
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 942.856,
+                "hold_ms": 350.705,
+                "exclusive_ms": {
+                  "validation": 0.177,
+                  "db_connect": 1.773,
+                  "pragma": 0.214,
+                  "db_read": 1.588,
+                  "lock_wait": 567.799,
+                  "begin": 0.051,
+                  "write_sql": 0.051,
+                  "commit": 350.385,
+                  "lock_release": 0.013,
+                  "snapshot": 0.077,
+                  "close": 20.391,
+                  "other": 0.336
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 578.597,
+                "hold_ms": 328.804,
+                "exclusive_ms": {
+                  "validation": 0.19,
+                  "db_connect": 1.634,
+                  "pragma": 0.111,
+                  "db_read": 1.44,
+                  "lock_wait": 246.13,
+                  "begin": 0.068,
+                  "write_sql": 0.032,
+                  "commit": 328.111,
+                  "lock_release": 0.015,
+                  "snapshot": 0.106,
+                  "close": 0.314,
+                  "other": 0.446
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 387.171,
+                "hold_ms": 300.177,
+                "exclusive_ms": {
+                  "validation": 0.244,
+                  "db_connect": 1.721,
+                  "pragma": 0.135,
+                  "db_read": 1.961,
+                  "lock_wait": 83.334,
+                  "begin": 0.028,
+                  "write_sql": 0.199,
+                  "commit": 298.838,
+                  "lock_release": 0.009,
+                  "snapshot": 0.092,
+                  "close": 0.159,
+                  "other": 0.45
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 1156.602,
+                "hold_ms": 212.613,
+                "exclusive_ms": {
+                  "validation": 0.172,
+                  "db_connect": 0.205,
+                  "pragma": 0.013,
+                  "db_read": 10.098,
+                  "lock_wait": 926.86,
+                  "begin": 0.053,
+                  "write_sql": 0.045,
+                  "commit": 212.0,
+                  "lock_release": 0.014,
+                  "snapshot": 0.101,
+                  "close": 6.591,
+                  "other": 0.449
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 565.624,
+                "hold_ms": 206.351,
+                "exclusive_ms": {
+                  "validation": 0.192,
+                  "db_connect": 1.873,
+                  "pragma": 0.036,
+                  "db_read": 1.223,
+                  "lock_wait": 355.716,
+                  "begin": 0.16,
+                  "write_sql": 0.037,
+                  "commit": 205.681,
+                  "lock_release": 0.011,
+                  "snapshot": 0.089,
+                  "close": 0.152,
+                  "other": 0.454
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 458.298,
+                "hold_ms": 199.167,
+                "exclusive_ms": {
+                  "validation": 0.172,
+                  "db_connect": 1.952,
+                  "pragma": 0.168,
+                  "db_read": 1.764,
+                  "lock_wait": 249.052,
+                  "begin": 0.046,
+                  "write_sql": 0.229,
+                  "commit": 198.593,
+                  "lock_release": 0.013,
+                  "snapshot": 0.094,
+                  "close": 5.799,
+                  "other": 0.416
+                }
+              },
+              {
+                "status": 200,
+                "total_ms": 734.368,
+                "hold_ms": 197.396,
+                "exclusive_ms": {
+                  "validation": 0.084,
+                  "db_connect": 13.369,
+                  "pragma": 0.206,
+                  "lock_wait": 522.766,
+                  "begin": 0.727,
+                  "write_sql": 0.367,
+                  "commit": 196.205,
+                  "lock_release": 0.011,
+                  "close": 0.189,
+                  "other": 0.446
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
