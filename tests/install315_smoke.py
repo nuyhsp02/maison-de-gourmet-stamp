@@ -45,7 +45,7 @@ def main():
             db.commit()
         event = root / 'config/event.json'
         shutil.copyfile(root / 'config/event.example.json', event)
-        watched = [root / 'data/collection.sqlite', event, root / 'config/operations.json', root / 'config/installation.json']
+        watched = [root / 'data/collection.sqlite', event, root / 'config/operations.json', root / 'config/installation.json', root / '.venv/pyvenv.cfg', root / '.venv/Scripts/python.exe']
         before = [sha(p) for p in watched]
         subprocess.run(command, check=True)
         assert before == [sha(p) for p in watched]

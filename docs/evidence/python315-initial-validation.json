@@ -40,7 +40,11 @@
       "python_tests": [
         "98 passed in 115.03s (0:01:55)"
       ],
-      "js": [],
+      "js": [
+        "\u2139 tests 41",
+        "\u2139 pass 41",
+        "\u2139 fail 0"
+      ],
       "package_sha256": [
         {
           "Algorithm": "SHA256",
@@ -86,7 +90,11 @@
       "python_tests": [
         "98 passed in 110.97s (0:01:50)"
       ],
-      "js": [],
+      "js": [
+        "\u2139 tests 41",
+        "\u2139 pass 41",
+        "\u2139 fail 0"
+      ],
       "package_sha256": [
         {
           "Algorithm": "SHA256",

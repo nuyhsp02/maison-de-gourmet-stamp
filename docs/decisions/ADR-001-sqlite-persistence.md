@@ -39,3 +39,7 @@ SQLite의 WAL, 외래키, 트랜잭션, 고유 제약을 사용합니다. 운영
 ### B 운영 구현 후보 (채택 보류)
 
 [PR #3 조사 원본](https://github.com/nuyhsp02/maison-de-gourmet-stamp/pull/3)을 보존하며 main 기반 별도 구현은 [DEV-007](../devlog/DEV-007-transaction-write-scope.md)에 연결합니다. 트랜잭션 소유/조건 재검증/읽기 snapshot을 명시하되 SQLite 선택·스키마·FULL 내구성은 유지합니다. 수정 엔진의 3.12/3.13 Windows 공급을 검증하지 못했으므로 Draft 후보이며 운영 채택 결정은 하지 않습니다.
+
+### 3.15.2 후보의 런타임 조건
+
+[DEV-008](../devlog/DEV-008-python315-runtime.md)에서 실제 공식 CPython x64/GIL 배포의 SQLite 3.53.4와 공식 source ID 일치, wheel-only 기존 lock/B 회귀 성공을 확인합니다. B 후보의 런타임 차단 항목을 이 검증 범위에서 해소하되, 기존 Python 자동 교체·스키마/내구성 변경·운영 배포는 하지 않습니다. 코드 리뷰와 현장 운영 승인은 별개입니다.

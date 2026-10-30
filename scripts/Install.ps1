@@ -14,11 +14,16 @@ if (-not $PythonExe) {
     if (Get-Command py.exe -ErrorAction SilentlyContinue) {
         foreach ($version in @('-3.15','-3.13','-3.12')) {
             $previous=$ErrorActionPreference
+            $previousAuto=[Environment]::GetEnvironmentVariable('PYTHON_MANAGER_AUTOMATIC_INSTALL','Process')
             try {
+                $env:PYTHON_MANAGER_AUTOMATIC_INSTALL='false'
                 $ErrorActionPreference='Continue'
                 $probe=& py.exe $version -c 'import sys; print(sys.executable)' 2>$null
                 $probeExit=$LASTEXITCODE
-            } finally { $ErrorActionPreference=$previous }
+            } finally {
+                $ErrorActionPreference=$previous
+                if ($null -eq $previousAuto) { Remove-Item Env:PYTHON_MANAGER_AUTOMATIC_INSTALL -ErrorAction SilentlyContinue } else { $env:PYTHON_MANAGER_AUTOMATIC_INSTALL=$previousAuto }
+            }
             if ($probeExit -eq 0) { $PythonExe=($probe | Select-Object -Last 1); break }
         }
     }
