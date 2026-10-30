@@ -1,62 +1,172 @@
-# Maison de Gourmet V1.4 — Windows 운영 패키지
+# Maison de Gourmet Stamp Collection
 
-기존 V1.3 Flask + Waitress + SQLite 앱을 그대로 포함한 Windows 10 운영 준비 패키지입니다. 앱 코드 40개 파일은 원본 V1.3 ZIP과 동일합니다. UI·API·스키마·QR 키 생성 방식은 변경하지 않았습니다. 기존 실제 DB·운영 설정·인증서·토큰은 이 패키지에 포함하지 않습니다.
+[![CI](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/workflows/ci.yml/badge.svg)](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/workflows/ci.yml)
 
-**Windows 실기기 실행, 실제 도메인 공개, Cloudflare 연결은 수행하지 않았습니다.** 제공된 Windows 검증표를 통과한 후 카페 운영에 사용하세요. 설치 프로그램도 준비 상태에서는 DB나 서비스를 실행하지 않습니다.
+Maison de Gourmet의 겨울·크리스마스 시즌을 위한 **회원가입 없는 10종 상품 컬렉션 웹앱**입니다. 작은 카페가 노트북 한 대에서 운영할 수 있도록 Flask + Waitress + SQLite로 구현하고, Windows 운영·백업 절차를 함께 준비했습니다.
 
-## 시작하기
+현재 공개 소스와 Windows 운영 준비 단계입니다. **실제 카페 운영 실적·실사용 고객 수·한 달 무중단 성과는 확인되지 않았습니다.** 동시 30명·고객 데이터 400명은 설계 목표이며 실제 장비의 보장 성능이 아닙니다.
 
-1. [Windows 설치 설명서](docs/WINDOWS_INSTALL.md)를 읽고, 공식 CPython 3.13 x64 **모든 사용자용 일반 GIL 빌드**를 설치합니다. Python 3.12 x64도 설치 스크립트에서 허용합니다.
-2. ZIP 속성에서 출처 차단 여부를 확인하고, 내용을 검토한 뒤 차단 해제하고 압축을 풉니다. `Install.cmd`를 더블클릭하고 관리자 권한을 승인합니다. 기본 경로 `C:\MaisonCafe`에 설치됩니다. 도메인과 이벤트가 미정이면 입력을 비워 준비 설치만 진행합니다.
-3. 확정 `config\event.json`과 `config\operations.json`을 준비한 뒤 설치를 다시 실행합니다. 기존 설정과 DB는 덮어쓰지 않습니다. 기존 고객 DB를 옮길 때는 **새 빈 DB 생성 전에** 설명서의 가져오기 절차를 진행합니다.
-4. [Cloudflare 안내](docs/CLOUDFLARE.md)에 따라 운영자가 고정 도메인과 터널 토큰을 설정합니다. 이 작업은 외부 공개 단계이므로 준비 설치에 포함되지 않습니다.
-5. [Windows 인수 검증표](docs/WINDOWS_ACCEPTANCE.md)를 점검합니다. 직원은 설치된 폴더의 `Manage.cmd`로 상태·재시작·백업을 관리합니다.
+[Windows 설치 안내](docs/WINDOWS_INSTALL.md) · [직원 매뉴얼](docs/STAFF_GUIDE.md) · [Git 사용 안내](docs/GIT_GUIDE.md) · [릴리스와 Windows 업데이트](docs/GITHUB_RELEASES.md) · [검증 결과](TEST_REPORT.md)
 
-## 설치 후 디렉터리
+## 카페에서 필요한 흐름
+
+- 시즌 음료 4종 + 지정 상품 6종을 **순서 없이 상품별 1회** 수집합니다.
+- 고객은 휴대폰 기본 카메라로 상품 QR을 열고, 첫 방문에만 새 카드를 만듭니다.
+- 같은 브라우저는 쿠키로 다시 인식합니다. 재방문 자동 적립은 안전 조건이 맞을 때만 POST로 처리하며, 조건이 부족하면 버튼을 제공합니다.
+- 2~3종 동시 구매 시 웹 안에서 QR을 연속 스캔합니다. 카메라 권한을 거부하면 기본 카메라로 하나씩 여는 대안이 있습니다.
+- 10종을 모으면 보상 지급 대기 상태가 됩니다. 직원이 실물 보상을 건넨 뒤 고객 화면에서 버튼 한 번으로 완료합니다. 직원 인증이 없어 고객도 누를 수 있다는 운영상 위험을 화면에 안내합니다.
+- 완료 후 초기화하지 않고 이벤트가 끝나도 기록을 남깁니다.
+
+UI는 민트 `#C8D7C3`, 레드 `#B61219`, 크리스마스트리 **1·2·3·4** 오너먼트 배치입니다. 사진 기반 라인드로잉과 실제 QR 보드 제작은 후속 범위입니다. [디자인 설명](app/DESIGN_NOTES.md)
+
+## 시스템 구조
+
+```mermaid
+flowchart LR
+    Customer[고객 휴대폰<br/>Safari / Chrome] -->|고정 QR · HTTPS| CF[Cloudflare Tunnel]
+    CF -->|외부로 연결된 터널| Service[Windows Cloudflared 서비스]
+    Service -->|HTTP · 127.0.0.1| Waitress[Waitress + Flask]
+    Waitress --> DB[(SQLite · data 폴더)]
+    Task[Windows 작업 스케줄러<br/>SYSTEM · 부팅 실행] --> Supervisor[서버 감독 프로세스]
+    Supervisor --> Waitress
+    Task --> Backup[SQLite 백업 API]
+    DB --> Backup
+    Backup --> Daily[일일 14일 · 주간 4주<br/>별도 외부 경로 선택]
+```
+
+운영 코드는 `app/`, 실제 설정은 `config/`, 고객 기록은 `data/`로 분리합니다. 서버는 loopback에만 바인딩하고 외부 접속은 고정 도메인의 HTTPS 터널을 사용합니다. 포트 포워딩과 별도 클라우드 DB를 추가하지 않았습니다. GitHub는 **소스·테스트·릴리스 관리**에 사용하며 고객 DB나 실제 운영 노트북에 접속하지 않습니다.
+
+## 기술과 선택 이유
+
+| 구성 | 선택 이유 |
+|---|---|
+| Flask | 적립·복구·보상 API와 정적 모바일 화면을 작은 코드베이스에서 관리 |
+| Waitress | Windows에서 사용할 수 있는 Python WSGI 서버. 개발용 디버그 서버와 분리 |
+| SQLite / WAL | 단일 노트북의 파일 DB, 외래키·트랜잭션·고유 제약과 백업 API 사용 |
+| Vanilla JavaScript / CSS | 별도 프런트 빌드 서버 없이 모바일 화면과 카메라 흐름 구현 |
+| BarcodeDetector + 로컬 jsQR | 브라우저 지원 차이를 보완하고 외부 CDN 없이 QR 판독 |
+| PowerShell / 작업 스케줄러 | Windows 기본 기능으로 설치·무인 시작·재시도·운영 관리 |
+| Cloudflare Tunnel | 고정 HTTPS 주소와 서로 다른 고객 네트워크 접속을 준비 |
+| pytest / Node test runner / GitHub Actions | API·DB·QR 기하·화면 상태 회귀를 자동 검사 |
+
+운영 의존성은 [requirements-windows.lock](requirements-windows.lock)에 고정했습니다. Python 3.12/3.13 x64 일반 CPython을 대상으로 합니다. 새 프레임워크나 관리자 웹 대시보드는 도입하지 않았습니다.
+
+## 익명 식별과 개인 복구
+
+1. 새 카드 버튼의 POST가 고객과 세션을 만듭니다. QR GET·HEAD·미리보기 요청은 고객 생성이나 적립을 하지 않습니다.
+2. 추측하기 어려운 세션 토큰을 HTTPS 환경의 `__Host-` 쿠키에 넣습니다. `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`를 사용하고 DB에는 토큰 원문 대신 SHA-256 해시를 저장합니다.
+3. 선택적 개인 복구 링크는 `/recover#토큰` 형식입니다. fragment는 일반 HTTP URL 요청에 포함되지 않으며, 고객이 복구를 실행할 때 POST 본문으로 검증합니다. DB에는 복구 토큰 해시와 만료 시각을 저장하고 재발급하면 이전 링크를 무효화합니다.
+4. Host·Origin·JSON 요청·클라이언트 헤더·세션 CSRF를 검사합니다. 개인 복구 링크 자체는 소유한 사람이 기록을 복구할 수 있는 비밀이므로 공개하면 안 됩니다.
+
+기본 카메라가 여는 브라우저와 카카오톡 등 인앱 브라우저의 저장 공간은 다를 수 있습니다. 같은 휴대폰이라도 다른 브라우저가 자동으로 같은 고객이 되는 방식은 아닙니다. 도메인이 달라지면 기존 쿠키도 자동 이전되지 않습니다.
+
+## SQLite 구조와 중복 방지
+
+```mermaid
+erDiagram
+    customers ||--o{ sessions : identifies
+    customers ||--o{ stamps : collects
+    products ||--o{ stamps : corresponds
+    customers ||--o| recovery : restores
+    customers ||--o| reward_audit : redeems
+    customers {
+        TEXT id PK
+        INTEGER created_at
+        INTEGER redeemed_at
+    }
+    products {
+        TEXT id PK
+        TEXT qr_key UK
+    }
+    sessions {
+        TEXT token_hash PK
+        TEXT customer_id FK
+        TEXT csrf
+        INTEGER expires_at
+    }
+    stamps {
+        TEXT customer_id PK,FK
+        TEXT product_id PK,FK
+        INTEGER collected_at
+    }
+    recovery {
+        TEXT customer_id PK,FK
+        TEXT token_hash UK
+        INTEGER expires_at
+    }
+    reward_audit {
+        TEXT customer_id PK,FK
+        INTEGER redeemed_at
+        TEXT method
+    }
+```
+
+`metadata`에는 기존 이벤트 ID·상품 ID 조합을 기록해 다른 이벤트 설정으로 기존 DB를 잘못 여는 것을 막습니다. 전체 정의는 [schema.sql](app/schema.sql)입니다.
+
+- `stamps`의 복합 기본키 `(customer_id, product_id)`와 `INSERT OR IGNORE`로 동일 상품 중복 적립을 막습니다. 프런트의 중복 방지만 신뢰하지 않습니다.
+- `BEGIN IMMEDIATE` 트랜잭션으로 적립·지급의 동시 요청을 처리합니다. `reward_audit.customer_id`도 기본키이며 이미 지급한 고객은 반복 요청에 기존 상태를 돌려줍니다.
+- 상품별 QR 키는 새 DB 초기화 시 생성해 DB에 보존합니다. 공개 상품 ID(`season-01` 등)는 실제 적립 QR 키가 아닙니다. **운영 QR·고객 DB·개인 복구 링크는 저장소에 포함하지 않습니다.** 테스트 QR은 localhost와 반복 문자로 만든 더미입니다.
+
+## QR 연속 스캔
+
+[collection-core.js](app/static/collection-core.js)가 화면 중앙 판독 영역을 실제 영상 좌표로 환산합니다. `object-fit: cover/contain`, 영상 크기와 보이는 영역을 고려하고, 같은 잘라낸 canvas를 BarcodeDetector와 jsQR에 전달합니다.
+
+영역 밖·경계에 걸친 QR·중심을 포함하지 않는 QR은 거부합니다. 여러 QR이 보이면 임의로 첫 결과를 적립하지 않습니다. jsQR은 첫 결과 영역을 가린 뒤 다시 판독해 복수 QR 여부를 확인합니다. 연속 프레임 확인·처리 중 잠금·이미 처리한 QR 집합으로 중복 POST도 줄입니다.
+
+좌표와 흐름 자동 테스트는 실제 카메라 검증을 대신하지 않습니다. iPhone/Galaxy의 회전·해상도·권한·인앱 브라우저는 [실기기 검증표](docs/WINDOWS_ACCEPTANCE.md)에서 확인해야 합니다.
+
+## Windows 운영과 복구
 
 ```text
 C:\MaisonCafe\
-  app\          V1.3 앱 소스 (이 안의 event.json은 배포 예제, 운영 시 미사용)
-  config\       실제 event.json, operations.json, 설치/점검 상태, 터널 토큰
-  data\         collection.sqlite, 잠금 파일, 별도 복구 검증 DB
-  backups\      daily\, weekly\, latest.json, code\, pre-restore\
-  logs\         서버/오류/감독 프로세스/백업 기록
-  scripts\      설치·시작·중지·재시작·백업·복원·업데이트
-  .venv\        전용 Python 환경
-  bin\          운영자가 별도 제공한 cloudflared.exe (터널 설정 시 생성)
-  Manage.cmd    직원용 관리 메뉴
+  app\       코드
+  config\    실제 event.json / operations.json / 터널 토큰
+  data\      실제 고객 SQLite
+  backups\   검증된 일일·주간·복원 전 백업
+  logs\      서버/오류/백업 기록
+  scripts\   설치·감독·운영 스크립트
+  .venv\     전용 Python
 ```
 
-## 제공 파일
+부팅 시 SYSTEM 예약 작업이 Waitress를 시작합니다. 감독 프로세스가 종료된 서버를 재시도하고, 작업 스케줄러가 감독 프로세스 오류를 재시도하도록 구성했습니다. 중복 작업·이름 있는 뮤텍스·파일 잠금을 함께 사용합니다. 터널은 별도 Windows 서비스입니다.
 
-| 목적 | 파일 |
-|---|---|
-| 간편 설치 / 직원 메뉴 | `Install.cmd`, `Manage.cmd` |
-| 설치 / 검증 | `scripts/Install.ps1`, `scripts/ops.py` |
-| 상태 / 시작 / 중지 / 재시작 / 오류 | `scripts/Control-Server.ps1` |
-| 로그인 없는 부팅 실행 / 해제 | `scripts/Register-Autostart.ps1`, `scripts/Unregister-Autostart.ps1` |
-| 장애 재시작 감독 | `scripts/Run-Server.ps1` |
-| 수동·예약 백업 / 가져오기 / 복구 | `scripts/Backup.ps1`, `scripts/Import-Database.ps1`, `scripts/Restore.ps1` |
-| 터널 Windows 서비스 등록 / 해제 | `scripts/Setup-Tunnel.ps1`, `scripts/Remove-Tunnel.ps1` |
-| 앱만 안전하게 업데이트 | `scripts/Update.ps1` |
-| 기존 설계·실제 명령 분석 | [SOURCE_ANALYSIS.md](docs/SOURCE_ANALYSIS.md) |
-| 직원용 짧은 매뉴얼 | [STAFF_GUIDE.md](docs/STAFF_GUIDE.md) |
-| 변경사항 / 테스트 결과 | [CHANGELOG.md](CHANGELOG.md), [TEST_REPORT.md](TEST_REPORT.md) |
+백업은 실행 중 DB 단순 복사가 아닌 **SQLite 백업 API**를 사용합니다. 새 백업 무결성 검사 후 일일 14일·주간 4주 보존 정책을 적용하고 외부 경로 실패를 기록합니다. 복원은 별도 후보 DB 검증부터 시작하며, 실제 활성화는 현재 DB 보존과 명시적 확인 후 진행합니다. [운영 안내](OPERATIONS.md) · [백업/복원](docs/BACKUP_RECOVERY.md)
 
-## 보존·복구 정책
+운영 설치에는 GitHub 자동 생성 Source code ZIP 대신 **Release에 첨부된 Windows ZIP + SHA256 파일**을 사용합니다. 첨부 ZIP에는 설치 검증용 manifest가 들어갑니다. Git clone은 개발용입니다. [검증된 릴리스 반영·롤백](docs/GITHUB_RELEASES.md)
 
-- 앱과 고객 DB·실제 이벤트 설정을 분리합니다. 설치 반복 시 기존 DB를 읽기 전용으로 검증하며 초기화하지 않습니다. 다른 이벤트 ID/상품 ID 조합이면 실행을 거부합니다.
-- 서버는 `127.0.0.1`에만 바인딩합니다. 외부 고객 접속은 고정 HTTPS 도메인의 Cloudflare Tunnel을 사용합니다. 공유기 포트 개방은 필요하지 않습니다.
-- 서버 작업은 SYSTEM 계정으로 부팅 시 실행됩니다. Waitress 종료 후 감독 프로세스가 10초 후 재시도하고, 감독 프로세스 오류는 작업 스케줄러가 1분 후 재시도합니다. 작업 중복 제한·이름 있는 뮤텍스·DB 운영 파일 잠금으로 중복을 막습니다.
-- 매일 03:00(Windows 현지 시간) SQLite 백업 API로 검증된 새 백업을 만듭니다. 일일 14일, 이번 ISO 주 포함 주간 4주를 보존합니다. 외부 백업 실패 시 로컬 백업은 유지하고 실패를 기록합니다. 실패한 회차에는 로컬 오래된 백업도 삭제하지 않습니다.
-- 복원은 별도 `data\recovery-check` DB에서 먼저 검증합니다. 실제 활성화는 운영자의 명시적 `RESTORE` 확인, 서버 중지, 현재 DB 안전 백업·원본 분리 후 가능합니다. 자동으로 현재 DB를 덮어쓰지 않습니다.
-- 설치 경로와 별도 외부 `MaisonCafe` 백업 폴더는 관리자·SYSTEM 전용 ACL을 적용합니다. 일반 직원도 관리 메뉴 실행 시 관리자 승인이 필요합니다. 관리자 권한이 있는 사용자의 읽기/변경까지 차단하는 방식은 아닙니다.
-- 고객 식별 쿠키/복구 링크/10개 수집/지급 완료 1회 정책은 원래 앱을 그대로 사용합니다. 도메인이 바뀌면 쿠키는 자동 이전되지 않습니다. 재발급 복구 링크가 아닌 **기존 DB의 복구 토큰**은 보존되며 링크의 호스트 변경 안내가 필요할 수 있습니다.
+## 로컬 개발과 테스트
 
-## 운영 전 결정할 사항
+macOS/Linux 예시입니다. 테스트는 임시 DB를 사용하며 실제 운영 설정은 복사하지 않습니다.
 
-고정 도메인, 실제 상품명/보상/기간, 실제 이벤트 파일, 기존 고객 DB 이관 여부, 외부 백업 위치, 운영 책임자 및 관리자 계정이 필요합니다. 인증정보는 생성하거나 채워 넣지 않았습니다. 운영 DB는 OneDrive/동기화 폴더·네트워크 공유·USB에 두지 않습니다.
+```bash
+python3.13 -m venv .test-venv
+.test-venv/bin/python -m pip install -r requirements-test.lock
+MAISON_HTTP_TESTS=1 .test-venv/bin/python -m pytest -q app/tests tests
+node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs
+```
 
-Windows 10 일반 지원은 2025-10-14에 종료되었습니다. 해당 노트북의 보안 업데이트 제공 상태(해당 에디션·연장 지원 자격 포함)를 운영자가 확인해야 합니다. 설치 대상은 Windows 10 22H2 x64(빌드 19045+)이며 이 스크립트가 운영체제 지원을 연장하지는 않습니다. [Microsoft 안내](https://support.microsoft.com/en-us/windows/deployment/updates-lifecycle/windows-10-support-has-ended-on-october-14-2025)
+디자인/기본 흐름을 localhost에서 살펴볼 때만 다음을 사용합니다. 운영 DB와 구별되는 경로이며 실제 휴대폰 HTTPS 검증 환경은 아닙니다.
 
-원래 앱의 상세 개발/모바일 검증 안내는 `app/README.md`, V1.3 UI 자료는 `app/` 안 문서를 참고하세요. `app/TEST_REPORT.md`는 과거 버전 보고서이며 이번 결과는 루트 `TEST_REPORT.md`입니다.
+```bash
+.test-venv/bin/python app/manage.py --database work/dev/collection.sqlite serve --dev --port 8765
+```
+
+Windows 개발 명령과 PowerShell 검사는 [Git 사용 안내](docs/GIT_GUIDE.md)에 있습니다. 카페 직원은 개발 명령 대신 설치된 `Manage.cmd`를 사용합니다.
+
+## 검증 상태와 한계
+
+V1.4 로컬 기준: Python **70개**, JavaScript **41개** 통과, PowerShell 13개 구문 및 보조 함수 3개 검사 통과. Git 도입 후 로컬 Python 검사는 기존 70개와 공개 검수·패키징 11개를 합쳐 **81개 통과**했습니다. GitHub CI 결과는 [검증 보고서](TEST_REPORT.md) 및 [Actions](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions)에서 구분합니다.
+
+CI는 Ubuntu/Windows hosted runner의 Python 3.12·3.13 테스트, 프런트 검사, Windows PowerShell 구문·보조 함수 검사, 추적 파일·도달 가능한 Git 이력 공개 검수를 수행하도록 구성했습니다. CI 성공만으로 Windows 10 실기기의 설치·로그인 전 부팅·SYSTEM 권한·터널 서비스·모바일 카메라 검증 완료를 뜻하지 않습니다. **실제 Windows 운영 서버로 자동 배포하는 작업은 없습니다.**
+
+Windows 10 보안 업데이트 제공 상태, 실제 도메인·이벤트 기간·상품명·보상, 외부 백업 매체, 노트북 전원/절전·네트워크 정책은 운영 전에 확정해야 합니다. 세부 미검증 사항은 [Windows 인수표](docs/WINDOWS_ACCEPTANCE.md)를 참고하세요.
+
+## 버전 관리와 후속 작업
+
+- `main`은 병합 검사 대상, `feature/*`·`fix/*`·`chore/*`·`docs/*`에서 작업 후 PR로 반영합니다.
+- Git 도입 시점의 실제 V1.4 소스부터 기록합니다. V1.0~V1.3의 Git 커밋·태그를 소급 생성하지 않습니다. 기존 변경 문서는 이전 산출물의 설명입니다.
+- 검증한 커밋을 `v1.4.0` 형태의 태그와 GitHub Release로 구분합니다. Windows 릴리스는 커밋된 파일만으로 만듭니다.
+- 다음 검증: 실제 Windows 10 설치/재부팅/권한/장애 복구, HTTPS 터널, iPhone Safari/Galaxy Chrome.
+- 이후 디자인: 실제 상품 사진 기반 라인드로잉 스탬프. QR 보드의 크기·덮개·배치는 별도 협의.
+
+프로젝트 자체 재사용 라이선스는 아직 정하지 않았습니다. 포함된 jsQR의 Apache-2.0 라이선스와 출처는 [THIRD_PARTY.md](app/THIRD_PARTY.md)에 보존합니다. Public 공개가 별도 재사용 허가를 의미한다고 표시하지 않습니다.
