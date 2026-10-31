@@ -1,0 +1,183 @@
+{
+  "run_id": 41082405759,
+  "attempt": 1,
+  "source_commit": "9ae84b77ee47e918b6f825fe58c6628e673bdbec",
+  "jobs": [
+    {
+      "job_id": 124154656274,
+      "name": "Official Windows x64 GIL repeat 2",
+      "conclusion": "success",
+      "runtime": [
+        {
+          "python": "3.15.2",
+          "sys_version": "3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]",
+          "implementation": "cpython",
+          "bits": 64,
+          "free_threaded": false,
+          "gil_enabled": true,
+          "sqlite": "3.53.4",
+          "sqlite_source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+          "official_fixed_version_range": true,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        },
+        {
+          "python": "3.15.2",
+          "sys_version": "3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]",
+          "implementation": "cpython",
+          "bits": 64,
+          "free_threaded": false,
+          "gil_enabled": true,
+          "sqlite": "3.53.4",
+          "sqlite_source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+          "official_fixed_version_range": true,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        },
+        {
+          "python": "3.15.2",
+          "sys_version": "3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]",
+          "implementation": "cpython",
+          "bits": 64,
+          "free_threaded": false,
+          "gil_enabled": true,
+          "sqlite": "3.53.4",
+          "sqlite_source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+          "official_fixed_version_range": true,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        }
+      ],
+      "timing": [
+        {
+          "wait": {
+            "mean_ms": 146.259,
+            "max_ms": 265.571,
+            "p95_ms": 202.4,
+            "p99_ms": 219.953
+          },
+          "hold": {
+            "mean_ms": 5.373,
+            "max_ms": 91.219,
+            "p95_ms": 8.489,
+            "p99_ms": 12.068
+          },
+          "grants": 5200
+        }
+      ],
+      "installer": [
+        {
+          "prepare": true,
+          "rerun": true,
+          "database_config_and_qr_bytes_preserved": true,
+          "automatic_runtime_replacement": false
+        }
+      ],
+      "legacy": [
+        {
+          "legacy_sqlite": "3.50.4",
+          "legacy_source_id": "2025-07-30 19:33:53 4d8adfb30e03f9cf27f800a2c1ba3c48fb4ca1b08b0f5ed59a4d5ecbf45e20a3",
+          "target_sqlite": "3.53.4",
+          "existing_cookie_recovery_stamps_and_qr_preserved": true,
+          "reward_once": true
+        }
+      ],
+      "python_tests": [
+        "98 passed in 96.77s (0:01:36)"
+      ],
+      "js": [
+        "\u2139 tests 41",
+        "\u2139 pass 41",
+        "\u2139 fail 0"
+      ]
+    },
+    {
+      "job_id": 124154656755,
+      "name": "Official Windows x64 GIL repeat 1",
+      "conclusion": "success",
+      "runtime": [
+        {
+          "python": "3.15.2",
+          "sys_version": "3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]",
+          "implementation": "cpython",
+          "bits": 64,
+          "free_threaded": false,
+          "gil_enabled": true,
+          "sqlite": "3.53.4",
+          "sqlite_source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+          "official_fixed_version_range": true,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        },
+        {
+          "python": "3.15.2",
+          "sys_version": "3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]",
+          "implementation": "cpython",
+          "bits": 64,
+          "free_threaded": false,
+          "gil_enabled": true,
+          "sqlite": "3.53.4",
+          "sqlite_source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+          "official_fixed_version_range": true,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        },
+        {
+          "python": "3.15.2",
+          "sys_version": "3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]",
+          "implementation": "cpython",
+          "bits": 64,
+          "free_threaded": false,
+          "gil_enabled": true,
+          "sqlite": "3.53.4",
+          "sqlite_source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+          "official_fixed_version_range": true,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        }
+      ],
+      "timing": [
+        {
+          "wait": {
+            "mean_ms": 268.627,
+            "max_ms": 1456.682,
+            "p95_ms": 569.76,
+            "p99_ms": 1074.894
+          },
+          "hold": {
+            "mean_ms": 9.78,
+            "max_ms": 1115.756,
+            "p95_ms": 19.008,
+            "p99_ms": 113.195
+          },
+          "grants": 5200
+        }
+      ],
+      "installer": [
+        {
+          "prepare": true,
+          "rerun": true,
+          "database_config_and_qr_bytes_preserved": true,
+          "automatic_runtime_replacement": false
+        }
+      ],
+      "legacy": [
+        {
+          "legacy_sqlite": "3.49.1",
+          "legacy_source_id": "2025-02-18 13:38:58 873d4e274b4988d260ba8354a9718324a1c26187a4ab4c1cc0227c03d0f10e70",
+          "target_sqlite": "3.53.4",
+          "existing_cookie_recovery_stamps_and_qr_preserved": true,
+          "reward_once": true
+        }
+      ],
+      "python_tests": [
+        "98 passed in 154.98s (0:02:34)"
+      ],
+      "js": [
+        "\u2139 tests 41",
+        "\u2139 pass 41",
+        "\u2139 fail 0"
+      ]
+    }
+  ]
+}

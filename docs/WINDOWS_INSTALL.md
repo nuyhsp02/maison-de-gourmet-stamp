@@ -1,13 +1,28 @@
 # Windows 설치 설명서 — 설치 담당자용
 
-아직 실제 Windows에서 검증하지 않은 패키지입니다. 카페 고객을 받기 전에 WINDOWS_ACCEPTANCE.md를 완료하세요. 이 문서의 PowerShell은 **64비트 Windows PowerShell 5.1 관리자 창**에서 실행합니다. 기본 경로 예시이며 공백 경로는 따옴표를 유지하세요. 패키지는 `C:\Maison Package\maison-cafe-v1.4`처럼 설치 폴더 밖에 풉니다.
+Python 3.15.2의 Windows CI 검증을 추가했으나 실제 카페 Windows 10 노트북의 현장 검증은 아직 하지 않았습니다. 카페 고객을 받기 전에 [WINDOWS_ACCEPTANCE.md](WINDOWS_ACCEPTANCE.md)의 격리 시험·제안 기준 확정·실기기 인수를 완료하세요. 이 문서의 PowerShell은 **64비트 Windows PowerShell 5.1 관리자 창**에서 실행합니다. 기본 경로 예시이며 공백 경로는 따옴표를 유지하세요. 패키지는 `C:\Maison Package\maison-cafe-v1.4`처럼 설치 폴더 밖에 풉니다.
 
 ## 1. 미리 준비
 
 - Windows 10 22H2 x64, 빌드 19045 이상, 보안 업데이트 제공 상태 확인. 일반 지원 종료 및 연장 지원 자격은 Microsoft 안내를 확인합니다. 관리자 계정/승인이 필요합니다.
-- 공식 CPython 3.13 x64 일반 GIL 설치본을 **Install for all users**로 설치합니다. `C:\Program Files\Python313` 또는 `C:\Python313`처럼 SYSTEM이 접근할 수 있어야 합니다. Python 3.12 x64도 허용합니다. Store/사용자 전용/Conda/시험용 free-threaded 빌드는 이번 설치 대상이 아닙니다. [Python Windows 문서](https://docs.python.org/3.13/using/windows.html)
+- 카페의 업무용 Windows 10은 [Microsoft 업무용 ESU](https://learn.microsoft.com/en-us/windows/whats-new/extended-security-updates) 적용·활성 상태와 최근 보안 업데이트 수신을 별도로 확인합니다. 개인용 무료 ESU가 카페 서버에 적용된다고 가정하지 않습니다. 구체적 증거와 운영 보류 조건은 [현장 인수 준비](WINDOWS_ACCEPTANCE.md#1-격리와-실행-전-준비)를 사용합니다. 설치기는 ESU를 등록하거나 실제 수신 상태를 자동 보증하지 않습니다.
+- 운영 후보는 **공식 CPython 3.15.2 x64 일반 GIL**입니다. Windows 10 이상 지원은 [공식 3.15 문서](https://docs.python.org/3.15/using/windows.html)에 따릅니다. 기존 3.12/3.13 앱 호환성 검사는 유지하지만 현재 관측된 SQLite 3.49.1/3.50.4는 운영 사전 검사에서 거부됩니다. Python 번호만으로 엔진 안전성을 판단하지 않습니다.
+- Python 3.15 설치 관리자의 기본 런타임은 사용자 전용입니다. SYSTEM 작업에는 관리자 소유 공유 경로의 전체 런타임이 필요합니다. 이 작업에서 직접 검증한 공급은 [공식 문서의 CPython NuGet 패키지](https://docs.python.org/3.15/using/windows.html#the-nuget-org-packages) `python` 3.15.2입니다. 사용자용 Store/Conda/free-threaded 환경이나 DLL만 섞는 방법은 사용하지 않습니다. 공유 런타임에는 SYSTEM 읽기/실행, 관리자만 쓰기 권한이 있어야 합니다.
 - 인터넷 연결(Python 패키지 설치, 이후 Cloudflare 통신), 로컬 NTFS 디스크 여유, 전원 연결. 동기화 폴더/네트워크/USB에는 **운영 DB**를 두지 않습니다. 기본 경로를 권장하며 깊은 긴 경로는 피합니다.
 - ZIP 출처와 내용을 확인합니다. Windows 파일 속성의 차단 해제를 한 뒤 압축 해제합니다. 전역 실행 정책을 Unrestricted/Bypass로 바꾸지 않습니다. 조직 정책이 스크립트를 차단하면 담당자가 서명/승인해야 합니다. 스크립트는 서명되지 않았고 SHA256 목록은 전송 손상 확인용이며 출처 인증 서명이 아닙니다.
+
+### 검증된 전체 런타임을 별도 경로에 준비
+
+개발/설치 담당자가 관리자 창에서 공식 NuGet 도구를 준비한 후, **비어 있는 새 공유 폴더**에 다음과 같이 받습니다. 기존 Python/venv 경로에 덮어쓰지 않습니다. 이는 [공식 CPython 배포](https://www.nuget.org/packages/python/3.15.2) 전체를 받는 명령이며 DLL 교체가 아닙니다.
+
+```powershell
+nuget.exe install python -Version 3.15.2 -OutputDirectory "C:\MaisonPython3152" -Source https://api.nuget.org/v3/index.json -NonInteractive
+& "C:\MaisonPython3152\python.3.15.2\tools\python.exe" "C:\Maison Package\maison-cafe-v1.4\tools\check_sqlite_runtime.py" --require-fixed
+```
+
+NuGet 도구 출처는 위 Python 공식 문서의 Microsoft 다운로드 안내를 사용합니다. 런타임은 자동 등록되지 않으므로 아래 `-PythonExe`를 명시합니다. 공식 install manager의 `--target` 공유 경로 방식도 문서에 있으나 이 CI는 NuGet 경로를 검증했습니다. 어느 공급이든 실제 엔진/source ID와 GIL/아키텍처를 재확인해야 합니다.
+
+기존 3.12/3.13 venv는 자동 변환하지 않습니다. 서버 중지·DB 백업·복원 확인 후, 담당자가 별도 시험 경로에 새 런타임/venv를 검증하는 계획을 세워야 합니다. `Install.ps1` 재실행이나 코드 업데이트가 Python 마이그레이션을 대신하지 않습니다. 기존 DB/설정/venv 삭제는 이 안내에 포함되지 않습니다.
 
 ## 2. 준비 설치 (도메인·기간 미정일 때 권장)
 
@@ -20,10 +35,10 @@
 경로/Python을 직접 지정해야 할 때:
 
 ```powershell
-& "C:\Maison Package\maison-cafe-v1.4\scripts\Install.ps1" -Root "C:\Maison Cafe" -PythonExe "C:\Program Files\Python313\python.exe" -PrepareOnly
+& "C:\Maison Package\maison-cafe-v1.4\scripts\Install.ps1" -Root "C:\Maison Cafe" -PythonExe "C:\MaisonPython3152\python.3.15.2\tools\python.exe" -PrepareOnly
 ```
 
-설치기는 OS/Python·패키지 체크섬 확인 → 전용 폴더/ACL → 가상환경 → 고정 의존성 설치·검사 순으로 진행합니다. 미확정 도메인 또는 실제 event.json 부재 시 **DB 생성·서버 실행·예약 작업 등록을 하지 않고** 준비 상태로 끝납니다. 오류 시 열린 창의 안내를 확인합니다. 기존 고객 DB나 설정을 지워서 재시도하지 마세요.
+설치기는 OS/Python·패키지 체크섬·선택한 SQLite 사전 확인 → 전용 폴더/ACL → 가상환경 → 기존 venv 버전/빌드·SQLite 확인 → wheel-only 고정 의존성 설치·검사 순으로 진행합니다. 미확정 도메인 또는 실제 event.json 부재 시 **DB 생성·서버 실행·예약 작업 등록을 하지 않고** 준비 상태로 끝납니다. 오류 시 열린 창의 안내를 확인합니다. 기존 고객 DB나 설정을 지워서 재시도하지 마세요.
 
 반복 설치는 설치 표식과 체크섬을 확인하고 기존 파일을 보존합니다. DB가 있는 설치에서는 의존성을 다시 설치하지 않고 검사만 합니다. 코드/의존성이 손상되거나 버전이 다르면 덮어쓰지 않고 중단합니다. 설치 도중 파일 복사 이전에 실패해 표식이 없는 비어 있지 않은 폴더가 남았다면, **고객 DB가 없는 새 준비 폴더임을 확인한 후** 다른 빈 폴더로 다시 설치하세요. 기존 운영 폴더를 삭제하지 마세요.
 
@@ -115,3 +130,8 @@ SQLite 백업 API로 새 DB를 만들고 무결성·외래키·이벤트 서명�
 ## 참고 근거
 
 [Microsoft 예약 작업 설정](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/new-scheduledtasksettingsset?view=windowsserver2022-ps), [SYSTEM 예약 작업 Principal](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/new-scheduledtaskprincipal?view=windowsserver2022-ps), [SQLite 백업 API](https://docs.python.org/3.13/library/sqlite3.html#sqlite3.Connection.backup).
+
+
+## Python 3.15.2 검증 범위
+
+[실제 런타임 및 반복 검증 기록](devlog/DEV-008-python315-runtime.md)을 확인하세요. Run-Server.ps1도 Waitress 실행 전 실제 venv의 SQLite 수정 범위를 검사합니다. 사전 검사가 실패하면 서버를 시작하지 않습니다. 기존 15초/SQLite 내구성 설정은 바꾸지 않습니다. 정식 새 릴리스는 아직 만들지 않았으며 v1.4.0의 다운로드 파일이 이 변경을 포함한다고 간주하지 마세요.

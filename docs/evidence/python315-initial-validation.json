@@ -1,0 +1,106 @@
+{
+  "run_id": 41078188035,
+  "attempt": 1,
+  "jobs": [
+    {
+      "job_id": 124139925759,
+      "conclusion": "success",
+      "runtime": [
+        {
+          "python": "3.15.2",
+          "sys_version": "3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]",
+          "implementation": "cpython",
+          "bits": 64,
+          "free_threaded": false,
+          "gil_enabled": true,
+          "sqlite": "3.53.4",
+          "sqlite_source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+          "official_fixed_version_range": true,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        }
+      ],
+      "timing": [
+        {
+          "wait": {
+            "mean_ms": 169.615,
+            "max_ms": 406.623,
+            "p95_ms": 250.386,
+            "p99_ms": 286.44
+          },
+          "hold": {
+            "mean_ms": 6.22,
+            "max_ms": 143.45,
+            "p95_ms": 11.024,
+            "p99_ms": 16.076
+          },
+          "grants": 5200
+        }
+      ],
+      "python_tests": [
+        "98 passed in 115.03s (0:01:55)"
+      ],
+      "js": [
+        "\u2139 tests 41",
+        "\u2139 pass 41",
+        "\u2139 fail 0"
+      ],
+      "package_sha256": [
+        {
+          "Algorithm": "SHA256",
+          "Hash": "294F5ED7AB97148FCBB57B8C06BA428F6D282C2BBAA266DBE3137284497998F0"
+        }
+      ]
+    },
+    {
+      "job_id": 124139926284,
+      "conclusion": "success",
+      "runtime": [
+        {
+          "python": "3.15.2",
+          "sys_version": "3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]",
+          "implementation": "cpython",
+          "bits": 64,
+          "free_threaded": false,
+          "gil_enabled": true,
+          "sqlite": "3.53.4",
+          "sqlite_source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+          "official_fixed_version_range": true,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        }
+      ],
+      "timing": [
+        {
+          "wait": {
+            "mean_ms": 176.933,
+            "max_ms": 330.398,
+            "p95_ms": 260.698,
+            "p99_ms": 290.066
+          },
+          "hold": {
+            "mean_ms": 6.474,
+            "max_ms": 103.721,
+            "p95_ms": 11.549,
+            "p99_ms": 22.031
+          },
+          "grants": 5200
+        }
+      ],
+      "python_tests": [
+        "98 passed in 110.97s (0:01:50)"
+      ],
+      "js": [
+        "\u2139 tests 41",
+        "\u2139 pass 41",
+        "\u2139 fail 0"
+      ],
+      "package_sha256": [
+        {
+          "Algorithm": "SHA256",
+          "Hash": "294F5ED7AB97148FCBB57B8C06BA428F6D282C2BBAA266DBE3137284497998F0"
+        }
+      ]
+    }
+  ]
+}

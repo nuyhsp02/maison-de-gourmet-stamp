@@ -1,0 +1,80 @@
+# DEV-008 · 공식 Python 3.15.2 안전 런타임 호환성
+
+기록일: 2026-10-31 (Asia/Seoul). 기존 [PR #4](https://github.com/nuyhsp02/maison-de-gourmet-stamp/pull/4)에서 한정된 런타임 호환성 작업입니다. [DEV-007](DEV-007-transaction-write-scope.md)의 B 앱/스키마/15초/내구성은 바꾸지 않았습니다. PR #3와 main, v1.4.0, 실제 고객 DB/설정은 유지합니다.
+
+## 실제 공식 배포본 확인
+
+공식 Python 문서가 안내하는 [CPython NuGet `python` 3.15.2](https://www.nuget.org/packages/python/3.15.2)를 공식 NuGet v3 source에서 버전 고정으로 받았습니다. free-threaded 별도 패키지를 쓰지 않았습니다. 각 runner의 기존 Python을 교체하지 않고 전체 배포본/venv를 격리했습니다. 패키지 SHA256은 두 다운로드 모두 `294F5ED7AB97148FCBB57B8C06BA428F6D282C2BBAA266DBE3137284497998F0`입니다. 이 기록을 별도 서명 검증 주장으로 바꾸지 않습니다.
+
+- sys.version: `3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]`
+- implementation cpython / bits 64 / free_threaded false / gil_enabled true
+- SQLite: **3.53.4**
+- sqlite_source_id(): `2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc`
+
+실제 ID가 [공식 SQLite 3.53.4 릴리스](https://sqlite.org/releaselog/3_53_4.html)의 ID와 일치합니다. [WAL-reset 수정](https://sqlite.org/wal.html#walreset)을 포함하는 버전입니다. [Python 3.15 Windows 지원](https://docs.python.org/3.15/using/windows.html#supported-windows-versions)은 Windows 10 이상이며, 본 설치기는 기존 Windows 10 22H2 x64/build 19045 조건을 유지합니다. Windows CI는 실제 카페 Windows 10 장비가 아니므로 현장 확인은 별도입니다.
+
+## 초기 변경 없는 lock 호환성
+
+[실행 41078188035 / attempt 1](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41078188035/attempts/1): Windows 두 독립 반복 모두 성공했습니다. 실제 수정 엔진 확인 뒤 기존 requirements-test.lock(운영 lock 포함)을 **--only-binary=:all:**로 설치했고 pip check 및 모든 운영 의존성 import가 성공했습니다. lock 버전 변경은 없습니다.
+
+각 반복 전체 Python 98개(실제 Waitress selftest/시작·정지·재시작, 백업·복원 포함)와 JavaScript 41개가 통과했습니다. 원본 400명·동시 30개와 동일 함수 계측 검사가 고객 400/스탬프 4000/지급 400, 중복/무결성 조건을 유지했습니다. 계측별 5200회 소유 완료입니다. [실제 엔진·source ID·패키지 해시·통계 원본](../evidence/python315-initial-validation.json).
+
+## 설치 변경과 실제로 발견한 실패
+
+통과 후에만 Install.ps1을 수정했습니다. 3.15 탐색을 우선하되 자동 설치를 억제하고 일반 GIL/x64 및 검증한 3.15.2 패치를 확인합니다. 기존 3.12/3.13은 코드 호환성 대상이나 수정 SQLite 사전 확인이 필요합니다. 현재 관측된 구 엔진은 설치 폴더 변경 전에 거절합니다. 선택한 base와 기존 venv의 실제 빌드/전체 버전을 각각 검사하고 자동 교체하지 않습니다. 의존성 wheel-only 정책은 유지합니다. Run-Server.ps1도 Waitress 실행 전에 실제 venv의 수정 엔진을 검사합니다.
+
+[설치 검증 실패 41079111501](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41079111501/attempts/1) 두 작업은 Python/의존성/회귀 검사는 통과했지만 설치에서 실패했습니다. PS5.1의 native 인자 처리로 인라인 Python 문자열 따옴표가 사라져 `struct.calcsize(P)`의 NameError가 발생했습니다. 단순 재시도로 숨기지 않고, 검사 파일을 직접 실행해 JSON을 읽도록 바꿨습니다. venv 검사도 같은 방식입니다.
+
+[수정 후 41080033522](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41080033522/attempts/1)는 두 작업 모두 성공했습니다. Windows PowerShell 5.1에서 실제 Install.ps1 -PrepareOnly, 가상환경 생성, wheel 설치와 검사, 임시 DB/상품 QR/고객 생성 후 반복 설치를 수행해 DB·설정·설치 표식의 바이트 보존을 확인했습니다. 정식 ZIP/tag/Release가 아니라 CI 임시 staging manifest만 만들었습니다. 실제 카페 경로는 사용하지 않았습니다.
+
+추가로 반복 설치 전후 venv 설정·실행 파일 해시도 비교하고, 3.15.2를 기존 필수 CI의 Ubuntu/Windows matrix에 추가합니다. 3.12/3.13 호환성 검사는 유지합니다. 최종 결과와 검토 상태는 완료 후 아래에 기록합니다.
+
+## 운영 범위
+
+[새 설치 안내](../WINDOWS_INSTALL.md)는 공유 경로의 전체 공식 배포본을 명시하고 기존 venv 자동 마이그레이션을 금지합니다. [백엔드 학습 자료](../BACKEND_LEARNING.md)와 기존 B 논리는 유지합니다. 검증된 후보의 코드 리뷰와 실제 운영 승인/정식 릴리스/배포는 구분합니다. SYSTEM 부팅 작업, 실제 노트북 ACL·전원/절전·Windows 업데이트, 도메인/Tunnel HTTPS, 실물 휴대폰은 현장 인수표에서 확인해야 합니다.
+
+
+필수 matrix 확장 직후 [41080943401](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41080943401/attempts/1)은 YAML plain scalar의 `:all:` 인용 누락으로 job 생성 전 실패했습니다. 로컬 YAML parser에서도 44행 오류를 재현하고 명령 전체를 인용해 수정했습니다. 앱/의존성 검사 실패나 성공으로 집계하지 않습니다.
+
+
+필수 CI 확장에서는 [Ubuntu 3.15.2 / 41081422115](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41081422115/attempts/1)의 실제 엔진이 시스템 SQLite 3.45.1(`2024-01-30 ...alt1`)로 수정 범위 검사에 실패했습니다. Windows NuGet/Windows setup-python의 배포와 다르며 Python 버전만으로 엔진을 판정하지 않아야 한다는 근거입니다. Ubuntu vendor 백포트는 검증하지 않았습니다. Linux 런타임 교체를 이번 작업에 추가하지 않습니다.
+
+엄격한 운영 엔진 검사는 이 프로젝트의 운영 대상인 Windows 3.15.2에서 필수로 유지합니다. Ubuntu 3.12/3.13/3.15.2는 실제 엔진을 출력하고 원본 전체 테스트를 모두 실행하는 호환성 CI로 구분합니다. Ubuntu의 데이터/부하 검사 강도나 성공 조건을 줄이지 않으며, 그 CI 성공을 Ubuntu 운영 엔진 안전성 승인으로 취급하지 않습니다.
+
+## 최종 결과와 검토 판정
+
+[최종 공식 배포 반복 41082405759 / source 9ae84b7](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41082405759/attempts/1)은 두 작업 모두 성공했습니다. [원본 비식별 근거](../evidence/python315-final-validation.json)에 각 실제 런타임, source ID, 계측, 98개 Python/41개 JS 결과, 설치/이전 DB 보존 결과를 보존합니다.
+
+| 항목 | 반복 1 | 반복 2 |
+|---|---|---|
+| 전체 Python | 98 passed, 154.98초 | 98 passed, 96.77초 |
+| JS | 41 passed / 0 failed | 41 passed / 0 failed |
+| 400/30 원본 및 계측 검사 | 완주, 400/4000/400 및 무결성·중복 조건 유지 | 동일 |
+| 계측 획득/해제 | 5200회 | 5200회 |
+| 잠금 보유 평균/p99 ms | 9.780 / 113.195 | 5.373 / 12.068 |
+| 대기 최대 ms | 1456.682 | 265.571 |
+| 실제 PS5.1 준비/반복 설치 | 성공 | 성공 |
+| DB/설정/설치 표식/venv 설정·실행 파일 바이트 | 보존 | 보존 |
+| 기존 엔진 합성 DB | 3.49.1 → 3.53.4 | 3.50.4 → 3.53.4 |
+| 기존 쿠키/복구/스탬프/QR, 지급 1회 | 성공 | 성공 |
+
+이전 엔진 fixture는 CI에서 새로 만든 합성 데이터이며 실제 고객 DB를 가져오거나 바꾸지 않았습니다. 공급·wheel·import·서버 실행·백업·복원·재시작 검사를 완료했고 lock 파일은 그대로입니다. 15초/SQLite 내구성/B 앱/스키마/원본 부하 검사도 변경하지 않았습니다. 최종 공식 반복 workflow에는 시간 제한 취소가 없습니다. 다른 커밋으로 대체된 CI 취소나 위에 기록한 실패를 성공으로 세지 않습니다.
+
+[필수 CI 41082413934](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41082413934/attempts/1)도 Ubuntu/Windows × 3.12/3.13/3.15.2, 프런트, PS parser/helper, 공개 검사에서 성공했습니다. Windows 3.15.2는 수정 엔진 검사도 필수입니다. Ubuntu는 앱 호환성 검증이며 운영 SQLite 안전성은 승인하지 않습니다.
+
+런타임 판정: **공식 Windows 3.15.2 x64/GIL 및 SQLite 3.53.4의 엔진 조건은 해소했습니다. PR 상태는 아래 최종 중복 CI 재발 기록에 따라 Draft로 유지합니다.** 기존 3.12/3.13 엔진으로 운영하던 차단 항목을 자동 마이그레이션으로 우회하지 않습니다. 새로운 공식 3.15.2 전체 런타임을 공유 경로에 별도 준비하고 실제 source ID/venv 검사를 통과해야 합니다. PR #4 병합은 리뷰/필수 CI를 전제로 하며 이번 작업에서 병합하지 않습니다. 검토 가능은 현장 운영 승인이나 배포 완료가 아닙니다.
+
+실제 카페 Windows 10 부팅/SYSTEM 자동 실행, 공유 런타임·데이터 ACL, 전원/절전·장애 복구, 도메인/Tunnel/HTTPS 및 아이폰·갤럭시는 아직 현장 인수 대상입니다. PR #3·main·v1.4.0 Release·운영 DB/설정을 유지하며 새 정식 릴리스/실배포는 하지 않았습니다. 이 결과를 추가한 최종 문서 커밋의 CI는 위 코드 검증과 별도로 표시합니다.
+
+
+## 최종 중복 CI에서 재발: Draft 유지가 최종 판정
+
+같은 최종 문서 커밋 5501539의 [PR CI 41083555315](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41083555315/attempts/1)는 모든 필수 검사를 통과했지만, [push CI 41083540047 / Windows 3.15.2 job 124158634903](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/runs/41083540047/job/124158634903)은 **1 failed / 97 passed, 392.71초**입니다. 시간 제한 취소가 아닙니다.
+
+실패는 원본 `test_400_visitors_30_concurrent`의 503 storage_unavailable입니다. 실제 엔진/source ID는 앞선 수정 엔진과 동일합니다. 캡처된 admission timeout 경고 7건, SQLite OperationalError 로그 0건입니다. [비식별 실패 근거](../evidence/python315-retained-load-failure.json)를 보존합니다. 이 실패에서 원본 함수의 마지막 고객 400/스탬프 4000/지급 400 및 integrity assertions에 도달하지 못했으므로 해당 DB 정합성까지 검증 완료로 주장하지 않습니다.
+
+판정을 구분합니다: 공식 Windows 런타임/WAL-reset 수정/기존 wheel-only lock/import/초기·별도 반복·실제 준비 설치 및 이전 엔진 데이터 호환은 확인했습니다. 그러나 수정 엔진에서도 B 원본 부하의 간헐 15초 admission 실패가 남았습니다. WAL-reset 수정은 이 대기 실패까지 해결한다는 증거가 아닙니다. 구체적인 OS/I/O/스케줄링 원인은 이번 한정 호환성 검증에서 확정하지 않았습니다.
+
+**최종 PR #4 상태는 Draft·미병합, 병합/운영 승인 보류입니다.** 앞선 성공 결과나 현재 필수 PR CI 성공만으로 해제하지 않습니다. 재시도로 실패를 숨기거나 15초/내구성을 완화하지 않습니다. 앱 아키텍처 재설계나 새로운 대규모 원인 조사는 이번 작업에서 추가하지 않습니다. 문서 추가에 따라 CI가 자동으로 재실행돼도 위 동일 코드 실패는 보존하고 해결됐다고 간주하지 않습니다. main·PR #3·v1.4.0·실제 DB/설정·카페 배포는 변경하지 않았습니다.
+
+후속 한정 조사와 운영 변경 보류 판단은 [DEV-009](DEV-009-b-admission-bounded-investigation.md)에 연결합니다. 이 문서의 기존 실패/런타임 근거는 소급 변경하지 않습니다.

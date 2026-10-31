@@ -12,26 +12,36 @@ $drive=Get-Volume -DriveLetter ([IO.Path]::GetPathRoot($Root).Substring(0,1))
 if ($drive.FileSystem -ne 'NTFS') { throw '설치 드라이브는 NTFS여야 합니다. USB FAT/exFAT에는 설치하지 마세요.' }
 if (-not $PythonExe) {
     if (Get-Command py.exe -ErrorAction SilentlyContinue) {
-        foreach ($version in @('-3.13','-3.12')) {
+        foreach ($version in @('-3.15','-3.13','-3.12')) {
             $previous=$ErrorActionPreference
+            $previousAuto=[Environment]::GetEnvironmentVariable('PYTHON_MANAGER_AUTOMATIC_INSTALL','Process')
             try {
+                $env:PYTHON_MANAGER_AUTOMATIC_INSTALL='false'
                 $ErrorActionPreference='Continue'
                 $probe=& py.exe $version -c 'import sys; print(sys.executable)' 2>$null
                 $probeExit=$LASTEXITCODE
-            } finally { $ErrorActionPreference=$previous }
+            } finally {
+                $ErrorActionPreference=$previous
+                if ($null -eq $previousAuto) { Remove-Item Env:PYTHON_MANAGER_AUTOMATIC_INSTALL -ErrorAction SilentlyContinue } else { $env:PYTHON_MANAGER_AUTOMATIC_INSTALL=$previousAuto }
+            }
             if ($probeExit -eq 0) { $PythonExe=($probe | Select-Object -Last 1); break }
         }
     }
 }
-if (-not $PythonExe -or -not (Test-Path -LiteralPath $PythonExe)) { throw '공식 64비트 CPython 3.13을 모든 사용자용으로 설치하세요. 필요하면 -PythonExe 전체경로를 지정하세요.' }
+if (-not $PythonExe -or -not (Test-Path -LiteralPath $PythonExe)) { throw '공식 CPython 3.15.2 x64 일반 GIL 런타임을 SYSTEM 접근 가능한 공유 경로에 준비하세요. 필요하면 -PythonExe 전체경로를 지정하세요.' }
 $PythonExe=[IO.Path]::GetFullPath($PythonExe)
 if ($PythonExe -match '(?i)\\Users\\|WindowsApps|Anaconda|Miniconda') { throw 'SYSTEM 자동 실행을 위해 사용자 전용/Store/Conda Python 대신 모든 사용자용 CPython을 사용하세요.' }
-$probe=& $PythonExe -c 'import sys,struct,json,sysconfig; print(json.dumps([sys.implementation.name,sys.version_info.major,sys.version_info.minor,struct.calcsize("P")*8,bool(sysconfig.get_config_var("Py_GIL_DISABLED"))]))'
+# File invocation avoids Windows PowerShell 5.1 native argument quote stripping.
+$probe=& $PythonExe (Join-Path $package 'tools\check_sqlite_runtime.py')
 if ($LASTEXITCODE -ne 0) { throw 'Python 실행 실패' }
 $info=$probe | ConvertFrom-Json
-if ($info[0] -ne 'cpython' -or $info[1] -ne 3 -or $info[2] -notin @(12,13) -or $info[3] -ne 64 -or $info[4]) { throw '지원 범위는 일반 GIL 빌드 CPython 3.12/3.13 x64입니다.' }
+$pythonVersion=[version]$info.python
+if ($info.implementation -ne 'cpython' -or $pythonVersion.Major -ne 3 -or $pythonVersion.Minor -notin @(12,13,15) -or $info.bits -ne 64 -or $info.free_threaded -or -not $info.gil_enabled -or ($pythonVersion.Minor -eq 15 -and $pythonVersion.Build -ne 2)) { throw '검증 대상은 일반 GIL CPython 3.15.2 x64입니다. 기존 3.12/3.13은 수정 SQLite 확인 시에만 허용합니다.' }
 $check=& $PythonExe (Join-Path $package 'scripts\ops.py') --root $package check-package --file $package
 if ($LASTEXITCODE -ne 0) { throw '패키지 무결성 검증 실패' }
+# Verify the selected base runtime before changing the installation directory.
+& $PythonExe (Join-Path $package 'tools\check_sqlite_runtime.py') --require-fixed
+if ($LASTEXITCODE -ne 0) { throw 'SQLite WAL 수정 엔진을 확인할 수 없습니다. 설치 폴더/DB 변경 전에 중단합니다.' }
 $marker=Join-Path $Root 'config\installation.json'
 $existing=Test-Path -LiteralPath $marker
 if ((Test-Path -LiteralPath $Root) -and -not $existing -and @(Get-ChildItem -LiteralPath $Root -Force).Count -gt 0) { throw '기존의 다른 폴더에는 설치하지 않습니다. 빈 전용 폴더를 선택하세요.' }
@@ -73,8 +83,10 @@ if (-not (Test-Path -LiteralPath $python)) {
     if ($LASTEXITCODE -ne 0) { throw '가상환경 생성 실패' }
 }
 # On rerun, refuse a mismatched venv; do not silently change a live runtime.
-$venvVersion=& $python -c 'import sys; print(str(sys.version_info.major)+"."+str(sys.version_info.minor))'
-if ($LASTEXITCODE -ne 0 -or $venvVersion -ne ('3.'+$info[2])) { throw '기존 가상환경 Python 버전이 다릅니다. 운영 중인 환경을 자동 교체하지 않습니다.' }
+$venvProbe=& $python (Join-Path $Root 'tools\check_sqlite_runtime.py') --require-fixed
+if ($LASTEXITCODE -ne 0) { throw '기존 venv의 SQLite가 운영 기준을 충족하지 않습니다. 자동 교체하지 않습니다.' }
+$venvInfo=$venvProbe | ConvertFrom-Json
+if ($venvInfo.python -ne $info.python -or $venvInfo.implementation -ne 'cpython' -or $venvInfo.bits -ne 64 -or $venvInfo.free_threaded -or -not $venvInfo.gil_enabled) { throw '기존 가상환경 Python 버전/빌드가 다릅니다. 운영 중인 환경을 자동 교체하지 않습니다.' }
 if ($existing -and (Test-Path -LiteralPath (Join-Path $Root 'data\collection.sqlite'))) {
     & $python -m pip check
     if ($LASTEXITCODE -ne 0) { throw '기존 의존성이 손상되었습니다. 서버 중지 후 복구 절차를 확인하세요.' }

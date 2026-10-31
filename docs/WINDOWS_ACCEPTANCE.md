@@ -1,11 +1,122 @@
-# 실제 Windows 인수 검증표 — 모두 미실행
+# 운영 전 현장 인수 계획 — 실장비 항목 모두 미실행
 
-이 표는 **아직 테스트 결과가 아니라 수행 절차**입니다. 작성자/날짜/OS 빌드/Python/cloudflared 버전/설치 경로/결과/증거를 적으세요. 처음에는 테스트용 별도 폴더·테스트 이벤트·테스트 DB만 사용합니다. 운영 DB를 손상시키거나 테스트 고객을 실제 DB에 만들지 않습니다. 실제 연결 검사는 담당자가 정식 도메인 공개를 결정한 뒤 수행합니다.
+이 표는 **아직 테스트 결과가 아니라 수행 절차**입니다. 작성자/날짜/OS 빌드/Python/cloudflared 버전/설치 경로/결과/증거를 적으세요. 처음에는 테스트용 별도 폴더·테스트 이벤트·테스트 DB만 사용합니다. 운영 DB를 손상시키거나 테스트 고객을 실제 DB에 만들지 않습니다. 외부 연결 검사는 별도 시험 hostname·터널을 준비한 뒤 수행하며 운영 도메인 공개와 구분합니다.
+
+
+## 상태와 문서 사용 순서
+
+이 문서는 [Draft PR #4](https://github.com/nuyhsp02/maison-de-gourmet-stamp/pull/4)의 **인수 계획**이며 실행 보고서가 아닙니다. [DEV-006](devlog/DEV-006-windows-concurrency-investigation.md)~[009](devlog/DEV-009-b-admission-bounded-investigation.md)의 실패와 성공을 보존합니다. 공식 Windows Python 3.15.2/SQLite 3.53.4 호환성은 확인했지만 과거 B의 15초 admission timeout 원인은 미확정입니다. 이번 준비로 해결·병합·운영을 승인하지 않습니다. 추가 동시성 연구/FIFO/timeout 변경은 하지 않습니다.
+
+설치 명령은 [WINDOWS_INSTALL](WINDOWS_INSTALL.md), 서비스/권한/재부팅 세부 점검은 **아래 기존 Windows 검증표**, 휴대폰 동작은 **아래 기존 모바일 목록**, 직원 대응은 [STAFF_GUIDE](STAFF_GUIDE.md), 백업 안전 절차는 [BACKUP_RECOVERY](BACKUP_RECOVERY.md)를 사용합니다. 중복 실행하지 말고 사례 ID와 증거를 연결합니다. 결과는 [현장 기록 템플릿](evidence/FIELD_ACCEPTANCE_TEMPLATE.md)에 적습니다.
+
+## 1. 격리와 실행 전 준비
+
+먼저 **별도 Windows 10 시험 장비 또는 VM**에서 수행합니다. 실제 카페 장비에 설치하는 작업은 이번 단계에 포함하지 않습니다. 부팅/SYSTEM 검증에는 실제 Windows가 필요하고, 최종 전원·카메라 검증은 해당 노트북/휴대폰에서 별도로 해야 합니다.
+
+| 분리 대상 | 준비·중단 조건 |
+|---|---|
+| 소스/패키지 | PR #4의 검수할 **전체 커밋 SHA**와 manifest source_commit, 패키지 해시를 기록. 기존 v1.4.0 ZIP에는 B/3.15.2 변경이 없음. GitHub 자동 Source ZIP에는 설치 manifest가 없음. 고정 커밋의 검수된 시험 후보 패키지를 개발 담당자가 기존 [패키지 도구](../tools/build_release.py)로 별도 준비해야 함. 후속 [실행 환경 준비](FIELD_SETUP.md)에서 별도 시험 후보 ZIP을 제공. 정식 태그/Release와 구분 |
+| 경로/데이터 | 새 `C:\MaisonCafe-Acceptance`만 시험 Root로 사용. config/data/backups/logs/venv를 전부 별도 준비, 운영 폴더/이벤트/DB/실제 QR/개인 복구 링크를 복사하지 않음. 예제 설정에서 새 테스트 이벤트 ID·유효 기간을 정하고 테스트 고객만 생성. 시험 QR과 화면을 명확히 표시 |
+| 네트워크/쿠키 | 운영과 다른 테스트 HTTPS hostname·터널, 미사용 앱/metrics 포트. **포트만 다르면 쿠키가 분리되는 것이 아님.** 시험 브라우저 프로필·단말도 구분. localhost는 휴대폰에서 노트북을 뜻하지 않음 |
+| 서비스/예약 | Root별 예약 작업과 NTFS ACL 확인. `Setup-Tunnel.ps1`은 전역 서비스명 **Cloudflared**를 사용하며 기존 서비스가 있으면 거절함. 다른 Root만 지정해 기존 서비스·포트·전원을 건드려도 안전하다고 가정하지 않음. 서비스/재부팅 시험은 전용 장비/VM에서만 실시 |
+| 외부 공개 | 문서상의 예시 도메인은 접속 주소가 아님. 담당자가 격리된 시험 hostname·Tunnel을 준비한 뒤 HTTPS 사례 실행. 이번 작업에서는 DNS/터널/외부 배포를 만들거나 운영 토큰을 사용하지 않음 |
+| 중단/정리 | 실제 고객/설정 발견, 대상 경로 불일치, 미확인 런타임이면 중단. 시험 종료 후 해당 Root 소유 작업과 시험 터널만 정리. 운영 서비스 일괄 삭제/DB 복사·덮어쓰기 금지 |
+
+Windows 확인 담당자는 `winver`의 edition/22H2/build, Windows Update의 최근 성공 보안 KB·설치일·재시작 필요 여부, **업무용 ESU 적용 경로/활성 상태/유효 기간**을 확인해 기록합니다. '최신 상태' 문구나 빌드 19045만으로 ESU 자격·수신을 증명하지 않습니다. [Microsoft 업무용 ESU 안내](https://learn.microsoft.com/en-us/windows/whats-new/extended-security-updates) 및 [활성화 전제](https://learn.microsoft.com/en-us/windows/whats-new/enable-extended-security-updates)를 실행 당일 재확인합니다. [Consumer ESU](https://www.microsoft.com/en-us/windows/extended-security-updates)는 상업적 사용 대상이 아니므로 카페 서버의 무료 개인용 적용을 가정하지 않습니다. ESU 미확인은 외부 운영 승인 보류이며 자동 설치/라이선스 변경은 하지 않습니다. 키·계정 정보는 증거에 넣지 않습니다.
+
+### 실제 런타임과 권한
+
+[설치 설명서](WINDOWS_INSTALL.md)의 공식 전체 NuGet 런타임 공급/준비 설치 절차를 **시험 Root와 명시적 PythonExe**로 따릅니다. 운영 Python/venv 자동 교체 금지입니다. 준비 설치만으로는 DB/서버/예약 작업이 생기지 않습니다. 그 다음 시험용 event.json/operations.json을 확정하고 설치 안내의 초기화/등록 단계로 진행합니다.
+
+관리자 PowerShell에서 아래 검사를 시험 설치 후 **한 줄씩 실행하고 매번 `$LASTEXITCODE`가 0인지 확인**합니다. 실패하면 후속 명령을 실행하지 않습니다. 이번 작업에서 실행한 결과가 아닙니다.
+
+```powershell
+$trialRoot = 'C:\MaisonCafe-Acceptance'
+& "$trialRoot\.venv\Scripts\python.exe" "$trialRoot\tools\check_sqlite_runtime.py" --require-fixed
+& "$trialRoot\.venv\Scripts\python.exe" "$trialRoot\scripts\ops.py" --root $trialRoot check-runtime
+& "$trialRoot\.venv\Scripts\python.exe" "$trialRoot\scripts\ops.py" --root $trialRoot validate
+& "$trialRoot\.venv\Scripts\python.exe" "$trialRoot\scripts\ops.py" --root $trialRoot selftest
+```
+
+모두 종료 코드 0이어야 합니다. `selftest`는 **시험 DB의 별도 복제본 + 실제 Waitress의 /health** 검사이며 전체 고객 흐름/성능 검사가 아닙니다. 출력에서 sys.version, cpython, 64bit/AMD64, free_threaded=false/GIL=true, SQLite **3.53.4**, 아래 ID를 확인합니다. `--require-fixed` 통과만으로 정확한 후보 버전 확인을 대신하지 않습니다.
+
+```text
+2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc
+```
+
+base Python과 venv 각각 검사하고, 실제 SYSTEM 실행도 같은 venv인지 확인합니다. 작업 스케줄러에서 시험용 **일회성 SYSTEM/최상위 작업**으로 아래 Action을 실행해 관리자 소유 시험 logs에 결과를 남길 수 있습니다. 새 작업 이름은 기존 작업과 다르게 정하고 완료 후 그 작업만 제거합니다. 시험 폴더는 기존 설치기의 ACL을 유지합니다.
+
+- 프로그램: `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`
+- 시작 위치: `C:\MaisonCafe-Acceptance`
+- 인수:
+
+```text
+-NoProfile -NonInteractive -Command "$ErrorActionPreference='Stop'; & 'C:\MaisonCafe-Acceptance\.venv\Scripts\python.exe' 'C:\MaisonCafe-Acceptance\tools\check_sqlite_runtime.py' --require-fixed | Out-File -Encoding utf8 'C:\MaisonCafe-Acceptance\logs\runtime-system.json'; exit $LASTEXITCODE"
+```
+
+작업 principal=SYSTEM·최근 결과 0·파일의 버전/ID 일치를 함께 확인합니다. 공유 런타임은 SYSTEM 읽기·실행이 가능하고 일반 사용자 쓰기가 차단돼야 합니다. 설치 Root의 기존 `Set-MaisonAcl`은 **관리자와 SYSTEM에 FullControl**을 부여합니다. 이 정책에서 일반 비관리자의 코드 쓰기는 차단되고 SYSTEM의 DB/백업/로그 쓰기는 가능해야 합니다. 일반 비관리자의 DB·백업·토큰 읽기 거부를 아래 NTFS 항목에서 확인합니다. SYSTEM 실제 실행을 하지 않았다면 관리자 검사 성공만으로 대체하지 않습니다.
+
+## 2. 실행 순서와 실제 HTTP 사례
+
+순서: **격리/OS·런타임 → 기존 Windows 표의 준비·ACL → 실제 Waitress 단일 흐름 → 동시 요청 → 오류/응답 유실 → 재시작·백업/복원 → 자동 시작·네트워크·HTTPS·모바일 → 운영자 판정**. 각 단계가 실패하면 후속 장애 주입을 중지하고 원본 증거를 보존합니다. 실제 보상을 지급하지 않고 '시험 지급'만 기록합니다.
+
+노트북에서 `ops.py serve`/설치된 감독이 띄운 **실제 Waitress**를 대상으로 합니다. 테스트 클라이언트에 `testing=True`를 지정해 제한을 끄지 않습니다. 단말은 시험 HTTPS origin을 사용합니다. 로컬 HTTP 도구는 127.0.0.1의 해당 포트에만 연결하고 설정된 Host·Origin·JSON·X-Stamp-Client·쿠키·CSRF를 정확히 전달합니다. HTTPS 프록시 동작을 검증할 때만 실제 프록시를 사용하며 전달 헤더를 외부에 개방하지 않습니다. /health만 성공하거나 Flask test_client 검사만 통과한 것을 인수 완료로 표시하지 않습니다.
+
+| ID / 상황 | 실제 실행 절차 | 통과 기준 (실행 결과 아님) |
+|---|---|---|
+| H01 / 1명 정상 | 시험 QR GET → 새 카드 버튼 → 미완성 지급 POST 거부도 확인 → 10종을 임의 순서로 수집 → 지급 대기 → 시험 지급 후 버튼 1회 | QR GET만으로 고객/적립 생성 없음. 미완성은 409/incomplete·지급 감사 0, 완성 후 고객 1·상품별 1·10/10·지급 감사 1, 완료 후 초기화 없음. HTTP 상태·화면·DB 일치 |
+| H02 / 여러 고객 | 독립 쿠키 jar/브라우저의 새 고객 5·10·30개를 단계별 준비. 각 단계 5회 burst: 고객당 상품 1개 POST, 회차 응답 완료 후 10초 휴식(서로 다른 상품 5개). 30단계는 150개 적립 POST. 지연/실패 시 중단하고 부분 결과 기록 | 각 고객 정확히 5종, 고객 간 혼합/중복/지급 없음. 정상 단계 오류 0, 아래 지연 기준. 30개 jar는 실물 휴대폰 30대 검증이 아님 |
+| H03 / 재스캔 | H02 고객의 수집 상품 재스캔·새로고침. 별도 미수집 상품에도 동시 2개 동일 POST | 기수집은 added=false/수집 안내·개수 불변. 미수집 경합은 added=true 1회/false 1회, 해당 상품 행 1개·총수 1만 증가 |
+| H04 / 재방문 | 일반 프로필에서 브라우저 완전 종료/재실행, 같은 시험 origin QR 접속 | 같은 카드/상태 복원. 조건 충족 재방문 자동 POST, 미충족 시 수동 대안. 종료가 쿠키 삭제/시크릿 모드 종료인 경우 별도 기록 |
+| H05 / 개인 복구 | 별도 시험 카드의 복구 링크를 비공개 저장, 쿠키 없는 별도 프로필로 복구. 명시적 재발급 후 예전 링크도 확인 | 같은 고객/수집/지급 상태 유지, 고객 수 증가 없음. 재발급으로 무효화된 이전 링크는 거부. 링크/쿠키/CSRF 원문은 기록·공개 금지 |
+| H06 / 일시 네트워크 중단 | 기존 카드로 유휴 중 끊기/복귀 후 재조회, 이어 적립 전후 중단 사례 실행. 실제 Tunnel 단절은 아래 기존 표와 연결 | 연결 오류 안내, 자동 POST 폭주 없음. 복귀 후 GET 상태 확인 → 미적립이면 한 번 수동 재시도, 이미 적립이면 추가 요청 불필요. 데이터/고객 분리 없음 |
+| H07 / 서버 재시작 | 부분 수집·복구 가능·지급 완료 카드를 각 1개 준비, 정상 중지/시작. 같은 프로필/링크로 재조회. 비정상 종료/부팅은 아래 기존 표 사용 | 고객/스탬프/QR 키/복구/지급 유지. 완료 버튼 재활성화 없음. 재시작을 복구·초기화 수단으로 오해하지 않음 |
+| H08 / 적립 중 503 | 자연 503은 발생 즉시 시각·경로 종류·상태·변경 전후를 기록. 아래 통제 오류 절차로 사용자 회복을 따로 확인 | 실패 응답을 성공으로 표시하지 않음. 정상 연결 복구 후 GET ≤5초(제안), 미적립이면 5초 대기 후 수동 1회. 다시 실패하면 중지/담당자 전달. 상품 행 최대 1 |
+| H09 / 지급 응답 유실 | 완성 카드에 시험 지급 POST. 서버 commit은 확인되지만 고객에게 응답을 전달하지 않는 통제 사례. 아래 절차 참조 | GET은 redeemed, 버튼 비활성. 같은 세션/유효 CSRF로 동일 POST 1회 재요청 시 already_redeemed=true, 감사 기록 1. 응답이 없다는 이유로 실물 재지급하지 않음 |
+| H10 / 백업·복원 | 테스트 카드 A에 2종/복구 링크, 카드 B 지급 완료 → 백업 T0. A에 1종 추가 → Restore의 별도 후보만 검증 → 현재 A=3 유지 확인. **시험 DB에서만** 기존 보존/확인 절차로 T0 활성화하고 서버 시작 | 후보/복원은 T0와 일치(A=2/B=지급 완료/동일 QR·링크), integrity/FK/중복 정상. 원본·복원 전 DB 보존. T0 이후 A의 1종이 없는 것은 예상 RPO 차이이며 유실 없음으로 포장하지 않음 |
+
+### 통제 오류와 응답 유실 — 도구 제공, 실장비 미실행
+
+계획 작성 시에는 미구현이었으며, 후속 [실행 환경 준비](FIELD_SETUP.md)에서 `tools/field_http.py`로 독립 HTTP 세션과 통제 오류를 제공합니다. 자동 도구는 새 합성 DB의 API/Waitress 검사이며 실제 브라우저·카페 Windows 10 인수는 여전히 **미실행**입니다. 기존 운영 화면에 장애 주입 버튼/API를 추가하지 않습니다. 계약과 구분은 다음과 같습니다.
+
+1. **진짜 admission 503:** 시험용 런처가 기존 앱 객체를 만든 뒤 같은 프로세스의 `app.write_lock`을 별도 제어 스레드에서 최대 20초만 보유하고, 실제 Waitress를 통해 유효한 고객의 collect POST를 보냅니다. 15초 진입 제한은 그대로 두고 503/storage_unavailable와 해당 요청 미적립을 확인합니다. 자동 해제/예외 finally 정리와 대상 시험 DB 검사가 필수입니다. 잠금 해제 후 GET 및 수동 1회 재시도로 정상 회복해야 합니다. 이것은 **의도한 admission 차단/UX 검사**이며 과거 자연 발생 원인 재현이나 성능 결과가 아닙니다.
+2. **응답만 유실:** 시험 전용 HTTP 중계/드라이버가 요청을 실제 Waitress까지 전달하고 upstream 200 및 commit을 확인한 **뒤에만**, 해당 1회 응답을 고객 쪽에 전달하지 않습니다. body·쿠키·토큰은 로그에 남기지 않고 '전달/commit/응답 차단 여부'와 익명 시험 라벨만 기록합니다. 운영 프록시/앱 설정은 바꾸지 않습니다. 이후 실제 서버 GET/동일 POST로 H09 조건 확인. 중단 시점이나 commit을 확인하지 못하면 '일반 네트워크 중단, 응답 유실 조건 미확인'입니다.
+3. 프록시가 단순히 503을 돌려준 사례는 **HTTP 오류 UX만** 검사합니다. admission 503과 구별합니다. 외부 SQLite 연결에서 BEGIN을 잡아 만드는 OperationalError도 admission 재현으로 세지 않습니다. `storage_failed`를 강제로 켜거나 timeout/SQLite 내구성/원본 부하 함수를 바꾸지 않습니다.
+
+기존 실제 HTTP smoke를 시험 개발 clone에서 먼저 확인할 수 있습니다. 이는 설치 경로를 띄우는 전체 현장 시나리오 대신 임시 fixture의 일부 Waitress 검사입니다. 실행/통과 여부는 따로 적고 이번 준비에서 재실행하지 않습니다.
+
+```powershell
+# 시험 개발 clone + 해당 clone의 Python 3.15.2 테스트 venv에서만 실행
+$env:MAISON_HTTP_TESTS = '1'
+python -m pytest -q tests/test_windows_ops.py::test_real_waitress_selftest_uses_clone_and_closes_listener tests/test_windows_ops.py::test_real_server_restart_duplicate_process_and_persisted_cookie
+```
+
+기존 `test_400_visitors_30_concurrent`는 변경 없이 합성 정합성/최악 조건 회귀로 남습니다. 이번 현장 계획은 이를 대체하거나 성공 조건을 완화하지 않습니다. 별도 반복 CI/추가 동시성 진단을 요청하지 않습니다. 문서 반영으로 기존 필수 CI가 자동 실행되는 경우와 수동 추가 진단을 구분합니다.
+
+## 3. 운영 수용 기준 제안 — 승인 전
+
+아래 시간/표본/오류 수용값은 **미승인 제안**이며 운영 실적·SLA가 아닙니다. 운영자가 시험 전에 확정값/승인자/일시를 기록합니다. 결과를 본 뒤 기준을 바꿔 성공으로 만들지 않습니다. 변경이 필요하면 변경 사유와 다음 시험 범위를 새 기록에 남깁니다.
+
+| 항목 | 제안 통과 기준 / 실패 시 | 측정·기록 |
+|---|---|---|
+| 정상 API 지연 | 단일·동시 단계별 read/write p95 ≤2초, p99 ≤5초, 최대 ≤10초. 초과 시 현장 승인 보류 및 단계 종료 | 실제 Waitress 응답 body 수신까지, localhost와 HTTPS/LTE를 별도 그룹. 엔드포인트 종류별 N/중앙값/p95/p99/최대. 카메라 초점/QR 인식 시간은 별도 |
+| 정상 동시 실패 | H02 단계별 **예상 성공 요청의 오류 0건(관측 0/N)** 제안. 429/503/timeout/전송 오류 포함, 성공 응답만 모아 계산하지 않음 | 고객 수·bursts·제공 요청/실제 시작/완료 수, 경과·완료/s, 오류 종류/건수. 관측 0/N이 장기 실패율 0% 보장은 아님 |
+| 503 회복 | H08에서 거짓 성공 없음, 해제/네트워크 복귀 후 GET ≤5초, 수동 1회로 적립 또는 이미 적립 확인 | 주입/자연·admission/SQLite/전송을 분리. 회복 시간은 오류 시작~복구와 복구 후 요청 지연을 나누어 기록. 자연 503 미발생은 해결 증거가 아님 |
+| 중복·지급 정합성 | 동일 고객/상품 1개, 지급 감사 최대 1, 완성 전 지급 거부, 화면·DB 일치. 위반 1건이면 중단 | H01/H03/H09와 시험 DB의 복합키·지급 관계·FK/무결성 확인. 오류 허용으로 면제하지 않는 데이터 기준 |
+| 재시작 | 정상 재시작/부팅 후 상태·QR·복구·지급 보존. 외부 접속은 부팅/인터넷 준비 뒤 120초 이내 제안 | 전원 켠 시각·OS/네트워크 준비·로컬 /health·외부 HTTPS 정상 시각 분리. BitLocker 등 사람 입력 필요하면 '무인' 미달 |
+| 백업/복원 | T0 데이터·QR·복구·지급 일치, integrity/FK 정상, 현재 DB 사전 불변/원본 보존. 10분 내 시험 복구 완료 제안 | 백업 생성/검증/별도 후보/활성화/서비스 확인 경과 각각 기록. 실제 장애 복구 시간 목표(RTO)·허용 복구 시점 목표(RPO: 허용할 과거 기록 차이)·백업 주기는 운영자 결정 |
+| HTTPS·실기기 | 인증서 경고 없음, Secure/HttpOnly/SameSite/Host 쿠키 정상, iPhone Safari와 Android Chrome 각각 기존 모바일 체크 전부 통과 | 단말/OS/브라우저 버전·네트워크·권한 거부 대안·실제 QR 판독 기록. 인앱 쿠키 분리는 예상 동작으로 안내하되 상태 혼합 없어야 함 |
+
+분위수는 지연을 정렬해 `ceil(p × N)`번째 관측값(nearest rank)으로 계산하고 평균과 구분합니다. 소표본에서는 p99가 사실상 최대값일 수 있습니다. N<100이면 표본 한계를 표시하고 최대 지연/시나리오 성공을 함께 판단하며 장기 tail 지연 보장으로 쓰지 않습니다. 동일 브라우저 DevTools Network의 **대상 API Duration** 또는 HTTP 드라이버의 단조 시계 시작~본문 수신을 사용하고 측정 방법을 섞지 않습니다. 단계별 표본은 사전 정의된 한 번의 예열(예: 첫 화면 GET)을 별도 표기한 뒤 측정합니다. 실패/예열 데이터를 삭제하지 않습니다. 정상·장애 주입·localhost·외부 네트워크를 합쳐 하나의 성능 수치로 발표하지 않습니다.
+
+판정은 **통과 / 실패 / 미실행 / 차단** 중 하나입니다. 필수 항목 미실행·미승인 기준·보안 업데이트 미확인·정합성 위반·정상 단계 503은 자동 통과할 수 없습니다. PR #4 병합 검토 전에는 과거 자연 timeout의 잔여 위험, 수용 기준, 미실행 범위와 책임자를 명시적으로 리뷰해야 합니다. 이번 계획/CI 성공만으로 Draft 해제·릴리스·카페 배포를 하지 않습니다.
+
+## 4. 기존 Windows 기반 검증표
 
 | 검증 | 절차 | 통과 기준 | 결과 |
 |---|---|---|---|
-| Windows/런타임 | Windows 10 22H2 x64 + CPython 3.13 모든 사용자용, 새 폴더 준비 설치 | 버전/경로 검사·패키지 설치 성공; 미확정 설정이면 DB/서비스 생성 없음 | 미실행 |
-| 공백·한글 경로 | `C:\Maison Cafe 시험`으로 설치·메뉴·작업 등록·백업 실행 | 따옴표/작업 디렉터리 문제 없이 작동 | 미실행 |
+| Windows/런타임 | Windows 10 22H2 x64 보안 업데이트/업무용 ESU 확인 + 공식 CPython 3.15.2 x64/GIL, 새 시험 폴더 준비 설치 | 실제 SQLite 3.53.4/source ID 일치·경로·wheel 설치 성공; 미확정 설정이면 DB/서비스 생성 없음 | 미실행 |
+| 공백·한글 경로 | 별도 시험 VM의 `C:\Maison Cafe 시험`으로 설치·메뉴·작업 등록·백업 실행 | 따옴표/작업 디렉터리 문제 없이 작동 | 미실행 |
 | 잘못된 환경 거부 | 사용자용/32비트/Conda/지원 외 Python, NTFS 외/정션 경로 | 적절한 오류로 중단, 기존 설정/DB 불변 | 미실행 |
 | 설치 반복 | 테스트 고객 적립·복구 링크 생성 후 같은 Root/원본 패키지로 2회 설치 | 고객·QR·복구·지급 기록 유지, event.json/operations.json 보존 | 미실행 |
 | 이벤트 불일치 | 복제 환경에서 ID/상품 ID를 다른 값으로 설정 | DB 초기화 대신 실행 거부; 원래 설정 복구 후 기존 기록 정상 | 미실행 |

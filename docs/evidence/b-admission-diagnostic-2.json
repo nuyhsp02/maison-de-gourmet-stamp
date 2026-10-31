@@ -1,0 +1,271 @@
+{
+  "run_id": 41090654070,
+  "attempt": 1,
+  "job_id": 124183341487,
+  "source_commit": "8a74ac55d126e2b94bad54993995947343ef9241",
+  "conclusion": "success",
+  "runtime": {
+    "python": "3.15.2",
+    "sys_version": "3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]",
+    "implementation": "cpython",
+    "bits": 64,
+    "free_threaded": false,
+    "gil_enabled": true,
+    "sqlite": "3.53.4",
+    "sqlite_source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+    "official_fixed_version_range": true,
+    "vendor_backport_verified": false,
+    "reference": "https://sqlite.org/wal.html#walreset"
+  },
+  "runner_image": "windows-2025-vs2026 20261021.278.1",
+  "python_tests": {
+    "passed": 100,
+    "failed": 0,
+    "elapsed_seconds": 108.57
+  },
+  "records": [
+    {
+      "test": "test_400_visitors_30_concurrent",
+      "instrumented": false,
+      "failed": false,
+      "elapsed_seconds": 28.492,
+      "audit": {
+        "customers": 400,
+        "stamps": 4000,
+        "reward_audit": 400,
+        "integrity_ok": true,
+        "foreign_keys_ok": true,
+        "duplicate_stamps": 0,
+        "duplicate_rewards": 0,
+        "invalid_rewards": 0
+      }
+    },
+    {
+      "test": "test_original_load_with_lock_timings",
+      "instrumented": true,
+      "failed": false,
+      "elapsed_seconds": 34.954,
+      "audit": {
+        "customers": 400,
+        "stamps": 4000,
+        "reward_audit": 400,
+        "integrity_ok": true,
+        "foreign_keys_ok": true,
+        "duplicate_stamps": 0,
+        "duplicate_rewards": 0,
+        "invalid_rewards": 0
+      },
+      "probe": {
+        "elapsed_seconds": 35.149,
+        "grants": 5200,
+        "timeouts": 0,
+        "peak_waiters": 29,
+        "wait": {
+          "mean_ms": 181.391,
+          "max_ms": 507.385,
+          "p95_ms": 421.978,
+          "p99_ms": 456.222
+        },
+        "hold": {
+          "mean_ms": 6.6,
+          "max_ms": 142.89,
+          "p95_ms": 16.039,
+          "p99_ms": 25.364
+        },
+        "phases": {
+          "begin": {
+            "count": 5200,
+            "mean_ms": 0.258,
+            "max_ms": 127.372,
+            "p95_ms": 0.785,
+            "p99_ms": 1.229
+          },
+          "close": {
+            "count": 6400,
+            "mean_ms": 2.164,
+            "max_ms": 103.864,
+            "p95_ms": 7.14,
+            "p99_ms": 18.084
+          },
+          "commit": {
+            "count": 5200,
+            "mean_ms": 5.571,
+            "max_ms": 84.801,
+            "p95_ms": 15.052,
+            "p99_ms": 23.312
+          },
+          "connect_and_initial_pragmas": {
+            "count": 6400,
+            "mean_ms": 1.024,
+            "max_ms": 56.652,
+            "p95_ms": 2.211,
+            "p99_ms": 3.909
+          },
+          "read_sql": {
+            "count": 44400,
+            "mean_ms": 0.544,
+            "max_ms": 127.407,
+            "p95_ms": 2.916,
+            "p99_ms": 7.381
+          },
+          "rollback": {
+            "count": 6000,
+            "mean_ms": 0.035,
+            "max_ms": 1.934,
+            "p95_ms": 0.109,
+            "p99_ms": 0.499
+          },
+          "write_sql": {
+            "count": 6400,
+            "mean_ms": 0.226,
+            "max_ms": 5.586,
+            "p95_ms": 0.612,
+            "p99_ms": 1.18
+          }
+        },
+        "slow_waits": [
+          {
+            "wait_ms": 507.385,
+            "admitted": true,
+            "other_grants": 28,
+            "later_arrivals_granted": 0,
+            "successful_write_responses": 29,
+            "held_wall_ms": 496.674,
+            "commit_wall_ms": 445.978,
+            "outside_close_sum_ms": 103.374
+          },
+          {
+            "wait_ms": 499.853,
+            "admitted": true,
+            "other_grants": 27,
+            "later_arrivals_granted": 0,
+            "successful_write_responses": 27,
+            "held_wall_ms": 493.415,
+            "commit_wall_ms": 455.794,
+            "outside_close_sum_ms": 202.772
+          },
+          {
+            "wait_ms": 495.54,
+            "admitted": true,
+            "other_grants": 27,
+            "later_arrivals_granted": 0,
+            "successful_write_responses": 28,
+            "held_wall_ms": 487.259,
+            "commit_wall_ms": 444.445,
+            "outside_close_sum_ms": 220.138
+          },
+          {
+            "wait_ms": 493.435,
+            "admitted": true,
+            "other_grants": 27,
+            "later_arrivals_granted": 0,
+            "successful_write_responses": 28,
+            "held_wall_ms": 485.138,
+            "commit_wall_ms": 442.228,
+            "outside_close_sum_ms": 207.297
+          },
+          {
+            "wait_ms": 489.919,
+            "admitted": true,
+            "other_grants": 27,
+            "later_arrivals_granted": 0,
+            "successful_write_responses": 27,
+            "held_wall_ms": 483.274,
+            "commit_wall_ms": 444.943,
+            "outside_close_sum_ms": 202.797
+          },
+          {
+            "wait_ms": 489.819,
+            "admitted": true,
+            "other_grants": 27,
+            "later_arrivals_granted": 0,
+            "successful_write_responses": 28,
+            "held_wall_ms": 479.521,
+            "commit_wall_ms": 429.997,
+            "outside_close_sum_ms": 103.081
+          },
+          {
+            "wait_ms": 487.944,
+            "admitted": true,
+            "other_grants": 27,
+            "later_arrivals_granted": 0,
+            "successful_write_responses": 27,
+            "held_wall_ms": 481.7,
+            "commit_wall_ms": 444.929,
+            "outside_close_sum_ms": 191.615
+          },
+          {
+            "wait_ms": 487.921,
+            "admitted": true,
+            "other_grants": 27,
+            "later_arrivals_granted": 0,
+            "successful_write_responses": 27,
+            "held_wall_ms": 482.284,
+            "commit_wall_ms": 447.301,
+            "outside_close_sum_ms": 170.565
+          }
+        ],
+        "slow_holds": [
+          {
+            "hold_ms": 142.89,
+            "commit_ms": 14.943,
+            "outside_close_sum_ms": 104.308
+          },
+          {
+            "hold_ms": 86.721,
+            "commit_ms": 13.871,
+            "outside_close_sum_ms": 58.436
+          },
+          {
+            "hold_ms": 86.427,
+            "commit_ms": 84.801,
+            "outside_close_sum_ms": 74.326
+          },
+          {
+            "hold_ms": 75.054,
+            "commit_ms": 73.775,
+            "outside_close_sum_ms": 68.925
+          },
+          {
+            "hold_ms": 73.842,
+            "commit_ms": 16.92,
+            "outside_close_sum_ms": 41.276
+          },
+          {
+            "hold_ms": 69.102,
+            "commit_ms": 68.113,
+            "outside_close_sum_ms": 62.589
+          },
+          {
+            "hold_ms": 65.591,
+            "commit_ms": 64.272,
+            "outside_close_sum_ms": 0.261
+          },
+          {
+            "hold_ms": 64.481,
+            "commit_ms": 62.84,
+            "outside_close_sum_ms": 2.372
+          }
+        ],
+        "operational_errors": {},
+        "successful_write_responses": 5200,
+        "response_status_counts": {
+          "200": 5200
+        },
+        "completed_write_responses_per_second": 147.943,
+        "holds_overlapping_outside_close": 5154,
+        "outside_close_note": "overlap is correlation; internal checkpoint not directly observed"
+      }
+    }
+  ],
+  "uninstrumented_pr_ci_comparison": {
+    "run_id": 41090659494,
+    "attempt": 1,
+    "job_id": 124183358940,
+    "conclusion": "success",
+    "passed": 100,
+    "failed": 0,
+    "elapsed_seconds": 156.59,
+    "scope": "existing full-suite command; raw per-test latency unavailable"
+  }
+}

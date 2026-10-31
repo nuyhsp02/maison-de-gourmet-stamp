@@ -6,7 +6,7 @@ Maison de Gourmet의 겨울·크리스마스 시즌을 위한 **회원가입 없
 
 현재 공개 소스와 Windows 운영 준비 단계입니다. **실제 카페 운영 실적·실사용 고객 수·한 달 무중단 성과는 확인되지 않았습니다.** 동시 30명·고객 데이터 400명은 설계 목표이며 실제 장비의 보장 성능이 아닙니다.
 
-[Windows 설치 안내](docs/WINDOWS_INSTALL.md) · [직원 매뉴얼](docs/STAFF_GUIDE.md) · [Git 사용 안내](docs/GIT_GUIDE.md) · [릴리스와 Windows 업데이트](docs/GITHUB_RELEASES.md) · [검증 결과](TEST_REPORT.md)
+[Windows 설치 안내](docs/WINDOWS_INSTALL.md) · [격리 현장 인수 계획](docs/WINDOWS_ACCEPTANCE.md) · [직원 매뉴얼](docs/STAFF_GUIDE.md) · [Git 사용 안내](docs/GIT_GUIDE.md) · [릴리스와 Windows 업데이트](docs/GITHUB_RELEASES.md) · [검증 결과](TEST_REPORT.md)
 
 ## 카페에서 필요한 흐름
 
@@ -49,7 +49,7 @@ flowchart LR
 | Cloudflare Tunnel | 고정 HTTPS 주소와 서로 다른 고객 네트워크 접속을 준비 |
 | pytest / Node test runner / GitHub Actions | API·DB·QR 기하·화면 상태 회귀를 자동 검사 |
 
-운영 의존성은 [requirements-windows.lock](requirements-windows.lock)에 고정했습니다. Python 3.12/3.13 x64 일반 CPython을 대상으로 합니다. 새 프레임워크나 관리자 웹 대시보드는 도입하지 않았습니다.
+운영 의존성은 [requirements-windows.lock](requirements-windows.lock)에 고정했습니다. 운영 검증 대상은 CPython 3.15.2 x64 일반 GIL입니다. 3.12/3.13은 앱 호환성 CI를 유지하지만 현재 관측된 구 SQLite는 운영 사전 검사에서 거부합니다. 새 프레임워크나 관리자 웹 대시보드는 도입하지 않았습니다.
 
 ## 익명 식별과 개인 복구
 
@@ -160,7 +160,7 @@ V1.4 로컬 기준: Python **70개**, JavaScript **41개** 통과, PowerShell 13
 
 Windows CI에서 DB 초기화 연결이 남아 파일 교체를 막는 문제가 드러나 `init_db` 종료 시 연결을 닫고, 단일 프로세스의 쓰기 요청을 조정하도록 보완했습니다. 스키마·적립·복구·보상 정책과 기존 운영 스크립트는 유지합니다.
 
-CI는 Ubuntu/Windows hosted runner의 Python 3.12·3.13 테스트, 프런트 검사, Windows PowerShell 구문·보조 함수 검사, 추적 파일·도달 가능한 Git 이력 공개 검수를 수행하도록 구성했습니다. CI 성공만으로 Windows 10 실기기의 설치·로그인 전 부팅·SYSTEM 권한·터널 서비스·모바일 카메라 검증 완료를 뜻하지 않습니다. **실제 Windows 운영 서버로 자동 배포하는 작업은 없습니다.**
+CI는 Ubuntu/Windows hosted runner의 Python 3.12·3.13·3.15.2 호환성 테스트 및 Windows 3.15.2 운영 엔진 검사, 프런트 검사, Windows PowerShell 구문·보조 함수 검사, 추적 파일·도달 가능한 Git 이력 공개 검수를 수행하도록 구성했습니다. CI 성공만으로 Windows 10 실기기의 설치·로그인 전 부팅·SYSTEM 권한·터널 서비스·모바일 카메라 검증 완료를 뜻하지 않습니다. **실제 Windows 운영 서버로 자동 배포하는 작업은 없습니다.**
 
 Windows 10 보안 업데이트 제공 상태, 실제 도메인·이벤트 기간·상품명·보상, 외부 백업 매체, 노트북 전원/절전·네트워크 정책은 운영 전에 확정해야 합니다. 세부 미검증 사항은 [Windows 인수표](docs/WINDOWS_ACCEPTANCE.md)를 참고하세요.
 
@@ -169,7 +169,7 @@ Windows 10 보안 업데이트 제공 상태, 실제 도메인·이벤트 기간
 AI를 활용한 설계·구현·검수 프로젝트입니다. 확인된 코드/자동 실행 결과와 소유자의 직접 이해·재현 경험을 구분해 기록합니다.
 
 - [ADR 6개 · 선택 근거와 위험](docs/decisions/README.md)
-- [개발 로그 5개 · 문제와 검증 근거](docs/devlog/README.md)
+- [개발 로그 · 문제와 검증 근거](docs/devlog/README.md)
 - [포트폴리오 기록 원칙](docs/PORTFOLIO_RECORDS.md) · [새 로그 템플릿](docs/devlog/TEMPLATE.md)
 
 캐시/JavaScript 버전 불일치 사례는 재현·원인·수정 근거가 부족해 미확인으로 표시했습니다. 회고 문서가 추가됐다는 이유로 당시 비교 검토·개인 실물 테스트·운영 성과를 새로 주장하지 않습니다.
@@ -183,3 +183,9 @@ AI를 활용한 설계·구현·검수 프로젝트입니다. 확인된 코드/�
 - 이후 디자인: 실제 상품 사진 기반 라인드로잉 스탬프. QR 보드의 크기·덮개·배치는 별도 협의.
 
 프로젝트 자체 재사용 라이선스는 아직 정하지 않았습니다. 포함된 jsQR의 Apache-2.0 라이선스와 출처는 [THIRD_PARTY.md](app/THIRD_PARTY.md)에 보존합니다. Public 공개가 별도 재사용 허가를 의미한다고 표시하지 않습니다.
+
+B 트랜잭션 잠금 후보의 [검증 및 운영 차단 항목](docs/devlog/DEV-007-transaction-write-scope.md)과 [한국어 백엔드 학습 안내](docs/BACKEND_LEARNING.md)를 제공합니다. [공식 Python 3.15.2 검증](docs/devlog/DEV-008-python315-runtime.md)을 추가했습니다. 코드 검토와 현장 운영 승인은 별개이며 새 릴리스는 아직 없습니다.
+
+운영 전 검증은 [현장 인수 계획](docs/WINDOWS_ACCEPTANCE.md)의 실제 Waitress HTTP 시나리오·미승인 제안 기준과 [빈 결과 양식](docs/evidence/FIELD_ACCEPTANCE_TEMPLATE.md)을 사용합니다. 실장비 항목은 아직 미실행이며, [DEV-009](docs/devlog/DEV-009-b-admission-bounded-investigation.md)의 간헐 admission timeout은 미해결입니다. 이 문서 준비로 PR #4 Draft 해제·병합·운영 배포를 승인하지 않습니다.
+
+시험 후보 패키지와 실제 HTTP 도구의 [실행 순서·Windows 명령](docs/FIELD_SETUP.md)을 제공합니다. 도구는 새 합성 DB만 사용하며 Windows 10·HTTPS·휴대폰 인수는 별도입니다.
