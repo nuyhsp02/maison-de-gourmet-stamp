@@ -5,6 +5,7 @@ output directory. Never imports operational config or copies runtime directories
 """
 import argparse
 import copy
+import errno
 import hashlib
 import http.client
 import importlib.util
@@ -120,6 +121,7 @@ class ReplyGate:
         self.armed = False
         self.committed = threading.Event()
         self.deliver = threading.Event()
+        self.replied = threading.Event()
         self.upstream_200 = False
 
     def __call__(self, environ, start_response):
@@ -140,6 +142,7 @@ class ReplyGate:
         self.upstream_200 = bool(captured and captured[0][0].startswith('200 '))
         self.committed.set()
         self.deliver.wait(10)  # Fail-safe: never strand a Waitress worker.
+        self.replied.set()
         start_response(*captured[0])
         return chunks
 
@@ -253,40 +256,71 @@ def audit(root):
     return dict(counts, integrity_ok=True, foreign_keys_ok=True, duplicates=0, reward_mismatches=0)
 
 
-def response_loss(client, root):
+def abort_unread_reply(sock):
+    """One owner, no blocked receiver/close race (Winsock forbids that race).
+
+    A timeout/would-block AFTER shutdown is a failure, never evidence of loss.
+    Before shutdown, would-block proves the held reply has not arrived.
+    """
+    sock.setblocking(False)
+    try:
+        sock.recv(1, socket.MSG_PEEK)
+    except BlockingIOError:
+        pass
+    else:
+        raise CheckFailed('reply_arrived_or_connection_ended_before_injection')
+    sock.shutdown(socket.SHUT_RDWR)
+    try:
+        received = sock.recv(1)
+    except OSError as error:
+        ended = {errno.ECONNRESET, errno.ECONNABORTED, errno.ENOTCONN,
+                 getattr(errno, 'ESHUTDOWN', 108), 10053,10054,10057,10058}
+        if error.errno in ended or getattr(error, 'winerror', None) in (10053,10054,10057,10058):
+            return 'connection_ended_after_shutdown'
+        raise
+    require(received == b'', 'response_bytes_received_after_injection')
+    return 'eof_after_shutdown'
+
+
+def response_loss(client, root, diagnostic=None):
+    # The calling thread owns request, receive, shutdown and close. There is no
+    # pending HTTPResponse thread whose completion depends on another thread's
+    # closesocket. Do not hide a timeout or lengthen an admission deadline.
+    diagnostic = diagnostic if diagnostic is not None else {}
+    diagnostic.update(phase='request', client_receiver_thread=False)
     gate = client.server.gate
     gate.armed = True
     conn = http.client.HTTPConnection('127.0.0.1', client.server.port, timeout=20)
-    outcome = {'status':None}
     started = time.perf_counter()
-    def send():
-        try:
-            conn.request('POST','/api/redeem',json.dumps({'confirm_received':True}),client.headers())
-            reply = conn.getresponse()
-            outcome['status'] = reply.status
-            reply.read()
-            return False
-        except (OSError, http.client.HTTPException):
-            return True
     try:
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            pending = pool.submit(send)
-            try:
-                require(gate.committed.wait(8) and gate.upstream_200, 'upstream_commit_not_confirmed')
-                with closing(ops.readonly(root / 'data/collection.sqlite')) as db:
-                    require(db.execute('SELECT COUNT(*) FROM reward_audit').fetchone()[0] == 1, 'commit_not_persisted')
-                require(conn.sock is not None, 'client_socket_missing')
-                conn.sock.shutdown(socket.SHUT_RDWR)
-                conn.close()  # Drop downstream before allowing any upstream reply.
-                require(pending.result(timeout=5), 'response_was_not_lost')
-            finally:
-                gate.deliver.set()
-                conn.close()
+        conn.request('POST','/api/redeem',json.dumps({'confirm_received':True}),client.headers())
+        diagnostic['phase'] = 'wait_upstream_completion'
+        require(gate.committed.wait(8) and gate.upstream_200, 'upstream_commit_not_confirmed')
+        diagnostic['upstream_200'] = True
+        diagnostic['phase'] = 'verify_commit'
+        with closing(ops.readonly(root / 'data/collection.sqlite')) as db:
+            require(db.execute('SELECT COUNT(*) FROM reward_audit').fetchone()[0] == 1, 'commit_not_persisted')
+        diagnostic['commit_confirmed'] = True
+        diagnostic['phase'] = 'abort_unread_reply'
+        require(conn.sock is not None and not gate.replied.is_set(), 'reply_not_withheld')
+        diagnostic['loss_evidence'] = abort_unread_reply(conn.sock)
+        require(not gate.replied.is_set(), 'reply_released_during_injection')
     finally:
-        client.observations.append(dict(group='injected_response_loss',route='/api/redeem',
-            status=outcome['status'],ms=round((time.perf_counter()-started)*1000,3)))
+        try:
+            conn.close()
+            diagnostic['connection_closed'] = True
+        finally:
+            gate.deliver.set()
+            diagnostic['gate_released'] = True
+            client.observations.append(dict(group='injected_response_loss',route='/api/redeem',
+                status=None,ms=round((time.perf_counter()-started)*1000,3)))
+    diagnostic['phase'] = 'requery'
     require(client.read()['customer']['status'] == 'redeemed', 'lost_reply_state_failed')
+    diagnostic['phase'] = 'repeat_redeem'
     require(client.request('/api/redeem', {'confirm_received':True})['already_redeemed'], 'redeem_not_idempotent')
+    with closing(ops.readonly(root / 'data/collection.sqlite')) as db:
+        require(db.execute('SELECT COUNT(*) FROM reward_audit').fetchone()[0] == 1, 'duplicate_reward_after_reply_loss')
+    diagnostic.update(phase='complete', single_reward_confirmed=True)
 
 
 def admission_failure(client, key):
@@ -353,7 +387,7 @@ def run(path, tooling_smoke=False):
         for key in keys: visitor.collect(key)
         visitor.collect(keys[0], False)
         require(visitor.read()['customer']['status']=='complete', 'collection_incomplete')
-        response_loss(visitor, root)
+        response_loss(visitor, root, report.setdefault('response_loss', {}))
         report['cases'].append('normal_duplicate_and_committed_reward_reply_loss_passed')
         returning = Client(server, rows, visitor.cookie)
         require(returning.read()['customer']['status']=='redeemed', 'persisted_cookie_failed')
