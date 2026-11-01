@@ -1,4 +1,4 @@
-# 운영 전 현장 인수 계획 — 실장비 항목 모두 미실행
+# 운영 전 현장 인수 계획 — HTTP 부분 결과와 전체 인수 구분
 
 이 표는 **아직 테스트 결과가 아니라 수행 절차**입니다. 작성자/날짜/OS 빌드/Python/cloudflared 버전/설치 경로/결과/증거를 적으세요. 처음에는 테스트용 별도 폴더·테스트 이벤트·테스트 DB만 사용합니다. 운영 DB를 손상시키거나 테스트 고객을 실제 DB에 만들지 않습니다. 외부 연결 검사는 별도 시험 hostname·터널을 준비한 뒤 수행하며 운영 도메인 공개와 구분합니다.
 
@@ -7,11 +7,13 @@
 
 이 문서는 [Draft PR #4](https://github.com/nuyhsp02/maison-de-gourmet-stamp/pull/4)의 **인수 계획**이며 실행 보고서가 아닙니다. [DEV-006](devlog/DEV-006-windows-concurrency-investigation.md)~[009](devlog/DEV-009-b-admission-bounded-investigation.md)의 실패와 성공을 보존합니다. 공식 Windows Python 3.15.2/SQLite 3.53.4 호환성은 확인했지만 과거 B의 15초 admission timeout 원인은 미확정입니다. 이번 준비로 해결·병합·운영을 승인하지 않습니다. 추가 동시성 연구/FIFO/timeout 변경은 하지 않습니다.
 
+**2026-11-01 부분 실행 기록:** 사용자가 Windows 10 Home 22H2 build 19045.6466에서 후보 7667f5c의 로컬 HTTP 합성 도구를 실행해 종료 코드 0·9개 사례 통과·47고객/237스탬프/1지급과 정합성 정상 결과를 전달했습니다. [비식별 증거와 H01~H10 대응표](evidence/windows10-http-2026-11-01-7667f5c.md)를 참고합니다. 근거는 사용자 전달 출력이며 **원본 JSON은 미수령·독립 대조 미완료**입니다. Windows Server CI와 구분하며, `field_acceptance=not_performed`·제안 기준 미승인·보안 업데이트/ESU 보류를 유지합니다. 아래 Windows/모바일의 전체 시나리오를 자동 통과시키지 않습니다. 다음 [로컬 수동 서버 계획](FIELD_SETUP.md#다음-단계-격리-로컬-waitress-수동-실행-계획)은 미실행입니다.
+
 설치 명령은 [WINDOWS_INSTALL](WINDOWS_INSTALL.md), 서비스/권한/재부팅 세부 점검은 **아래 기존 Windows 검증표**, 휴대폰 동작은 **아래 기존 모바일 목록**, 직원 대응은 [STAFF_GUIDE](STAFF_GUIDE.md), 백업 안전 절차는 [BACKUP_RECOVERY](BACKUP_RECOVERY.md)를 사용합니다. 중복 실행하지 말고 사례 ID와 증거를 연결합니다. 결과는 [현장 기록 템플릿](evidence/FIELD_ACCEPTANCE_TEMPLATE.md)에 적습니다.
 
 ## 1. 격리와 실행 전 준비
 
-먼저 **별도 Windows 10 시험 장비 또는 VM**에서 수행합니다. 실제 카페 장비에 설치하는 작업은 이번 단계에 포함하지 않습니다. 부팅/SYSTEM 검증에는 실제 Windows가 필요하고, 최종 전원·카메라 검증은 해당 노트북/휴대폰에서 별도로 해야 합니다.
+준비 시에는 **별도 Windows 10 시험 장비 또는 VM**을 전제로 했습니다. 이후 사용자가 향후 카페에서 쓸 노트북에 기존 Maison 설치가 없음을 확인하고 별도 Root·합성 DB로 실행한 HTTP 부분 결과를 위에 기록했습니다. 이는 실제 고객 운영 배포가 아닙니다. 다음 단계도 운영 DB/설정과 분리하며 서비스·부팅/전원 변경은 따로 승인받습니다. 부팅/SYSTEM 검증에는 실제 Windows가 필요하고, 최종 전원·카메라 검증은 해당 노트북/휴대폰에서 별도로 해야 합니다.
 
 | 분리 대상 | 준비·중단 조건 |
 |---|---|
@@ -115,7 +117,7 @@ python -m pytest -q tests/test_windows_ops.py::test_real_waitress_selftest_uses_
 
 | 검증 | 절차 | 통과 기준 | 결과 |
 |---|---|---|---|
-| Windows/런타임 | Windows 10 22H2 x64 보안 업데이트/업무용 ESU 확인 + 공식 CPython 3.15.2 x64/GIL, 새 시험 폴더 준비 설치 | 실제 SQLite 3.53.4/source ID 일치·경로·wheel 설치 성공; 미확정 설정이면 DB/서비스 생성 없음 | 미실행 |
+| Windows/런타임 | Windows 10 22H2 x64 보안 업데이트/업무용 ESU 확인 + 공식 CPython 3.15.2 x64/GIL, 새 시험 폴더 준비 설치 | 실제 SQLite 3.53.4/source ID 일치·경로·wheel 설치 성공; 미확정 설정이면 DB/서비스 생성 없음 | 부분 확인: OS/NTFS 형식·base/venv 런타임·check-runtime은 [사용자 전달 근거](evidence/windows10-http-2026-11-01-7667f5c.md). 보안/ESU 보류, SYSTEM/ACL 미실행. 전체 통과 아님 |
 | 공백·한글 경로 | 별도 시험 VM의 `C:\Maison Cafe 시험`으로 설치·메뉴·작업 등록·백업 실행 | 따옴표/작업 디렉터리 문제 없이 작동 | 미실행 |
 | 잘못된 환경 거부 | 사용자용/32비트/Conda/지원 외 Python, NTFS 외/정션 경로 | 적절한 오류로 중단, 기존 설정/DB 불변 | 미실행 |
 | 설치 반복 | 테스트 고객 적립·복구 링크 생성 후 같은 Root/원본 패키지로 2회 설치 | 고객·QR·복구·지급 기록 유지, event.json/operations.json 보존 | 미실행 |

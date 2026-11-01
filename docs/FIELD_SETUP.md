@@ -2,6 +2,8 @@
 
 이 문서는 [인수 계획](WINDOWS_ACCEPTANCE.md)을 실행하기 위한 안내입니다. **PR #4 Draft·미병합 유지. 카페 배포/정식 Release/태그 변경 없음.** 도구의 합성 HTTP 검사와 Windows 10·HTTPS·휴대폰 인수 결과를 구분합니다. [결과 양식](evidence/FIELD_ACCEPTANCE_TEMPLATE.md)에 실제로 수행한 것만 적습니다.
 
+**후속 실행 기록 (2026-11-01):** 사용자가 실제 Windows 10에서 후보 7667f5c의 HTTP 합성 시험 종료 코드 0·9개 사례 통과·47/237/1 및 정합성 집계를 전달했습니다. [비식별 결과 기록](evidence/windows10-http-2026-11-01-7667f5c.md)은 **사용자 전달 출력** 근거이며 원본 JSON은 미수령입니다. 완료된 회차를 재실행하지 않습니다. 보안 업데이트/ESU는 사용자 결정으로 보류이며 전체 현장 인수는 `not_performed`입니다. 다음 수동 서버 단계는 아래 별도 계획만 준비했습니다.
+
 ## 재사용한 도구와 추가 범위
 
 | 목적 | 도구 / 범위 |
@@ -17,7 +19,7 @@
 
 ### Windows 10 1단계: 후보 7667f5c 그대로 사용
 
-현재 Work는 macOS이며 연결해서 실행할 Windows 10 장비/VM을 확인하지 못했습니다. 따라서 이번 단계의 Windows 10 결과는 **미실행**입니다. 이미 성공한 Windows Server CI를 Windows 10 결과로 옮겨 적지 않습니다. 아래는 사용자가 **운영 장비가 아닌 격리 장비/VM**에서 수행할 절차입니다.
+준비 당시 Work는 macOS이며 연결해서 실행할 Windows 10 장비/VM을 확인하지 못해 Windows 10 결과를 **미실행**으로 두었습니다. 이후 사용자가 노트북에서 직접 실행한 HTTP 부분 결과는 위의 2026-11-01 기록으로 구분합니다. Work가 장비에 원격 접속한 것이 아니며 Windows Server CI를 Windows 10 결과로 옮겨 적지 않습니다. 아래는 격리 시험을 위한 기존 절차이며 완료 회차의 반복 실행 지시가 아닙니다.
 
 현재 사용할 파일은 `maison-de-gourmet-v1.4.1-field-7667f5c-windows.zip`과 같은 이름의 `.sha256.txt`입니다. b18ca40 후보는 사용 금지입니다. 이번 확인에서는 ZIP CRC·전체 manifest hash·Git 7667f5c의 모든 파일·기존 압축 해제본이 일치했고 DB/실제 설정/venv/기존 Release ZIP이 없었습니다. **정상이므로 재빌드하지 않았습니다.** 이 단계의 새 안내·학습 내용은 현재 PR의 온라인 문서를 사용합니다. ZIP 안의 기존 문서는 그대로이며 선택한 학습 테스트의 실행 코드는 이미 후보에 포함되어 있습니다. 내부 manifest의 `version=1.4`는 설치 계약이며 정식 v1.4.0 소스라는 뜻이 아닙니다.
 
@@ -57,7 +59,7 @@ if ($manifest.source_commit -ne '7667f5c5745dc712e23587213229dd5e0e6713ff' -or $
 
 해시 검증의 일반 원칙은 [기존 배포 파일 안내](GITHUB_RELEASES.md#다운로드무결성반영)를 참고합니다. 위 블록으로 검증했다면 다시 압축을 해제하지 않습니다. 기존 v1.4.0 다운로드나 GitHub 자동 Source ZIP으로 대체하지 않습니다. manifest의 source_commit과 보고서의 전체 SHA가 일치해야 합니다. 패키지 라벨이 `v1.4.1-field-…`여도 정식 v1.4.1이 발행된 것은 아닙니다.
 
-아래는 **별도 Windows 10 22H2 x64 시험 장비/VM**용 예시입니다. 현재 실제 장비에 설치한 결과가 아닙니다. 업무용 ESU·보안 업데이트·NTFS·전원·SYSTEM 전제는 [인수 계획](WINDOWS_ACCEPTANCE.md#1-격리와-실행-전-준비)을 먼저 확인합니다. 기존 Cloudflared 서비스가 있는 운영 장비에서 서비스를 바꾸거나 삭제하지 않습니다.
+아래 명령은 격리 Windows 10 22H2 x64 시험용 예시입니다. 실제로 전달된 실행 범위는 위 결과 기록에서 확인합니다. 업무용 ESU·보안 업데이트·NTFS·전원·SYSTEM 전제는 [인수 계획](WINDOWS_ACCEPTANCE.md#1-격리와-실행-전-준비)을 적용하며, 보류 항목을 설치/운영 승인으로 바꾸지 않습니다. 기존 Cloudflared 서비스가 있는 운영 장비에서 서비스를 바꾸거나 삭제하지 않습니다.
 
 ## 2. 공식 런타임과 전용 venv
 
@@ -183,6 +185,73 @@ Copy-Item "$settings\config\operations.json" "$trialRoot\config\operations.json"
 
 [로컬 도구 검증 기록](evidence/field-tool-local.json)은 macOS CPython 3.13.5/SQLite 3.45.3의 **도구 smoke**이며 목표 Windows 런타임 결과가 아닙니다. 첫 실행은 재시작 뒤 도구가 이전 서버 객체를 참조해 ConnectionRefusedError로 끝났고, 같은 Server 객체를 재시작하도록 고친 뒤 새 폴더 실행이 백업/복원까지 통과했습니다. 운영 앱은 고치지 않았습니다. 기존 전체 104개 회귀와 JS 41개, 추가 안전 사례 포함 도구 단위 9개를 확인했습니다. 최종 코드는 기존 CI 전체 검사와 별도로, Windows 3.15.2 push의 `[field-tool]` 명시 실행에서 **한 번** 실제 HTTP 도구를 확인하고 비식별 JSON만 보존하도록 준비했습니다. 결과는 해당 실제 CI 링크/최종 보고를 확인하며 미실행 결과를 이 문서에 미리 채우지 않습니다. Windows Server CI 성공도 Windows 10·SYSTEM·HTTPS·실물 카메라 인수는 아닙니다.
 
-## 이번 Windows 10 1단계 준비에서 재확인한 범위
+## Windows 10 현장 실행 전 준비에서 재확인한 범위 — 과거 기록
 
-후보 7667f5c ZIP/SHA 파일의 존재와 해시, CRC, manifest, Git 고정 커밋 및 기존 압축 해제본의 전 파일 일치를 확인했습니다. 코드/ZIP은 수정·재빌드하지 않았습니다. 현재 접근 환경은 macOS이며 Windows 10 장비/VM은 연결 확인되지 않았습니다. macOS Python 3.13.5/SQLite 3.45.3에서 후보의 `--tooling-smoke`를 새 합성 DB로 실행해 예상/실제 **47고객·237스탬프·1지급** 일치, 무결성·FK 정상, 중복·지급 불일치 0, 정상/동시 요청 200, 의도 503 1건·응답 유실 1건을 확인했습니다. 이 회차의 30세션 collect 150건은 p95 73.104ms/p99 77.709ms/최대 80.587ms였습니다. macOS loopback 표본이며 Windows 10/LTE 성능 예상치가 아닙니다. 정상 그룹의 자연 503은 관찰되지 않았으며 간헐 원인 해결을 뜻하지 않습니다. [멱등성 학습용 세 검사](BACKEND_LEARNING.md#직접-실행할-기존-테스트-세-개)는 3 passed / 1.12초입니다. 모두 macOS 도구/학습 검증이며 Windows 10 결과로 취급하지 않습니다. 사용자 수행 결과를 받기 전 Windows 인수표는 미실행 상태를 유지합니다.
+후보 7667f5c ZIP/SHA 파일의 존재와 해시, CRC, manifest, Git 고정 커밋 및 기존 압축 해제본의 전 파일 일치를 확인했습니다. 코드/ZIP은 수정·재빌드하지 않았습니다. 이 준비 당시 접근 환경은 macOS이며 Windows 10 장비/VM은 연결 확인되지 않았습니다. macOS Python 3.13.5/SQLite 3.45.3에서 후보의 `--tooling-smoke`를 새 합성 DB로 실행해 예상/실제 **47고객·237스탬프·1지급** 일치, 무결성·FK 정상, 중복·지급 불일치 0, 정상/동시 요청 200, 의도 503 1건·응답 유실 1건을 확인했습니다. 이 회차의 30세션 collect 150건은 p95 73.104ms/p99 77.709ms/최대 80.587ms였습니다. macOS loopback 표본이며 Windows 10/LTE 성능 예상치가 아닙니다. 정상 그룹의 자연 503은 관찰되지 않았으며 간헐 원인 해결을 뜻하지 않습니다. [멱등성 학습용 세 검사](BACKEND_LEARNING.md#직접-실행할-기존-테스트-세-개)는 3 passed / 1.12초입니다. 모두 macOS 도구/학습 검증이며 Windows 10 결과로 취급하지 않습니다. 사용자 수행 결과를 받기 전에는 Windows 인수표를 미실행으로 두었으며, 이후 전달된 부분 결과는 문서 상단의 별도 실행 기록에 연결합니다.
+
+## 다음 단계: 격리 로컬 Waitress 수동 실행 계획
+
+**상태: 계획만 작성, 미실행.** 이번 문서화에서 아래 명령을 실행하지 않았습니다. 이미 성공한 HTTP 합성 도구나 원본 부하 검사를 반복하지 않습니다. 실행 지원을 시작할 때 사용자에게 명령을 한 줄씩 전달하고 실제 결과를 확인한 뒤 다음으로 넘어갑니다. 관리자 권한이 필요한 변경은 목적/경로/영향을 설명하고 승인을 먼저 받습니다.
+
+목표는 별도 합성 설정을 둔 시험 Root에서 `ops.py serve`를 전경 실행하고, loopback 바인딩·health·정상 종료를 확인하는 것입니다. **HTTPS/브라우저 적립/카메라/서비스/자동 시작 시험이 아닙니다.** 준비 설치 Root `C:\MaisonCafe-Acceptance`와 완주 결과 폴더 `C:\MaisonFieldRuns\field-7667-01`은 서로 다릅니다. 후자는 DB/백업/보고서를 포함한 증거로 보존하고 이번 수동 서버 대상으로 사용하지 않습니다.
+
+### M01 읽기 확인과 변경 승인 — 먼저 수행할 단계
+
+- [ ] 원본 HTTP 보고서와 기존 시험 결과 폴더를 보존하고 후보 7667f5c를 유지한다. 새 ZIP을 만들지 않는다.
+- [ ] 시험 Root가 준비 설치 상태인지 확인한다. `config\event.json`, `data\collection.sqlite`(및 WAL/SHM), `config\server.state.json`, `config\maintenance.flag`, `config\stop.flag`가 하나라도 있거나 설정에 실제 PublicUrl이 있으면 **복사/초기화하지 않고 중단**한다. 임의 삭제나 덮어쓰기 대신 현재 상태를 검토한다.
+- [ ] 기존 venv의 실제 런타임과 설치 파일을 아래 기존 명령으로 확인한다. 실패 시 중단한다. 원본 JSON/DB 내용은 공유하지 않는다.
+
+```powershell
+$trialRoot = 'C:\MaisonCafe-Acceptance'
+$trialPython = "$trialRoot\.venv\Scripts\python.exe"
+& $trialPython "$trialRoot\tools\check_sqlite_runtime.py" --require-fixed
+& $trialPython "$trialRoot\scripts\ops.py" --root $trialRoot check-package --file $trialRoot
+& $trialPython "$trialRoot\scripts\ops.py" --root $trialRoot check-runtime
+```
+
+- [ ] 각 Python 명령 직후 `$LASTEXITCODE=0` 확인. 위 고정 버전/source ID·일반 x64/GIL과 다르면 중단한다.
+- [ ] `operations.json`의 PublicUrl이 비어 있는 준비 설정인지 로컬에서 확인한다. 포트 8875/20242의 현재 사용 여부를 다시 읽기 조회한다. 다른 프로세스를 중지하거나 방화벽/hosts/DNS를 변경하지 않는다.
+- [ ] 사용자 승인 범위: 새 TEST 설정 폴더 생성, 시험 Root 설정의 보존 사본과 TEST 설정 작성, **이 Root의 새로운 합성 DB 초기화**, loopback 전경 서버 실행·종료. 예약 작업·서비스·Tunnel은 등록하지 않는다. 보안 업데이트/ESU 보류는 운영 승인과 구분한다.
+
+### M02 새 합성 설정과 DB — M01 통과·승인 후에만
+
+설정 준비에는 기존 `field_http.py prepare`만 재사용합니다. 설치된 패키지의 도구를 사용하며 `run`을 다시 호출하지 않습니다. 아래 새 경로와 보존 사본이 이미 있으면 중단합니다.
+
+```powershell
+$manualSettings = 'C:\MaisonFieldSettings\manual-7667-01'
+& $trialPython "$trialRoot\tools\field_http.py" prepare --out $manualSettings --origin 'https://field.example.invalid' --port 8875 --metrics-port 20242
+```
+
+종료 코드 0 확인 후, M01의 기존 DB/event 부재와 PublicUrl 미설정을 다시 확인합니다. `config\operations.pre-manual-7667-01.json`도 없어야 합니다. 확인한 경우에만 아래를 **한 줄씩** 수행합니다. PowerShell 복사 오류도 즉시 중단합니다.
+
+```powershell
+Copy-Item -LiteralPath "$trialRoot\config\operations.json" -Destination "$trialRoot\config\operations.pre-manual-7667-01.json" -ErrorAction Stop
+Copy-Item -LiteralPath "$manualSettings\config\event.json" -Destination "$trialRoot\config\event.json" -ErrorAction Stop
+Copy-Item -LiteralPath "$manualSettings\config\operations.json" -Destination "$trialRoot\config\operations.json" -ErrorAction Stop
+& $trialPython "$trialRoot\scripts\ops.py" --root $trialRoot initialize
+& $trialPython "$trialRoot\scripts\ops.py" --root $trialRoot validate
+```
+
+기존 `initialize`는 DB가 없을 때만 새로 만들며, 기존 DB가 있으면 읽기 검사를 합니다. 이 계획에서는 기존 DB가 발견되면 실행 전 중단합니다. 생성 위치는 **`C:\MaisonCafe-Acceptance\data\collection.sqlite`**이며 완주한 `field-7667-01`의 DB가 아닙니다. 초기 기대 고객/스탬프/지급 수는 **0/0/0**입니다. 기대값이며 현재 실행 결과가 아닙니다. Public 예제 기반 TEST 이벤트/상품·보상만 사용하고 실제 QR/운영 설정을 가져오지 않습니다.
+
+### M03 수동 실행·health·정상 종료 — 아직 실행하지 않음
+
+첫 창에서 Root를 명시하고 전경 실행합니다. 이 명령이 실행 중인 동안 입력창이 돌아오지 않는 것이 정상입니다. `Control-Server.ps1 -Action Start`는 등록된 예약 작업을 요구하므로 이번 수동 단계에 사용하지 않습니다.
+
+```powershell
+& $trialPython "$trialRoot\scripts\ops.py" --root $trialRoot serve
+```
+
+두 번째 창에서 기존 status 명령을 사용합니다. 이 명령은 설정된 Host로 loopback `/health`를 조회하므로 새 HTTP 프로그램이 필요하지 않습니다.
+
+```powershell
+& 'C:\MaisonCafe-Acceptance\.venv\Scripts\python.exe' 'C:\MaisonCafe-Acceptance\scripts\ops.py' --root 'C:\MaisonCafe-Acceptance' status
+Get-NetTCPConnection -State Listen -LocalPort 8875 | Select-Object LocalAddress,LocalPort,OwningProcess | Format-List
+```
+
+- [ ] status의 `local_healthy=true`, 실제 리스너가 **127.0.0.1:8875**이며 해당 시험 프로세스인지 확인한다. `0.0.0.0`/외부 바인딩·다른 PID·정상 요청 오류면 중단하고 근거를 보존한다.
+- [ ] Tunnel 미설정 단계에서 `tunnel_ready=false`는 예상이다. status 자체의 종료 코드 0만으로 health 성공으로 판단하지 않는다.
+- [ ] 첫 창의 **Ctrl+C**로 정상 종료 후 첫 명령의 종료 코드, 두 번째 창의 `local_healthy=false`, 해당 리스너 종료와 `config\server.state.json` 제거를 확인한다. 종료 지연 시 상태를 확인하고 임의 강제 종료하지 않는다.
+- [ ] 종료 뒤 같은 Root의 `ops.py validate`로 무결성과 새 합성 DB의 **0/0/0 유지**를 확인한다. 위 과정에 고객 생성 POST는 없다. 실제 시각·상태·종료 코드만 새 실행 기록에 적고 기존 HTTP 결과를 덮지 않는다.
+
+`https://field.example.invalid`는 **로컬 검사에만 쓰는 예약된 시험 origin**이며 외부 도메인/TLS를 만든 것이 아닙니다. 앱은 Host 검증과 Secure 쿠키를 유지하므로 브라우저에서 `http://127.0.0.1:8875`를 여는 것만으로 고객 흐름을 시험할 수 없습니다. Host 거부를 우회하거나 PublicUrl을 HTTP/localhost로 바꾸고 쿠키 보안을 끄지 않습니다. 실제 브라우저 수동 적립·HTTPS·휴대폰은 별도 승인 후 기존 4·5절로 진행합니다.
