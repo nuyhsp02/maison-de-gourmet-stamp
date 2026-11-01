@@ -189,3 +189,5 @@ B 트랜잭션 잠금 후보의 [검증 및 운영 차단 항목](docs/devlog/DE
 운영 전 검증은 [현장 인수 계획](docs/WINDOWS_ACCEPTANCE.md)의 실제 Waitress HTTP 시나리오·미승인 제안 기준과 [빈 결과 양식](docs/evidence/FIELD_ACCEPTANCE_TEMPLATE.md)을 사용합니다. [2026-11-01 Windows 10 실장비 HTTP 합성 시험](docs/evidence/windows10-http-2026-11-01-7667f5c.md)은 사용자 전달 출력 기준으로 9개 사례·47고객/237스탬프/1지급과 정합성 정상입니다. 원본 JSON 독립 대조는 미완료이며 전체 현장 인수는 `not_performed`입니다. 보안/ESU는 보류, HTTPS·휴대폰·자동 시작·장시간 운영은 미실행이고 [DEV-009](docs/devlog/DEV-009-b-admission-bounded-investigation.md)의 간헐 admission timeout은 미해결입니다. PR #4 Draft 해제·병합·운영 배포를 승인하지 않습니다.
 
 시험 후보 패키지와 실제 HTTP 도구의 [실행 순서·Windows 명령](docs/FIELD_SETUP.md)을 제공합니다. 도구는 새 합성 DB만 사용하며 Windows 10·HTTPS·휴대폰 인수는 별도입니다.
+
+[2026-11-01 Windows 10 수동 Waitress 실행](docs/evidence/windows10-manual-server-2026-11-01-7667f5c.md)도 사용자 전달 관측으로 별도 보존했습니다. PID와 127.0.0.1:8875 일치·health 정상·Ctrl+C 뒤 리스너 종료·빈 합성 DB 0/0/0 유지를 확인한 범위이며 원본 로그/DB는 미확보입니다. [HTTPS·실물 휴대폰 후속](docs/FIELD_SETUP.md#후속-계획-격리-https와-실물-휴대폰-시험)은 보안·격리·변경 승인을 포함한 **계획만**입니다. 실제 HTTPS/브라우저 적립/카메라/Cloudflare/자동 실행/카페 운영은 아직 미실행입니다.

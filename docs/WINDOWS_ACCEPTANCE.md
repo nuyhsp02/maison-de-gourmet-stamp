@@ -9,6 +9,8 @@
 
 **2026-11-01 부분 실행 기록:** 사용자가 Windows 10 Home 22H2 build 19045.6466에서 후보 7667f5c의 로컬 HTTP 합성 도구를 실행해 종료 코드 0·9개 사례 통과·47고객/237스탬프/1지급과 정합성 정상 결과를 전달했습니다. [비식별 증거와 H01~H10 대응표](evidence/windows10-http-2026-11-01-7667f5c.md)를 참고합니다. 근거는 사용자 전달 출력이며 **원본 JSON은 미수령·독립 대조 미완료**입니다. Windows Server CI와 구분하며, `field_acceptance=not_performed`·제안 기준 미승인·보안 업데이트/ESU 보류를 유지합니다. 아래 Windows/모바일의 전체 시나리오를 자동 통과시키지 않습니다. 다음 [로컬 수동 서버 계획](FIELD_SETUP.md#다음-단계-격리-로컬-waitress-수동-실행-계획)은 미실행입니다.
 
+**이후 같은 날의 수동 서버 결과:** [별도 기록](evidence/windows10-manual-server-2026-11-01-7667f5c.md)에 사용자 관측 initialize/validate **0/0/0**, serve/status 정상, **PID 5384·127.0.0.1:8875 일치**, Ctrl+C 뒤 local_healthy=false/server=null·리스너 없음·최종 **0/0/0 유지**를 추가했습니다. 원본 로그/DB는 미확보입니다. 앞 문단의 '수동 계획 미실행'은 준비 당시 상태이며 이번 결과가 그 후속입니다. **H07 전체 재시작/기록 보존이나 자동 실행 통과는 아닙니다.** [HTTPS·휴대폰 후속 계획](FIELD_SETUP.md#후속-계획-격리-https와-실물-휴대폰-시험)은 미실행이며 보안/ESU 보류·간헐 timeout 원인 미확정을 유지합니다.
+
 설치 명령은 [WINDOWS_INSTALL](WINDOWS_INSTALL.md), 서비스/권한/재부팅 세부 점검은 **아래 기존 Windows 검증표**, 휴대폰 동작은 **아래 기존 모바일 목록**, 직원 대응은 [STAFF_GUIDE](STAFF_GUIDE.md), 백업 안전 절차는 [BACKUP_RECOVERY](BACKUP_RECOVERY.md)를 사용합니다. 중복 실행하지 말고 사례 ID와 증거를 연결합니다. 결과는 [현장 기록 템플릿](evidence/FIELD_ACCEPTANCE_TEMPLATE.md)에 적습니다.
 
 ## 1. 격리와 실행 전 준비
@@ -127,7 +129,7 @@ python -m pytest -q tests/test_windows_ops.py::test_real_waitress_selftest_uses_
 | 중복 실행 | 예약 작업 시작 여러 번, Run-Server.ps1 추가 실행, ops.py serve 추가 실행 | 서비스 응답 유지, Waitress 실동작 한 개, 데이터 중복 없음 | 미실행 |
 | 서버 강제 종료 | 테스트 환경에서 상태 파일의 PID/명령 확인 후 해당 Waitress만 종료 | 감독 로그 후 약 10초+시작 시간 내 복구, 데이터 보존 | 미실행 |
 | 감독 장애 | 테스트 환경에서 감독 PowerShell 프로세스만 비정상 종료 | 작업 스케줄러 재시도; 남은 Waitress와 중복 실행하지 않음 | 미실행 |
-| 정상 중지/재시작 | 메뉴 중지 → 재부팅 → 미실행 확인 → 메뉴 시작 | 점검 중지 유지, 시작 시 부팅 실행도 다시 활성화, 기존 기록 유지 | 미실행 |
+| 정상 중지/재시작 | 메뉴 중지 → 재부팅 → 미실행 확인 → 메뉴 시작 | 점검 중지 유지, 시작 시 부팅 실행도 다시 활성화, 기존 기록 유지 | 부분 확인: [전경 serve·Ctrl+C 종료·빈 DB 0/0/0 유지](evidence/windows10-manual-server-2026-11-01-7667f5c.md)는 사용자 전달 근거. 메뉴/재부팅/재실행·기록 있는 DB의 보존은 이 수동 시험에서 미실행 |
 | Tunnel SCM | 서비스 자동 시작/실패 복구 설정 확인, 테스트 프로세스 비정상 종료 | SCM 재시작, 서비스 명령행에는 토큰 값이 없고 파일 경로만 있음 | 미실행 |
 | Tunnel 단절 | 테스트 시간에 인터넷 끊기 → 다시 연결 | 연결 실패 상태가 표시되고 네트워크 복귀 후 재연결, DB 유지 | 미실행 |
 | TLS/Host | 실제 도메인 HTTP→HTTPS, 정상 Host/Origin, 내부 바인딩 확인 | 고객 HTTPS, 외부 8765/20241 미공개, 앱 오류/쿠키 문제 없음 | 미실행 |
