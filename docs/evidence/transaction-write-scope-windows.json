@@ -1,0 +1,147 @@
+{
+  "run_id": 41073128683,
+  "attempt": 1,
+  "source_commit": "83a5d3550193c1c60b992b636635db58bd16b46c",
+  "jobs": [
+    {
+      "job_id": 124122132708,
+      "name": "Windows Python 3.12 repeat 2",
+      "conclusion": "success",
+      "runtime": [
+        {
+          "python": "3.12.10",
+          "sqlite": "3.49.1",
+          "sqlite_source_id": "2025-02-18 13:38:58 873d4e274b4988d260ba8354a9718324a1c26187a4ab4c1cc0227c03d0f10e70",
+          "official_fixed_version_range": false,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        }
+      ],
+      "timing": [
+        {
+          "wait": {
+            "mean_ms": 192.8,
+            "max_ms": 394.566,
+            "p95_ms": 293.356,
+            "p99_ms": 373.512
+          },
+          "hold": {
+            "mean_ms": 7.064,
+            "max_ms": 129.487,
+            "p95_ms": 12.033,
+            "p99_ms": 21.341
+          },
+          "grants": 5200
+        }
+      ],
+      "pytest": [
+        "15 passed in 94.14s (0:01:34)"
+      ]
+    },
+    {
+      "job_id": 124122133252,
+      "name": "Windows Python 3.13 repeat 2",
+      "conclusion": "success",
+      "runtime": [
+        {
+          "python": "3.13.16",
+          "sqlite": "3.50.4",
+          "sqlite_source_id": "2025-07-30 19:33:53 4d8adfb30e03f9cf27f800a2c1ba3c48fb4ca1b08b0f5ed59a4d5ecbf45e20a3",
+          "official_fixed_version_range": false,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        }
+      ],
+      "timing": [
+        {
+          "wait": {
+            "mean_ms": 228.432,
+            "max_ms": 432.611,
+            "p95_ms": 336.074,
+            "p99_ms": 377.642
+          },
+          "hold": {
+            "mean_ms": 8.368,
+            "max_ms": 139.93,
+            "p95_ms": 14.966,
+            "p99_ms": 25.579
+          },
+          "grants": 5200
+        }
+      ],
+      "pytest": [
+        "15 passed in 109.85s (0:01:49)"
+      ]
+    },
+    {
+      "job_id": 124122133284,
+      "name": "Windows Python 3.13 repeat 1",
+      "conclusion": "success",
+      "runtime": [
+        {
+          "python": "3.13.16",
+          "sqlite": "3.50.4",
+          "sqlite_source_id": "2025-07-30 19:33:53 4d8adfb30e03f9cf27f800a2c1ba3c48fb4ca1b08b0f5ed59a4d5ecbf45e20a3",
+          "official_fixed_version_range": false,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        }
+      ],
+      "timing": [
+        {
+          "wait": {
+            "mean_ms": 166.751,
+            "max_ms": 416.191,
+            "p95_ms": 269.609,
+            "p99_ms": 336.181
+          },
+          "hold": {
+            "mean_ms": 6.125,
+            "max_ms": 120.464,
+            "p95_ms": 10.869,
+            "p99_ms": 19.459
+          },
+          "grants": 5200
+        }
+      ],
+      "pytest": [
+        "15 passed in 83.94s (0:01:23)"
+      ]
+    },
+    {
+      "job_id": 124122133446,
+      "name": "Windows Python 3.12 repeat 1",
+      "conclusion": "success",
+      "runtime": [
+        {
+          "python": "3.12.10",
+          "sqlite": "3.49.1",
+          "sqlite_source_id": "2025-02-18 13:38:58 873d4e274b4988d260ba8354a9718324a1c26187a4ab4c1cc0227c03d0f10e70",
+          "official_fixed_version_range": false,
+          "vendor_backport_verified": false,
+          "reference": "https://sqlite.org/wal.html#walreset"
+        }
+      ],
+      "timing": [
+        {
+          "wait": {
+            "mean_ms": 161.569,
+            "max_ms": 376.689,
+            "p95_ms": 277.631,
+            "p99_ms": 331.504
+          },
+          "hold": {
+            "mean_ms": 5.911,
+            "max_ms": 89.698,
+            "p95_ms": 10.295,
+            "p99_ms": 19.142
+          },
+          "grants": 5200
+        }
+      ],
+      "pytest": [
+        "15 passed in 80.48s (0:01:20)"
+      ]
+    }
+  ]
+}

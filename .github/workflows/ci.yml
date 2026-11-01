@@ -29,7 +29,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python: ['3.12', '3.13']
+        python: ['3.12', '3.13', '3.15.2']
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,9 +41,39 @@ jobs:
           cache-dependency-path: |
             requirements-test.lock
             requirements-windows.lock
-      - run: python -m pip install --disable-pip-version-check -r requirements-test.lock
+      - run: 'python -m pip install --disable-pip-version-check --only-binary=:all: -r requirements-test.lock'
+      - name: Actual SQLite for compatibility evidence
+        run: python tools/check_sqlite_runtime.py
+      - name: Fixed SQLite required for Windows operating target
+        if: matrix.os == 'windows-latest' && matrix.python == '3.15.2'
+        run: python tools/check_sqlite_runtime.py --require-fixed
       - run: python -m pip check
-      - run: python -m pytest -q app/tests tests
+      - name: Unchanged full suite (bounded diagnostic opt-in only on push)
+        if: ${{ !(matrix.os == 'windows-latest' && matrix.python == '3.15.2' && github.event_name == 'push' && contains(github.event.head_commit.message, '[b-probe]')) }}
+        run: python -m pytest -q app/tests tests
+      - name: B diagnosis, same full suite and original raw load
+        if: matrix.os == 'windows-latest' && matrix.python == '3.15.2' && github.event_name == 'push' && contains(github.event.head_commit.message, '[b-probe]')
+        run: python tests/b_admission_probe.py --output b-admission-results.json
+      - name: Retain only anonymous diagnostic aggregates
+        if: always() && matrix.os == 'windows-latest' && matrix.python == '3.15.2' && github.event_name == 'push' && contains(github.event.head_commit.message, '[b-probe]')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: b-admission-${{ github.run_id }}
+          path: b-admission-results.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: One field-tool check on official Windows candidate runtime
+        if: matrix.os == 'windows-latest' && matrix.python == '3.15.2' && github.event_name == 'push' && contains(github.event.head_commit.message, '[field-tool]')
+        run: python tools/field_http.py run --out "${{ runner.temp }}/maison-field-${{ github.run_id }}"
+      - name: Field-tool anonymous report only, no database or tokens
+        if: always() && matrix.os == 'windows-latest' && matrix.python == '3.15.2' && github.event_name == 'push' && contains(github.event.head_commit.message, '[field-tool]')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: field-tool-${{ github.run_id }}
+          path: ${{ runner.temp }}/maison-field-${{ github.run_id }}/field-tool-report.json
+          if-no-files-found: warn
+          retention-days: 30
 
   frontend:
     name: Frontend

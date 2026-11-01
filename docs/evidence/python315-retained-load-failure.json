@@ -1,0 +1,45 @@
+{
+  "run_id": 41083540047,
+  "attempt": 1,
+  "job_id": 124158634903,
+  "source_commit": "550153933c71055fb042f7ad4fc710a97fed7a63",
+  "conclusion": "failure",
+  "runtime": [
+    {
+      "python": "3.15.2",
+      "sys_version": "3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]",
+      "implementation": "cpython",
+      "bits": 64,
+      "free_threaded": false,
+      "gil_enabled": true,
+      "sqlite": "3.53.4",
+      "sqlite_source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+      "official_fixed_version_range": true,
+      "vendor_backport_verified": false,
+      "reference": "https://sqlite.org/wal.html#walreset"
+    },
+    {
+      "python": "3.15.2",
+      "sys_version": "3.15.2 (tags/v3.15.2:5e58eaa, Oct 25 2026, 17:27:03) [MSC v.1951 64 bit (AMD64)]",
+      "implementation": "cpython",
+      "bits": 64,
+      "free_threaded": false,
+      "gil_enabled": true,
+      "sqlite": "3.53.4",
+      "sqlite_source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+      "official_fixed_version_range": true,
+      "vendor_backport_verified": false,
+      "reference": "https://sqlite.org/wal.html#walreset"
+    }
+  ],
+  "failed_test": "app/tests/test_load.py::test_400_visitors_30_concurrent",
+  "pytest": {
+    "passed": 97,
+    "failed": 1,
+    "elapsed_seconds": 392.71
+  },
+  "admission_timeout_logs": 7,
+  "sqlite_operational_error_logs": 0,
+  "failed_workload_final_counts_and_integrity_assertions_completed": false,
+  "interpretation": "Fixed runtime verified; original load remains intermittent. No retry, deadline or durability relaxation."
+}

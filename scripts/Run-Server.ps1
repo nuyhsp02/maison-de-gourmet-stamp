@@ -8,6 +8,8 @@ try {
     if (-not $held) { exit 0 }
     Set-Location -LiteralPath (Join-Path $Root 'app')
     while (-not (Test-Path -LiteralPath (Join-Path $Root 'config\maintenance.flag'))) {
+        & (Get-MaisonPython $Root) (Join-Path $Root 'tools\check_sqlite_runtime.py') --require-fixed | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'SQLite WAL 수정 엔진 사전 검사 실패: 서버를 시작하지 않습니다.' }
         Invoke-MaisonOps $Root @('validate') | Out-Null
         Remove-Item -LiteralPath (Join-Path $Root 'config\stop.flag') -Force -ErrorAction SilentlyContinue
         foreach ($name in @('stdout','stderr')) {
