@@ -433,3 +433,12 @@ Started nginx.service - A high performance web server and a reverse proxy server
 {"python": "3.12.3", "sys_version": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]", "implementation": "cpython", "bits": 64, "free_threaded": false, "gil_enabled": true, "sqlite": "3.51.3", "sqlite_source_id": "2026-03-13 10:38:09 737ae4a34738ffa0c3ff7f9bb18df914dd1cad163f28fd6b6e114a344fe6d618", "official_fixed_version_range": true, "vendor_backport_verified": false, "reference": "https://sqlite.org/wal.html#walreset"}
 Started maison-demo.service - Maison de Gourmet private demonstration.
 Starting maison-guest-probe.service - Disposable DEMO guest self-test...
+
+[QEMU TCG 게스트 관찰 범위 · Ubuntu 커널 6.8.0-149 / systemd 255]
+외부 네트워크와 포트 포워딩 없는 1 vCPU, RAM 512 MiB 게스트에서 제공된 서비스 유닛을 사용했다.
+게스트 첫 기동의 SQLite 사전 검사 타임아웃·자동 재시도 성공 기록은 바로 위 journal에 있다.
+게스트 자체 점검이 시작된 뒤 직렬 콘솔에는 다음 행까지 기록됐다.
+[  405.997844] python[250]: QAPROBE guest systemd systemd 255 (255.4-1ubuntu8.18)
+이후 컨테이너 상태 조회는 running / paused=false / oom=false였으나 내부 실행은 12초 제한을 넘겼고
+같은 게스트 시각에서 출력이 멈췄다. SIGKILL 뒤 PID 교체, 두 번째 커널 boot ID 및 같은 카드·키의
+재부팅 전후 대조는 이 게스트에서 확인하지 못했다. 대상 호스트 인수표에 이 세 항목을 남긴다.
