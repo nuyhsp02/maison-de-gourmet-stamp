@@ -21,6 +21,7 @@ import build_release
     ('safe.txt', b'SQLite format 3\0payload', 'sqlite-content'),
     ('safe.py', ('ghp_'+'x'*36).encode(), 'github-token'),
     ('safe.txt', ('-----BEGIN '+'PRIVATE KEY-----').encode(), 'private-key'),
+    ('renamed.txt', ('pbkdf2:sha256:1000000$' + 's' * 16 + '$' + 'a' * 64).encode(), 'staff-password-hash'),
     ('safe.txt', ('https://example.invalid/q/'+'a'*32).encode(), 'literal-product-qr'),
 ])
 def test_public_guard_rejects_runtime_files_and_credentials(name,data,expected):

@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 PATTERNS = [
+    ('staff-password-hash', re.compile(rb'pbkdf2:sha256:[0-9]+\$[A-Za-z0-9]+\$[0-9a-f]{64}')),
     ('private-key', re.compile(rb'-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----')),
     ('github-token', re.compile(rb'(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})')),
     ('aws-access-key', re.compile(rb'(?:AKIA|ASIA)[A-Z0-9]{16}')),

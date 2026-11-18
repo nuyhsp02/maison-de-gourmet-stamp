@@ -155,4 +155,4 @@ async function openApp(options = {}) {
     }
   };
 }
-module.exports = { openApp, URL_A };
+module.exports = { Element, openApp, URL_A };

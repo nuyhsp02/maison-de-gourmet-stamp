@@ -13,6 +13,8 @@
 
 ## 자동/수동 백업
 
+PR 2에서는 SQLite 백업에 `stamp_cancel_audit`와 `admin_sessions`도 들어갑니다. 정지한 서버의 DB를 복원하고 재시작하면 직원은 다시 로그인해야 합니다. 직원 설정 파일은 `<DB 전체 파일명>.admin.key`이며 계정 ID와 비밀번호 검증값을 보관합니다. 새 장비에서는 이 파일을 안전한 경로에서 복원하거나 관리자 비밀번호 설정 명령으로 새로 준비하세요. 고객의 전화번호 검색에는 계속 **원래의 `.profile.key`**가 필요합니다. [직원 비밀번호 설정](PR2_STAFF_ADMIN.md#직원-비밀번호-설정)
+
 ```powershell
 & "C:\MaisonCafe\scripts\Backup.ps1"
 ```

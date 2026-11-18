@@ -247,7 +247,8 @@ def logical_state(root, path=None):
     """Private in-memory comparison, never serialized or logged."""
     with closing(ops.readonly(path or root / 'data/collection.sqlite')) as db:
         return {name: sorted(map(tuple,db.execute('SELECT * FROM '+name))) for name in
-                ('metadata','products','customers','customer_profiles','sessions','stamps','recovery','reward_audit')}
+                ('metadata','products','customers','customer_profiles','sessions','stamps','recovery','reward_audit',
+                 'admin_sessions','stamp_cancel_audit')}
 
 
 def audit(root):

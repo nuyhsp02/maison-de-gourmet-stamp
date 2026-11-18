@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Laptop operations. Run `python manage.py --help`."""
 import argparse
+import getpass
 import html
 import json
 import os
@@ -8,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from app import ROOT, connect_db, create_app, init_db, load_event
+from staff_admin import write_staff_password
 
 
 def main():
@@ -26,8 +28,23 @@ def main():
     qr.add_argument("--out", default=str(ROOT / "qr-export"))
     backup = commands.add_parser("backup", help="실행 중에도 안전한 SQLite 백업")
     backup.add_argument("destination")
+    admin = commands.add_parser("admin-password", help="이 DB의 직원 로그인 비밀번호 설정·교체")
+    admin.add_argument("--actor", required=True, help="취소 기록에 남길 직원 계정 ID")
     args = parser.parse_args()
-    if args.command == "serve":
+    if args.command == "admin-password":
+        # getpass would fall back to echoed stdin on some redirected terminals.
+        import sys
+        if not sys.stdin.isatty():
+            parser.error("비밀번호는 대화형 터미널에서 입력하세요.")
+        password = getpass.getpass("새 직원 비밀번호 (12~256자): ")
+        if password != getpass.getpass("비밀번호 재입력: "):
+            parser.error("두 비밀번호가 일치하지 않습니다.")
+        try:
+            write_staff_password(args.database, args.actor, password)
+        except ValueError as exc:
+            parser.error(str(exc))
+        print("직원 로그인 설정을 저장했습니다.")
+    elif args.command == "serve":
         from waitress import serve as run_server
         url = args.public_url or (f"http://127.0.0.1:{args.port}" if args.dev else None)
         if not url:

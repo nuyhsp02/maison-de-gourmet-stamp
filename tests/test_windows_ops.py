@@ -3,6 +3,7 @@ import hashlib
 from contextlib import closing
 import importlib.util
 import json
+import secrets
 import shutil
 import sqlite3
 import sys
@@ -243,6 +244,54 @@ def test_restore_rejects_mismatched_key_before_copy_or_switch(installed):
     _, fresh = visitor(installed)
     assert post(fresh, '/api/find', {'name': '복원 테스트', 'phone': '01000000001'}).status_code == 200
     assert state(fresh)['customer']['count'] == 1
+
+
+def test_admin_audit_and_customer_survive_restore_without_reviving_logged_out_staff(installed):
+    app, customer, _, _ = populated(installed)
+    database = installed / 'data/collection.sqlite'
+    module, _ = ops.event_for(installed)
+    staff_module = importlib.import_module('.staff_admin', module.__name__)
+    password = secrets.token_urlsafe(24)
+    staff_module.write_staff_password(database, 'demo-staff', password)
+    base = app.public_url
+    staff = app.test_client()
+    login = post(staff, '/api/admin/login', {'password': password})
+    assert login.status_code == 200
+    headers = {'Origin': base, 'X-Stamp-Client': '1', 'X-Admin-CSRF': login.json['csrf']}
+    card = staff.post('/api/admin/search', json={'phone': '01000000001'}, headers=headers, base_url=base).json
+    target = next(p for p in card['stamps'] if p['collected_at'] is not None)
+    assert staff.post('/api/admin/cancel', json={'customer_id': card['customer_id'], 'product_id': target['product_id'],
+                      'revision': target['revision']}, headers=headers, base_url=base).status_code == 200
+    # Snapshot deliberately includes an active staff session and the cancellation.
+    saved = ops.backup(installed)
+    staff_cookie = staff.get_cookie('__Host-stamp-admin', domain='stamps.example.invalid').value
+    customer_cookie = customer.get_cookie(app.cookie_name, domain='stamps.example.invalid').value
+    assert staff.post('/api/admin/logout', json={}, headers=headers, base_url=base).status_code == 200
+    candidate = ops.stage_restore(installed, saved['daily'])
+    (installed / 'config/maintenance.flag').touch()
+    ops.activate_restore(installed, candidate['candidate'], confirmed=True)
+    restarted, old_customer = visitor(installed, customer_cookie)
+    assert state(old_customer)['customer']['count'] == 0
+    old_staff = restarted.test_client()
+    old_staff.set_cookie('__Host-stamp-admin', staff_cookie, domain='stamps.example.invalid')
+    assert old_staff.get('/api/admin/stats', base_url=base).status_code == 401
+    assert post(old_staff, '/api/admin/login', {'password': password}).status_code == 200
+    with closing(ops.readonly(database)) as db:
+        rows = db.execute('SELECT customer_id,product_id,original_collected_at,admin_actor FROM stamp_cancel_audit').fetchall()
+        assert rows == [(card['customer_id'], target['product_id'], target['collected_at'], 'demo-staff')]
+
+
+def test_admin_restore_rejects_a_backup_missing_its_audit_log(installed, tmp_path):
+    database = installed / 'data/collection.sqlite'
+    broken = ops.snapshot(database, tmp_path / 'broken.sqlite', 16)
+    with closing(sqlite3.connect(broken)) as db:
+        db.execute('DROP TABLE stamp_cancel_audit')
+        db.commit()
+    before = sha(database)
+    with pytest.raises(ValueError):
+        ops.stage_restore(installed, broken)
+    assert sha(database) == before
+    assert not list((installed / 'data/recovery-check').glob('*'))
 
 
 def test_package_checksums_and_traversal(tmp_path):

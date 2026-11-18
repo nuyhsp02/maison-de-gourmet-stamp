@@ -43,7 +43,8 @@ $env:PYTHONUTF8='1'
 $env:MAISON_HTTP_TESTS='1'
 & .\.test-venv\Scripts\python.exe -m pytest -q app/tests tests
 node --check app/static/app.js
-node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs
+node --check app/static/admin.js
+node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs app/tests/admin-flow.test.cjs
 & .\tests\Check-PowerShell.ps1
 & .\.test-venv\Scripts\python.exe tools/audit_public.py --history
 ```

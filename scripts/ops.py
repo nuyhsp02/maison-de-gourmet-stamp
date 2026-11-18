@@ -44,7 +44,8 @@ def load_source(directory):
     directory = Path(directory).resolve()
     name = '_maison_' + hashlib.sha256(str(directory).encode()).hexdigest()[:12]
     if name not in sys.modules:
-        spec = importlib.util.spec_from_file_location(name, directory / 'app.py')
+        spec = importlib.util.spec_from_file_location(name, directory / 'app.py',
+                                                      submodule_search_locations=[str(directory)])
         module = importlib.util.module_from_spec(spec)
         sys.modules[name] = module
         spec.loader.exec_module(module)
@@ -180,9 +181,14 @@ def event_for(root, app_dir=None):
     return module, event
 
 
-def profile_key_check(root, module):
+def restore_checks(root, module):
     key_path = module.default_profile_key_path(root / 'data/collection.sqlite')
-    return lambda db: module.verify_profile_key(db, key_path)
+
+    def verify(db):
+        module.verify_profile_key(db, key_path)
+        module.validate_admin_schema(db)
+
+    return verify
 
 
 def validate(root, app_dir=None, initialize=False):
@@ -191,7 +197,7 @@ def validate(root, app_dir=None, initialize=False):
     module, event = event_for(root, app_dir)
     database = root / 'data/collection.sqlite'
     if database.exists():
-        counts = inspect_database(database, event, profile_key_check(root, module))
+        counts = inspect_database(database, event, restore_checks(root, module))
     elif initialize:
         module.init_db(database, event)
         counts = inspect_database(database, event)
@@ -232,7 +238,7 @@ def backup(root, now=None, blocked_external=()):
     with file_lock(root / 'data/backup.lock'):
         inspect_database(source, event)
         name = 'maison-' + now.strftime('%Y%m%dT%H%M%S') + '-' + uuid.uuid4().hex[:8] + '.sqlite'
-        daily = snapshot(source, base / 'daily' / name, cfg['MinimumFreeMB'], event, profile_key_check(root, module))
+        daily = snapshot(source, base / 'daily' / name, cfg['MinimumFreeMB'], event, restore_checks(root, module))
         iso = now.isocalendar()
         prefix = f'maison-week-{iso[0]}-{iso[1]:02}-'
         existing = sorted((base / 'weekly').glob(prefix + '*.sqlite'))
@@ -276,7 +282,7 @@ def stage_restore(root, backup_file):
     module, event = event_for(root)
     name = 'restore-' + datetime.now().strftime('%Y%m%dT%H%M%S') + '-' + uuid.uuid4().hex[:8] + '.sqlite'
     destination = root / 'data/recovery-check' / name
-    snapshot(backup_file, destination, cfg['MinimumFreeMB'], event, profile_key_check(root, module))
+    snapshot(backup_file, destination, cfg['MinimumFreeMB'], event, restore_checks(root, module))
     result = {'candidate': str(destination), 'sha256': hashlib.sha256(destination.read_bytes()).hexdigest(),
               'counts': inspect_database(destination, event), 'source': str(Path(backup_file).resolve())}
     write_json(destination.with_suffix('.receipt.json'), result)
@@ -290,7 +296,7 @@ def import_database(root, backup_file):
     module, event = event_for(root)
     with file_lock(root / 'data/backup.lock'), file_lock(root / 'data/server.lock'):
         target = snapshot(backup_file, root / 'data/collection.sqlite', cfg['MinimumFreeMB'], event,
-                          profile_key_check(root, module))
+                          restore_checks(root, module))
     audit(root, 'import-database', 'ok')
     return {'database': str(target), 'counts': inspect_database(target, event)}
 
@@ -310,9 +316,9 @@ def activate_restore(root, candidate, confirmed=False):
     with file_lock(root / 'data/server.lock'), file_lock(root / 'data/backup.lock'):
         inspect_database(candidate, event)
         snapshot(database, root / 'backups/pre-restore' / ('before-' + uuid.uuid4().hex + '.sqlite'),
-                 cfg['MinimumFreeMB'], event, profile_key_check(root, module))
+                 cfg['MinimumFreeMB'], event, restore_checks(root, module))
         ready = snapshot(candidate, root / 'data' / ('activate-' + uuid.uuid4().hex + '.sqlite'),
-                         cfg['MinimumFreeMB'], event, profile_key_check(root, module))
+                         cfg['MinimumFreeMB'], event, restore_checks(root, module))
         retired = root / 'data/retired' / (datetime.now().strftime('%Y%m%dT%H%M%S') + '-' + uuid.uuid4().hex[:8])
         retired.mkdir(parents=True)
         moved = []

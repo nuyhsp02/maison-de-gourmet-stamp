@@ -17,6 +17,11 @@ from urllib.parse import urlsplit
 from flask import Flask, g, jsonify, render_template, request
 from werkzeug.exceptions import HTTPException
 
+if __package__:
+    from .staff_admin import install_admin, validate_admin_schema
+else:
+    from staff_admin import install_admin, validate_admin_schema
+
 ROOT = Path(__file__).resolve().parent
 LIFETIME = 90 * 86400
 MAX_EVENT_DAYS = 62  # Two consecutive calendar months can span 62 days.
@@ -159,8 +164,10 @@ def init_db(path, event, profile_key_path=None):
                     if stored_ids != {p["id"] for p in event["products"]}:
                         raise ValueError("기존 DB에 등록된 상품 구성이 다릅니다. 원래 QR이 보존된 백업을 확인하세요.")
                 key = verify_profile_key(db, key_path)
+                validate_admin_schema(db)
             apply_schema(db)
             db.execute("INSERT OR IGNORE INTO metadata VALUES ('event', ?)", (signature,))
+            db.execute("INSERT OR IGNORE INTO metadata VALUES ('admin_schema_v1', '1')")
             if key is None:
                 key = bind_profile_key(db, key_path)
             if existing is None:
@@ -365,6 +372,7 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         return jsonify(error="요청을 처리할 수 없습니다.", code=f"http_{error.code}"), error.code
 
     @app.errorhandler(sqlite3.OperationalError)
+    @app.errorhandler(sqlite3.IntegrityError)
     def database_error(error):
         app.logger.error("Database operation failed: %s (%s)", type(error).__name__,
                          getattr(error, "sqlite_errorname", "unknown"))
@@ -455,6 +463,10 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         raise APIError("새 스탬프 카드를 등록하거나 기존 스탬프 찾기를 이용해 주세요.",
                        401, "registration_required")
 
+    def phone_lookup(value):
+        phone = normalized_phone(value)
+        return hmac.digest(profile_key, phone.encode("ascii"), "sha256").hex()
+
     def profile_input(data):
         limited(("profile_ip", request.remote_addr), 120)
         if identity():
@@ -464,8 +476,7 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         name = raw_name.strip() if isinstance(raw_name, str) else ""
         if not 1 <= len(name) <= 80 or not name.isprintable():
             raise APIError("이름을 1~80자로 입력해 주세요.")
-        phone = normalized_phone(data.get("phone"))
-        lookup = hmac.digest(profile_key, phone.encode("ascii"), "sha256").hex()
+        lookup = phone_lookup(data.get("phone"))
         limited(("profile_number", lookup), 10)
         return name, lookup
 
@@ -584,4 +595,6 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                 db().execute("INSERT INTO reward_audit VALUES (?, ?, 'unauthenticated_customer_screen')", (customer_id, now))
         return jsonify(**snapshot(who), already_redeemed=already_redeemed)
 
+    install_admin(app, dev=dev, get_db=db, write_transaction=write_transaction, phone_lookup=phone_lookup,
+                  json_body=body, api_error=APIError)
     return app

@@ -38,3 +38,25 @@ CREATE TABLE IF NOT EXISTS reward_audit (
   redeemed_at INTEGER NOT NULL,
   method TEXT NOT NULL CHECK (method = 'unauthenticated_customer_screen')
 );
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  token_hash TEXT PRIMARY KEY NOT NULL,
+  csrf TEXT NOT NULL,
+  admin_actor TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS stamp_cancel_audit (
+  id INTEGER PRIMARY KEY,
+  customer_id TEXT NOT NULL REFERENCES customers(id),
+  product_id TEXT NOT NULL REFERENCES products(id),
+  original_collected_at INTEGER NOT NULL,
+  cancelled_at INTEGER NOT NULL,
+  admin_actor TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cancellations_by_stamp ON stamp_cancel_audit(customer_id, product_id, id);
+CREATE TRIGGER IF NOT EXISTS protect_redeemed_stamp
+BEFORE DELETE ON stamps
+WHEN (SELECT redeemed_at FROM customers WHERE id = OLD.customer_id) IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'redeemed_stamp_locked');
+END;

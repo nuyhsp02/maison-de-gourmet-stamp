@@ -49,7 +49,11 @@ flowchart LR
 | Cloudflare Tunnel | 고정 HTTPS 주소와 서로 다른 고객 네트워크 접속을 준비 |
 | pytest / Node test runner / GitHub Actions | API·DB·QR 기하·화면 상태 회귀를 자동 검사 |
 
-운영 의존성은 [requirements-windows.lock](requirements-windows.lock)에 고정했습니다. 운영 검증 대상은 CPython 3.15.2 x64 일반 GIL입니다. 3.12/3.13은 앱 호환성 CI를 유지하지만 현재 관측된 구 SQLite는 운영 사전 검사에서 거부합니다. 새 프레임워크나 관리자 웹 대시보드는 도입하지 않았습니다.
+운영 의존성은 [requirements-windows.lock](requirements-windows.lock)에 고정했습니다. 운영 검증 대상은 CPython 3.15.2 x64 일반 GIL입니다. 3.12/3.13은 앱 호환성 CI를 유지하지만 현재 관측된 구 SQLite는 운영 사전 검사에서 거부합니다.
+
+## 직원용 스탬프 관리
+
+`/admin`에서 직원 비밀번호로 로그인하면 카드·적립·보상 통계를 확인하고, 카드 ID 또는 전체 전화번호로 고객 한 명을 찾을 수 있습니다. 수령 전에는 상품 하나의 적립을 확인 후 취소할 수 있습니다. 취소와 감사 기록은 함께 저장됩니다. [관리자 설정·ERD·검증 보고서](docs/PR2_STAFF_ADMIN.md) · [합성 데이터 화면](docs/evidence/admin-pr2-demo.png)
 
 ## 고객 등록과 기존 스탬프 찾기
 
@@ -83,6 +87,23 @@ flowchart TD
 
 ```mermaid
 erDiagram
+    customers ||--o{ stamp_cancel_audit : records
+    products ||--o{ stamp_cancel_audit : identifies
+    stamp_cancel_audit {
+        INTEGER id PK
+        TEXT customer_id FK
+        TEXT product_id FK
+        INTEGER original_collected_at
+        INTEGER cancelled_at
+        TEXT admin_actor
+    }
+    admin_sessions {
+        TEXT token_hash PK
+        TEXT csrf
+        TEXT admin_actor
+        INTEGER created_at
+        INTEGER expires_at
+    }
     customers ||--o| customer_profiles : registers
     customers ||--o{ sessions : identifies
     customers ||--o{ stamps : collects
@@ -174,7 +195,7 @@ macOS/Linux 예시입니다. 테스트는 임시 DB를 사용하며 실제 운�
 python3.13 -m venv .test-venv
 .test-venv/bin/python -m pip install -r requirements-test.lock
 MAISON_HTTP_TESTS=1 .test-venv/bin/python -m pytest -q app/tests tests
-node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs
+node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs app/tests/admin-flow.test.cjs
 ```
 
 디자인/기본 흐름을 localhost에서 살펴볼 때만 다음을 사용합니다. 운영 DB와 구별되는 경로이며 실제 휴대폰 HTTPS 검증 환경은 아닙니다.

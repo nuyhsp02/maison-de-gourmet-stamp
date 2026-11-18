@@ -1,0 +1,58 @@
+.admin { min-height:100vh; background:var(--paper); }
+.admin .site-header,.admin main { max-width:900px; }
+.admin main { padding:26px 20px 72px; }
+.admin h1 { margin:0; font:650 clamp(26px,5.6vw,34px)/1.3 var(--sans); letter-spacing:-1.5px; color:var(--ink); }
+.admin h2,.admin caption { font:650 17px/1.4 var(--sans); letter-spacing:-.5px; }
+.admin button,.admin input,.admin select { min-height:44px; border-radius:6px; font:inherit; }
+.admin button { padding:9px 14px; font-weight:600; }
+.admin input,.admin select { width:100%; min-width:0; padding:9px 12px; border:1px solid #9aa995; background:var(--card); color:var(--ink); font-size:16px; }
+.admin .primary { background:var(--ink); color:white; }
+.admin .danger { background:var(--red-dark); color:white; }
+.admin .quiet { border:1px solid var(--mint-line); background:transparent; color:var(--ink); }
+.login-panel { max-width:390px; margin:9vh auto 0; padding:28px; background:var(--card); border:1px solid var(--mint-line); border-radius:12px; }
+.login-panel form { display:grid; gap:8px; margin-top:22px; }
+.login-panel button { margin-top:6px; }
+.page-title,.detail-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.overview,.lookup,.card-detail { padding:20px 24px; border:1px solid var(--mint-line); border-radius:12px; background:var(--card); }
+.lookup,.card-detail { margin-top:16px; }
+.metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:0 0 20px; padding:0 0 20px; border-bottom:1px solid var(--line); }
+.metrics>div+div { border-left:1px solid var(--line); padding-left:18px; }
+.metrics dt,.axis-label,.axis-caption,.card-id { color:var(--muted); }
+.metrics dd { margin:4px 0 0; font:normal clamp(23px,4vw,36px)/1.2 var(--serif); }
+.axis-label,.axis-caption { font-size:11px; }
+.axis-label { margin-top:10px; }
+.axis-caption { text-align:center; margin-top:4px; }
+.distribution { display:grid; grid-template-columns:repeat(11,minmax(0,1fr)); gap:3px; list-style:none; margin:3px 0 0; padding:0; }
+.distribution li { display:grid; justify-items:center; grid-template-rows:auto 42px auto; align-items:end; color:var(--muted); font-size:12px; }
+.distribution strong { max-width:100%; font-size:13px; overflow-wrap:anywhere; color:var(--ink); }
+.distribution .bar-track { display:flex; align-self:center; align-items:end; width:min(18px,72%); height:38px; border-radius:3px; background:var(--line); overflow:hidden; }
+.distribution .bar-value { width:100%; background:#788e73; }
+.axis-caption,.axis-label,.card-id,.card-state { line-height:1.45; }
+#search-form { display:grid; grid-template-columns:145px minmax(0,1fr) auto; gap:10px; align-items:end; margin-top:14px; }
+.field { display:grid; gap:4px; min-width:0; font-weight:550; }
+.detail-heading { margin-bottom:6px; }
+.detail-heading>div { min-width:0; }
+.detail-heading h2,.card-id { overflow-wrap:anywhere; }
+.detail-heading button { flex:none; }
+.card-id { margin-top:3px; font-size:12px; }
+.card-state { margin:10px 0 18px; }
+.admin table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+.admin caption { padding-bottom:8px; text-align:left; }
+.admin th,.admin td { text-align:left; border-bottom:1px solid var(--line); padding:7px 4px; }
+.admin thead th { color:var(--muted); font-size:12px; }
+.admin td:last-child,.admin th:last-child { width:70px; text-align:right; }
+.admin .row-cancel { background:transparent; color:var(--red-dark); text-decoration:underline; }
+.admin dialog { width:min(390px,calc(100% - 28px)); padding:24px; color:var(--ink); border:1px solid var(--mint-line); border-radius:12px; background:var(--card); }
+.admin dialog::backdrop { background:#1e2b2370; }
+#target { margin:14px 0 20px; overflow-wrap:anywhere; white-space:pre-line; }
+.dialog-actions { display:flex; justify-content:flex-end; gap:8px; }
+#message:not(:empty) { position:sticky; bottom:12px; width:fit-content; max-width:100%; margin:14px auto 0; padding:10px 16px; color:white; background:var(--ink); border-radius:6px; }
+@media (max-width:560px) {
+  .admin main { padding:20px 12px 54px; }
+  .overview,.lookup,.card-detail { padding:16px 12px; }
+  #search-form { grid-template-columns:1fr; }
+  .metrics { gap:6px; }
+  .metrics>div+div { padding-left:8px; }
+  .metrics dt { font-size:12px; }
+  .admin td { font-size:13px; }
+}
