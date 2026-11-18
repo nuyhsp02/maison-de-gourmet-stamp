@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app import ROOT, Limits, connect_db, create_app, digest
-from conftest import BASE, Visitor
+from app import ROOT, Limits, connect_db, create_app, digest, load_event
+from conftest import BASE, Visitor, registration
 
 
 def test_get_head_prefetch_never_create_customer_or_stamp(app, keys):
@@ -149,9 +149,9 @@ def test_production_secure_cookie_headers_and_period_boundaries(tmp_path, monkey
     monkeypatch.setattr("app.time.time", lambda: clock - 1)
     v = Visitor(app, start=False, base="https://cafe.example")
     assert v.read()["phase"] == "upcoming"
-    assert v.post("/api/session", {}).status_code == 409
+    assert v.post("/api/register", registration()).status_code == 409
     monkeypatch.setattr("app.time.time", lambda: clock)
-    response = v.post("/api/session", {})
+    response = v.post("/api/register", registration())
     cookie = response.headers["Set-Cookie"]
     assert "__Host-collection=" in cookie and "Secure" in cookie and "HttpOnly" in cookie
     assert "SameSite=Lax" in cookie and "Domain=" not in cookie
@@ -170,6 +170,22 @@ def test_production_secure_cookie_headers_and_period_boundaries(tmp_path, monkey
     monkeypatch.setattr("app.time.time", lambda: clock + 31 * 86400)
     assert v.read()["reward_open"] is False
     assert v.post("/api/redeem", {"confirm_received": True}).json["already_redeemed"] is True
+
+
+@pytest.mark.parametrize("duration,reward_offset,valid", [
+    (33 * 86400, 0, True), (60 * 86400, 86400, True),
+    (62 * 86400, 0, True), (62 * 86400 + 1, 0, False),
+    (0, 0, False), (-1, 86400, False), (60 * 86400, -1, False),
+])
+def test_event_duration_and_reward_order(tmp_path, duration, reward_offset, valid):
+    start = 1800000000
+    end = start + duration
+    path = real_config(tmp_path, start, end, end + reward_offset)
+    if valid:
+        assert load_event(path)["draft"] is False
+    else:
+        with pytest.raises(ValueError):
+            load_event(path)
 
 
 def test_reward_after_deadline_rejected(tmp_path, monkeypatch):

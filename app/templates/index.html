@@ -42,7 +42,7 @@
     <div id="load-error" class="notice error" hidden><p id="load-error-text"></p><button id="retry-load" class="button secondary">다시 불러오기</button></div>
     <div id="app" hidden>
       <div id="demo-banner" class="demo-banner" hidden>미리보기 · 상품·선물·기간 확정 전</div>
-      <div id="browser-warning" class="notice" hidden>앱 안의 브라우저는 기록이 다를 수 있어요. 늘 같은 Safari·Chrome에서 열어 주세요. 기존 기록은 개인 복구 링크로 옮길 수 있어요.</div>
+      <div id="browser-warning" class="notice" hidden>앱 안의 브라우저는 쿠키가 다를 수 있어요. 다른 브라우저에서는 ‘기존 스탬프 찾기’에 등록한 이름과 전화번호를 입력해 주세요.</div>
       <div id="period-banner" class="notice" hidden></div>
       <div class="layout">
         <section class="intro" aria-labelledby="event-title">
@@ -53,16 +53,40 @@
           <div class="paper-note"><svg aria-hidden="true"><use href="#winter-star"/></svg><p>당신의 겨울에, 작은 선물 하나.<br>취향을 모을수록 트리가 빛나요.</p></div>
           <div class="how-it-works">
             <p class="small-heading">작은 겨울을 모으는 방법</p>
-            <ol><li><span>01</span>상품 구매 후 매장의 QR 스캔</li><li><span>02</span>처음엔 시작 버튼, 다음엔 자동 적립</li><li><span>03</span>10종 완성 후 직원에게 화면 보여주기</li></ol>
+            <ol><li><span>01</span>이름과 전화번호로 스탬프판 등록</li><li><span>02</span>상품 구매 후 매장의 QR로 적립</li><li><span>03</span>10종 완성 후 직원에게 화면 보여주기</li></ol>
             <p class="fine-print">순서는 자유롭게, 상품마다 한 번씩.<br>한 번 완성한 컬렉션은 다시 시작하지 않아요.</p>
           </div>
+        </section>
+        <section id="identity-panel" class="identity-panel" hidden aria-labelledby="identity-title">
+          <h2 id="identity-title" tabindex="-1">스탬프판 등록</h2>
+          <p id="identity-intro">처음 참여한다면 이름과 휴대전화번호를 등록해 주세요. 번호 하나로 스탬프판 하나를 이용할 수 있어요.</p>
+          <p class="fine-print">비공개 시연에는 가상 이름과 번호만 사용해 주세요.</p>
+          <p id="identity-qr" class="notice" hidden></p>
+          <form id="identity-form" method="post" autocomplete="off">
+            <label for="identity-name">이름</label>
+            <input id="identity-name" type="text" required maxlength="80" autocomplete="off">
+            <label for="identity-phone">휴대전화번호</label>
+            <input id="identity-phone" type="tel" required inputmode="tel" autocomplete="off">
+            <div id="registration-notice">
+              <details class="help">
+                <summary>개인정보 수집·이용 안내 보기</summary>
+                <p>스탬프판을 한 개만 만들고 다시 찾을 수 있도록 이름과 전화번호를 입력받아요. 이름은 등록한 대로, 전화번호는 검색용 보호값으로 저장해요. 안내를 확인한 시각과 버전도 함께 기록해요.</p>
+                <p>등록한 이름과 전화번호를 아는 사람은 이 스탬프판과 보상 상태를 열 수 있어요. 이 브라우저에서는 쿠키로 스탬프판을 이어서 이용해요.</p>
+                <p>비공개 시연용 안내 · {{ notice_version }}</p>
+              </details>
+              <label class="checkbox-label"><input id="notice-acknowledged" type="checkbox" required>개인정보 수집·이용 안내를 확인했습니다</label>
+            </div>
+            <p id="identity-error" class="error-text" role="alert"></p>
+            <button id="identity-submit" type="submit" class="button primary">스탬프판 등록하기</button>
+            <button id="identity-switch" type="button" class="button secondary">기존 스탬프 찾기</button>
+          </form>
         </section>
         <section id="pending-panel" class="pending-panel" hidden aria-labelledby="pending-title">
           <p class="eyebrow">QR 확인 완료</p><h2 id="pending-title"></h2><p id="pending-help"></p>
           <button id="collect-button" class="button primary"><span>이 상품 스탬프 받기</span><svg><use href="#arrow"/></svg></button>
           <button id="dismiss-pending" class="text-button">다음에 적립하기</button>
         </section>
-        <section class="collection" aria-labelledby="board-title">
+        <section id="collection-panel" class="collection" aria-labelledby="board-title">
           <div class="collection-topline"><span>MAISON DE GOURMET</span><span>WINTER COLLECTION</span></div>
           <div class="board-heading"><h2 id="board-title">나의 겨울 트리</h2><p class="count"><strong id="stamp-count">0</strong><span>/ 10 <small>collected</small></span></p></div>
           <progress id="progress" max="10" value="0" aria-label="스탬프 수집 현황"></progress>
@@ -76,7 +100,7 @@
           <div class="tree-legend"><span><i aria-hidden="true"></i>수집 전</span><span><i class="legend-collected" aria-hidden="true"></i>수집 완료</span><span>시즌 4종 · 지정 6종</span></div>
           <div class="board-bottom">CHRISTMAS STAMP EVENT <span>한 상품에 한 번, 순서는 자유롭게</span></div>
         </section>
-        <section class="actions" aria-label="컬렉션 메뉴">
+        <section id="collection-actions" class="actions" aria-label="컬렉션 메뉴">
           <section id="reward-panel" class="reward-panel" hidden aria-labelledby="reward-title">
             <svg class="reward-flower" aria-hidden="true"><use href="#winter-star"/></svg><p class="eyebrow">A LITTLE GIFT FOR YOUR WINTER</p>
             <h2 id="reward-title"></h2><p id="reward-description"></p><p id="reward-date" class="fine-print"></p>
@@ -87,8 +111,8 @@
           <button id="scan-button" class="button primary scan-button"><svg><use href="#scan"/></svg><span>QR 연속 스캔하기</span><svg><use href="#arrow"/></svg></button>
           <p id="scan-caption" class="action-caption">여러 상품도 한 번에, QR을 이어서 스캔하세요.</p>
           <div class="recovery-entry"><div><strong>나의 트리, 안전하게 보관하기</strong><p id="recovery-status">선택 사항 · 개인 복구 링크 저장</p></div><button id="recovery-button" class="text-button">복구 링크 저장 ↗</button></div>
-          <p id="cookie-notice" class="fine-print">회원가입 없이 브라우저에 기록해요. 늘 같은 브라우저로 열고, 쿠키 삭제 전 복구 링크를 저장해 주세요.</p>
-          <details class="help"><summary>카메라가 안 되거나 기록이 보이지 않나요?</summary><p>연속 스캔에 필요한 카메라 권한을 허용해 주세요. 권한을 거부했거나 지원하지 않는 브라우저라면 휴대폰 기본 카메라로 QR을 하나씩 열고, 상품 확인 후 적립하면 됩니다.</p><p>항상 같은 Safari·Chrome 등 기본 브라우저로 여세요. 앱 안의 브라우저 기록은 자동으로 합쳐지지 않아요. 복구 링크가 있으면 원하는 브라우저에서 링크를 열어 기존 스탬프판을 복구할 수 있어요.</p><p>복구 링크와 쿠키를 모두 잃으면 회원 정보가 없어 기록을 찾을 수 없어요. 복구 링크는 다른 사람에게 공유하지 마세요.</p></details>
+          <p id="cookie-notice" class="fine-print"></p>
+          <details class="help"><summary>카메라가 안 되거나 기록이 보이지 않나요?</summary><p>연속 스캔에 필요한 카메라 권한을 허용해 주세요. 휴대폰 기본 카메라로 QR을 하나씩 열어 적립할 수도 있어요.</p><p>다른 브라우저에서 등록한 스탬프판을 열려면 ‘기존 스탬프 찾기’에 같은 이름과 전화번호를 입력해 주세요. 이름·번호를 등록하기 전에 만든 스탬프판은 저장한 개인 복구 링크로 열 수 있어요. 링크는 다른 사람에게 공유하지 마세요.</p></details>
         </section>
       </div>
     </div>

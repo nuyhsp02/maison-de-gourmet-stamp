@@ -16,7 +16,7 @@ class Element {
     this.classList = { toggle() {} };
   }
   addEventListener(name, fn) { (this.listeners[name] ||= []).push(fn); }
-  async fire(name) { for (const fn of this.listeners[name] || []) await fn({}); }
+  async fire(name) { for (const fn of this.listeners[name] || []) await fn({ preventDefault() {} }); }
   append(...children) { this.children.push(...children); }
   prepend(child) { this.children.unshift(child); }
   replaceChildren(...children) { this.children = children; }
@@ -93,14 +93,23 @@ async function openApp(options = {}) {
     addEventListener: (name, fn) => (windowEvents[name] ||= []).push(fn),
     fetch: async (url, init = {}) => {
       const parsed = new URL(url, location.origin), body = init.body ? JSON.parse(init.body) : null;
-      requests.push({ path: parsed.pathname, method: init.method || 'GET', body, headers: init.headers });
+      requests.push({ path: parsed.pathname, url: parsed.href, method: init.method || 'GET', body, headers: init.headers });
       let value, status = 200;
       if (parsed.pathname === '/api/state') {
         if (options.stateHook) await options.stateHook();
         value = snapshot(parsed.searchParams.has('qr') ? 'p0' : null);
       }
-      else if (parsed.pathname === '/api/session') {
-        server.customer = { stamps: {}, count: 0, status: 'collecting', redeemed_at: null }; value = { ok: true };
+      else if (['/api/register', '/api/find'].includes(parsed.pathname)) {
+        const failure = parsed.pathname === '/api/register' ? options.registerFailure : options.findFailure;
+        if (failure) {
+          status = failure.status; value = { code: failure.code, error: failure.error };
+        } else {
+          if (!options.blockCookie) server.customer = options.foundCard ||
+            { stamps: {}, count: 0, status: 'collecting', redeemed_at: null, registered: true };
+          value = { ok: true };
+        }
+      } else if (parsed.pathname === '/api/recover' && options.linkCard) {
+        server.customer = options.linkCard; value = { ok: true };
       } else if (parsed.pathname === '/api/collect') {
         if (options.collect401) { server.customer = null; status = 401; value = { error: '세션 만료' }; }
         else {
@@ -128,6 +137,7 @@ async function openApp(options = {}) {
   return {
     element, requests, server, location, history, document, drawCalls,
     posts: name => requests.filter(r => r.method === 'POST' && r.path === name),
+    async submitIdentity() { await element('identity-form').fire('submit'); await pause(); },
     async click(id) { if (!element(id).disabled) await element(id).fire('click'); await pause(); },
     async windowEvent(name, event = {}) { for (const fn of windowEvents[name] || []) await fn(event); await pause(); },
     async visibility(hidden) {

@@ -1,5 +1,7 @@
 # V1.4 자체 검수 결과
 
+고객 가입·전화번호 찾기 브랜치의 테스트 환경, 결과, 남은 시연 점검은 [PR 1 구현·검증 기록](docs/PR1_CUSTOMER_PROFILES.md)에 있습니다.
+
 아래 표는 **Git 도입 전 V1.4 기준 자료**입니다. GitHub 공개 준비 이후의 변경·실행 결과는 마지막 절을 함께 확인하세요.
 
 검수일: 2026-10-30 / 실행 환경: macOS, CPython 3.13.5 새 가상환경, Node.js, portable PowerShell 7.4.6. 실제 카페 Windows 노트북·도메인·Cloudflare 계정·iPhone/Galaxy에는 설치/접속하지 않았습니다.

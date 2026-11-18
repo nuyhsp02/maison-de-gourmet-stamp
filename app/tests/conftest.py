@@ -1,5 +1,5 @@
-import json
 import sys
+from itertools import count
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -9,6 +9,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app import ROOT, connect_db, create_app
 
 BASE = "http://127.0.0.1:8765"
+_visitor_ids = count(1)
+
+
+def registration():
+    return {"name": "테스트 방문자", "phone": f"010{next(_visitor_ids):08d}", "notice_acknowledged": True}
 
 
 @pytest.fixture
@@ -31,7 +36,7 @@ class Visitor:
             self.client.set_cookie(app.cookie_name, cookie, domain=self.domain)
         self.csrf = None
         if start and not cookie:
-            assert self.post("/api/session", {}).status_code == 200
+            assert self.post("/api/register", registration()).status_code == 200
         self.read()
 
     def read(self):

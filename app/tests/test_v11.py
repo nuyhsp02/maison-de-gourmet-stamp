@@ -73,10 +73,12 @@ def test_v1_data_cookie_recovery_link_and_fixed_qr_survive_restart(tmp_path):
             db.execute("INSERT INTO stamps VALUES (?, ?, ?)", (customer_id, product_id, now - 50))
         db.execute("INSERT INTO sessions VALUES (?, ?, ?, ?)", (digest(cookie), customer_id, "legacy-csrf", now + 3600))
         db.execute("INSERT INTO recovery VALUES (?, ?, ?)", (customer_id, digest(recovery), now + 3600))
-        before = list(db.iterdump())
+        before = set(db.iterdump())
     app = create_app(database=database, public_url=BASE, dev=True, testing=True)
     with connect_db(database) as db:
-        assert list(db.iterdump()) == before
+        after = set(db.iterdump())
+        assert before <= after
+        assert db.execute("SELECT COUNT(*) FROM customer_profiles").fetchone()[0] == 0
     v = Visitor(app, cookie=cookie)
     assert v.read()["customer"]["count"] == 4
     assert v.csrf == "legacy-csrf"

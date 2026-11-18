@@ -1,4 +1,4 @@
-"""V1.4 deployment operations. Application/API/schema remain in ../app unchanged."""
+"""Windows operations and offline SQLite backup/restore checks."""
 import argparse
 import contextlib
 import hashlib
@@ -113,17 +113,21 @@ def readonly(path):
     return connection
 
 
-def inspect_database(path, event=None):
+def inspect_database(path, event=None, check_key=None):
     with contextlib.closing(readonly(path)) as db:
         if db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
             raise OpsError('Database integrity check failed')
         if db.execute('PRAGMA foreign_key_check').fetchone():
             raise OpsError('Database foreign-key check failed')
+        if check_key is not None:
+            check_key(db)
         if event is not None:
             expected = json.dumps([event['id'], sorted(p['id'] for p in event['products'])])
             row = db.execute("SELECT value FROM metadata WHERE key='event'").fetchone()
             if not row or row[0] != expected:
                 raise OpsError('Database belongs to a different event; initialization refused')
+            if {r[0] for r in db.execute('SELECT id FROM products')} != {p['id'] for p in event['products']}:
+                raise OpsError('Stored product IDs differ from event; check the original QR backup')
         return {table: db.execute('SELECT COUNT(*) FROM ' + table).fetchone()[0]
                 for table in ('customers', 'stamps', 'reward_audit')}
 
@@ -136,7 +140,7 @@ def ensure_space(directory, source_size, minimum_mb):
         raise OpsError('Insufficient free space; no backup removed')
 
 
-def snapshot(source, target, minimum_mb=256, event=None):
+def snapshot(source, target, minimum_mb=256, event=None, check_key=None):
     """SQLite backup API, new target, bounded busy wait, integrity then atomic publish."""
     source, target = Path(source).resolve(), Path(target).resolve()
     if source == target or target.exists():
@@ -154,7 +158,7 @@ def snapshot(source, target, minimum_mb=256, event=None):
             src.backup(dst, pages=128, progress=progress, sleep=.05)
             dst.commit()
             dst.execute('PRAGMA journal_mode=DELETE')
-        inspect_database(temporary, event)
+        inspect_database(temporary, event, check_key)
         with temporary.open('r+b') as handle:
             os.fsync(handle.fileno())
         if target.exists():
@@ -176,13 +180,18 @@ def event_for(root, app_dir=None):
     return module, event
 
 
+def profile_key_check(root, module):
+    key_path = module.default_profile_key_path(root / 'data/collection.sqlite')
+    return lambda db: module.verify_profile_key(db, key_path)
+
+
 def validate(root, app_dir=None, initialize=False):
     root = Path(root).resolve()
     cfg = settings(root)
     module, event = event_for(root, app_dir)
     database = root / 'data/collection.sqlite'
     if database.exists():
-        counts = inspect_database(database, event)  # No init_db or write on an existing DB.
+        counts = inspect_database(database, event, profile_key_check(root, module))
     elif initialize:
         module.init_db(database, event)
         counts = inspect_database(database, event)
@@ -223,7 +232,7 @@ def backup(root, now=None, blocked_external=()):
     with file_lock(root / 'data/backup.lock'):
         inspect_database(source, event)
         name = 'maison-' + now.strftime('%Y%m%dT%H%M%S') + '-' + uuid.uuid4().hex[:8] + '.sqlite'
-        daily = snapshot(source, base / 'daily' / name, cfg['MinimumFreeMB'], event)
+        daily = snapshot(source, base / 'daily' / name, cfg['MinimumFreeMB'], event, profile_key_check(root, module))
         iso = now.isocalendar()
         prefix = f'maison-week-{iso[0]}-{iso[1]:02}-'
         existing = sorted((base / 'weekly').glob(prefix + '*.sqlite'))
@@ -264,10 +273,10 @@ def backup(root, now=None, blocked_external=()):
 def stage_restore(root, backup_file):
     root = Path(root).resolve()
     cfg = settings(root, ready=False)
-    _, event = event_for(root)
+    module, event = event_for(root)
     name = 'restore-' + datetime.now().strftime('%Y%m%dT%H%M%S') + '-' + uuid.uuid4().hex[:8] + '.sqlite'
     destination = root / 'data/recovery-check' / name
-    snapshot(backup_file, destination, cfg['MinimumFreeMB'], event)
+    snapshot(backup_file, destination, cfg['MinimumFreeMB'], event, profile_key_check(root, module))
     result = {'candidate': str(destination), 'sha256': hashlib.sha256(destination.read_bytes()).hexdigest(),
               'counts': inspect_database(destination, event), 'source': str(Path(backup_file).resolve())}
     write_json(destination.with_suffix('.receipt.json'), result)
@@ -278,9 +287,10 @@ def stage_restore(root, backup_file):
 def import_database(root, backup_file):
     root = Path(root).resolve()
     cfg = settings(root)
-    _, event = event_for(root)
+    module, event = event_for(root)
     with file_lock(root / 'data/backup.lock'), file_lock(root / 'data/server.lock'):
-        target = snapshot(backup_file, root / 'data/collection.sqlite', cfg['MinimumFreeMB'], event)
+        target = snapshot(backup_file, root / 'data/collection.sqlite', cfg['MinimumFreeMB'], event,
+                          profile_key_check(root, module))
     audit(root, 'import-database', 'ok')
     return {'database': str(target), 'counts': inspect_database(target, event)}
 
@@ -295,12 +305,14 @@ def activate_restore(root, candidate, confirmed=False):
     if hashlib.sha256(candidate.read_bytes()).hexdigest() != receipt['sha256']:
         raise OpsError('Restore candidate changed; validate the backup again')
     cfg = settings(root, ready=False)
-    _, event = event_for(root)
+    module, event = event_for(root)
     database = root / 'data/collection.sqlite'
     with file_lock(root / 'data/server.lock'), file_lock(root / 'data/backup.lock'):
         inspect_database(candidate, event)
-        snapshot(database, root / 'backups/pre-restore' / ('before-' + uuid.uuid4().hex + '.sqlite'), cfg['MinimumFreeMB'], event)
-        ready = snapshot(candidate, root / 'data' / ('activate-' + uuid.uuid4().hex + '.sqlite'), cfg['MinimumFreeMB'], event)
+        snapshot(database, root / 'backups/pre-restore' / ('before-' + uuid.uuid4().hex + '.sqlite'),
+                 cfg['MinimumFreeMB'], event, profile_key_check(root, module))
+        ready = snapshot(candidate, root / 'data' / ('activate-' + uuid.uuid4().hex + '.sqlite'),
+                         cfg['MinimumFreeMB'], event, profile_key_check(root, module))
         retired = root / 'data/retired' / (datetime.now().strftime('%Y%m%dT%H%M%S') + '-' + uuid.uuid4().hex[:8])
         retired.mkdir(parents=True)
         moved = []
@@ -343,7 +355,12 @@ def create_http(root, app_dir=None, database=None, port=None):
     root = Path(root).resolve()
     cfg = settings(root)
     module, _event = event_for(root, app_dir)
-    app = module.create_app(root / 'config/event.json', database or root / 'data/collection.sqlite', cfg['PublicUrl'])
+    source = root / 'data/collection.sqlite'
+    key_path = module.default_profile_key_path(source)
+    # Legacy validation clones may need their first key. Generate it beside
+    # the temporary clone, without creating files beside the source database.
+    app = module.create_app(root / 'config/event.json', database or source, cfg['PublicUrl'],
+                            profile_key_path=key_path if key_path.exists() else None)
     sockets = {}
     server = create_server(app, host='127.0.0.1', port=cfg['Port'] if port is None else port,
                            threads=32, map=sockets, trusted_proxy='127.0.0.1', trusted_proxy_count=1,

@@ -9,6 +9,7 @@
     description: '열 가지 겨울의 맛을 모아, 나만의 트리를 완성해 보세요.' });
   const icons = new Set(['cup', 'cream', 'tea', 'glass', 'bean', 'bread', 'cake', 'cookie', 'bag']);
   let state, pendingId = null, busy = false, toastTimer;
+  let findingCard = false, phoneRegistered = false;
   let qrKey = location.pathname.startsWith('/q/') ? location.pathname.slice(3) : null;
   const isRestore = location.pathname === '/recover';
   let recoveryToken = isRestore ? location.hash.slice(1) : '';
@@ -73,13 +74,34 @@
     const result = await api('/api/state' + (qrKey ? '?qr=' + encodeURIComponent(qrKey) : ''));
     state = result;
     pendingId = result.pending;
+    if (state.customer) clearIdentityForm();
     render();
   }
-  async function ensureSession() {
-    if (state.customer) return;
-    await api('/api/session', {});
-    await refresh();
-    if (!state.customer) throw new Error('쿠키가 차단되어 기록을 저장할 수 없어요. 쿠키를 허용하거나 다른 기본 브라우저에서 열어 주세요.');
+  function clearIdentityForm() {
+    $('identity-name').value = '';
+    $('identity-phone').value = '';
+    $('notice-acknowledged').checked = false;
+    $('identity-error').textContent = '';
+    findingCard = false;
+    phoneRegistered = false;
+  }
+  function renderIdentity() {
+    $('identity-title').textContent = findingCard ? '기존 스탬프 찾기' : '스탬프판 등록';
+    $('identity-intro').textContent = findingCard ?
+      '등록할 때 사용한 이름과 휴대전화번호를 입력하면 기존 스탬프판을 이 브라우저에서 열 수 있어요.' :
+      '처음 참여한다면 이름과 휴대전화번호를 등록해 주세요. 번호 하나로 스탬프판 하나를 이용할 수 있어요.';
+    $('identity-qr').hidden = !pendingId;
+    if (pendingId) $('identity-qr').textContent = product(pendingId).name + ' QR을 확인했어요. 스탬프판을 연 다음 적립해 주세요.';
+    $('registration-notice').hidden = findingCard;
+    $('identity-name').readOnly = busy;
+    $('identity-phone').readOnly = busy;
+    $('notice-acknowledged').disabled = busy || findingCard;
+    $('identity-submit').textContent = findingCard ? '내 스탬프판 열기' : '스탬프판 등록하기';
+    $('identity-submit').hidden = phoneRegistered;
+    $('identity-submit').disabled = busy || phoneRegistered || (!findingCard && !isActive());
+    $('identity-switch').textContent = findingCard ? '새 스탬프판 등록으로 돌아가기' : '기존 스탬프 찾기';
+    $('identity-switch').className = 'button ' + (phoneRegistered ? 'primary' : 'secondary');
+    $('identity-switch').disabled = busy;
   }
   function isActive() { return ['demo', 'running'].includes(state.phase); }
   function product(id) { return state.event.products.find(p => p.id === id); }
@@ -138,21 +160,24 @@
     $('browser-warning').hidden = !/KAKAOTALK|Instagram|FBAN|FBAV|Line\/|NAVER|; wv\)/i.test(navigator.userAgent);
     $('period-banner').hidden = !['upcoming', 'ended'].includes(state.phase);
     $('period-banner').textContent = state.phase === 'upcoming' ? '아직 시작 전이에요. 이벤트 시작 후 스탬프를 모을 수 있어요.' : '스탬프 적립이 종료되었어요. 모은 기록은 계속 볼 수 있어요.';
+    $('identity-panel').hidden = Boolean(c);
+    $('collection-panel').hidden = !c;
+    $('collection-actions').hidden = !c;
+    if (!c) renderIdentity();
     $('board-title').textContent = c?.status === 'redeemed' ? '선물까지 받은 겨울' : count === 10 ? '겨울 트리가 완성됐어요!' : '나의 겨울 트리';
     $('stamp-count').textContent = count;
     $('progress').value = count;
     $('progress-caption').textContent = count === 10 ? '열 가지 겨울이 모여, 트리가 완성됐어요.' : `선물까지 남은 겨울의 맛, ${10 - count}가지.`;
     $('stamp-tree').replaceChildren(...e.products.map((p, i) => renderStamp(p, i, justAdded)));
-    $('pending-panel').hidden = !pendingId;
+    $('pending-panel').hidden = !pendingId || !c;
     if (pendingId) {
       const already = Boolean(c?.stamps[pendingId]);
       $('pending-title').textContent = product(pendingId)?.name || '상품 확인';
       $('pending-help').textContent = already ? '이미 모은 상품이에요. 한 상품은 한 번만 적립돼요.' :
         autoCollecting ? '기존 기록을 확인했어요. 이 상품을 적립하고 있어요.' :
-        c ? '구매한 상품이 맞나요? 아래 버튼으로 적립해 주세요.' :
-        '처음 방문하셨나요? 구매한 상품을 확인하고 버튼을 누르면 새 스탬프판을 만들어요.';
-      $('collect-button').disabled = busy || already || !isActive() || c?.status === 'redeemed';
-      $('collect-button').querySelector('span').textContent = already ? '이미 수집한 스탬프' : !isActive() ? '지금은 적립할 수 없어요' : busy ? '처리 중…' : c ? '이 상품 스탬프 받기' : '새 스탬프판 만들고 적립하기';
+        '구매한 상품이 맞나요? 아래 버튼으로 적립해 주세요.';
+      $('collect-button').disabled = busy || !c || already || !isActive() || c.status === 'redeemed';
+      $('collect-button').querySelector('span').textContent = already ? '이미 수집한 스탬프' : !isActive() ? '지금은 적립할 수 없어요' : busy ? '처리 중…' : '이 상품 스탬프 받기';
     }
     $('reward-panel').hidden = count !== 10;
     if (count === 10) {
@@ -168,8 +193,11 @@
     }
     $('scan-button').hidden = count === 10;
     $('scan-caption').hidden = count === 10;
-    $('scan-button').disabled = busy || !isActive();
-    $('recovery-button').disabled = busy;
+    $('scan-button').disabled = busy || !c || !isActive();
+    $('recovery-button').disabled = busy || !c;
+    $('cookie-notice').textContent = c?.registered ?
+      '이 브라우저에서는 바로 이용할 수 있어요. 쿠키를 지우거나 다른 브라우저를 쓰면 등록한 이름과 전화번호로 스탬프판을 찾아 주세요.' :
+      '이 스탬프판은 이름과 번호를 등록하기 전에 만들었어요. 쿠키를 지우거나 다른 브라우저로 옮기기 전에 개인 복구 링크를 저장해 주세요.';
     $('recovery-button').textContent = c?.recovery_saved ? '새 링크 만들기 ↗' : '복구 링크 저장 ↗';
     $('recovery-status').textContent = c?.recovery_saved ? '발급됨 · 나만 볼 수 있는 곳에 보관하세요.' : '선택 사항 · 개인 복구 링크 저장';
     $('generate-link').disabled = busy;
@@ -188,11 +216,49 @@
     finally { busy = false; render(); }
   }
 
+  $('identity-switch').addEventListener('click', () => {
+    findingCard = !findingCard;
+    phoneRegistered = false;
+    $('identity-error').textContent = '';
+    $('notice-acknowledged').checked = false;
+    renderIdentity();
+    $('identity-title').focus();
+  });
+  $('identity-phone').addEventListener('input', () => {
+    if (phoneRegistered) {
+      phoneRegistered = false;
+      $('identity-error').textContent = '';
+      renderIdentity();
+    }
+  });
+  $('identity-form').addEventListener('submit', event => {
+    event.preventDefault();
+    if (phoneRegistered) return;
+    return action(async () => {
+      const details = { name: $('identity-name').value, phone: $('identity-phone').value };
+      $('identity-error').textContent = '';
+      if (!findingCard) {
+        if (!$('notice-acknowledged').checked) throw new Error('개인정보 수집·이용 안내를 확인해 주세요.');
+        details.notice_acknowledged = true;
+      }
+      try {
+        await api(findingCard ? '/api/find' : '/api/register', details);
+      } catch (error) {
+        if (error.code === 'phone_registered') phoneRegistered = true;
+        throw error;
+      }
+      await refresh();
+      if (!state.customer) throw new Error('쿠키를 허용한 후 기존 스탬프 찾기로 다시 열어 주세요.');
+      toast(pendingId ? '스탬프판을 열었어요. 구매한 상품을 확인하고 적립해 주세요.' : '내 스탬프판을 열었어요.');
+    }, 'identity-error');
+  });
+
   async function collectPending(automatic = false) {
     if (automatic) {
       // Automatic flow must NEVER create a customer or recover a stale session.
       if (!state.customer || !state.csrf || navigationInterrupted || document.visibilityState !== 'visible' || !document.hasFocus()) return;
-    } else await ensureSession();
+    }
+    if (!state.customer) return;
     const result = await api('/api/collect', { qr: qrKey });
     state = result;
     const id = result.product_id;
@@ -349,7 +415,7 @@
       scannerError(message);
     }
   }
-  $('scan-button').addEventListener('click', () => action(async () => { await ensureSession(); await startCamera(); }));
+  $('scan-button').addEventListener('click', () => action(startCamera));
   for (const id of ['close-scanner', 'scanner-done']) $(id).addEventListener('click', () => $('scanner-dialog').close());
   $('scanner-dialog').addEventListener('close', stopCamera);
   $('scanner-dialog').addEventListener('cancel', stopCamera);
@@ -360,11 +426,10 @@
       stopCamera();
     } else if (state && !busy) { refresh().catch(() => {}); }
   });
-  window.addEventListener('pagehide', () => { navigationInterrupted = true; stopCamera(); });
+  window.addEventListener('pagehide', () => { navigationInterrupted = true; clearIdentityForm(); stopCamera(); });
   window.addEventListener('pageshow', event => { if (event.persisted && state) refresh().catch(() => {}); });
 
   $('recovery-button').addEventListener('click', () => action(async () => {
-    await ensureSession();
     $('generated-link').hidden = true; $('generate-link').hidden = false;
     $('recovery-error').textContent = ''; $('recovery-url').value = '';
     $('recovery-dialog').showModal();

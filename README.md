@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/workflows/ci.yml/badge.svg)](https://github.com/nuyhsp02/maison-de-gourmet-stamp/actions/workflows/ci.yml)
 
-Maison de Gourmet의 겨울·크리스마스 시즌을 위한 **회원가입 없는 10종 상품 컬렉션 웹앱**입니다. 작은 카페가 노트북 한 대에서 운영할 수 있도록 Flask + Waitress + SQLite로 구현하고, Windows 운영·백업 절차를 함께 준비했습니다.
+Maison de Gourmet의 겨울·크리스마스 시즌을 위한 **상품 10종 스탬프 카드 웹앱**입니다. 이 개발 브랜치에서는 이름과 휴대전화번호로 카드를 등록하고 다른 브라우저에서 같은 기록을 찾을 수 있습니다. Flask, Waitress, SQLite를 사용하며 기존 Windows 운영·백업 도구를 포함합니다.
 
 현재 공개 소스와 Windows 운영 준비 단계입니다. **실제 카페 운영 실적·실사용 고객 수·한 달 무중단 성과는 확인되지 않았습니다.** 동시 30명·고객 데이터 400명은 설계 목표이며 실제 장비의 보장 성능이 아닙니다.
 
@@ -11,7 +11,7 @@ Maison de Gourmet의 겨울·크리스마스 시즌을 위한 **회원가입 없
 ## 카페에서 필요한 흐름
 
 - 시즌 음료 4종 + 지정 상품 6종을 **순서 없이 상품별 1회** 수집합니다.
-- 고객은 휴대폰 기본 카메라로 상품 QR을 열고, 첫 방문에만 새 카드를 만듭니다.
+- 처음 참여하는 고객은 이름·휴대전화번호를 입력하고 개인정보 안내를 확인해 등록합니다. 등록한 번호로 다시 접속하면 기존 스탬프를 찾을 수 있습니다.
 - 같은 브라우저는 쿠키로 다시 인식합니다. 재방문 자동 적립은 안전 조건이 맞을 때만 POST로 처리하며, 조건이 부족하면 버튼을 제공합니다.
 - 2~3종 동시 구매 시 웹 안에서 QR을 연속 스캔합니다. 카메라 권한을 거부하면 기본 카메라로 하나씩 여는 대안이 있습니다.
 - 10종을 모으면 보상 지급 대기 상태가 됩니다. 직원이 실물 보상을 건넨 뒤 고객 화면에서 버튼 한 번으로 완료합니다. 직원 인증이 없어 고객도 누를 수 있다는 운영상 위험을 화면에 안내합니다.
@@ -51,19 +51,39 @@ flowchart LR
 
 운영 의존성은 [requirements-windows.lock](requirements-windows.lock)에 고정했습니다. 운영 검증 대상은 CPython 3.15.2 x64 일반 GIL입니다. 3.12/3.13은 앱 호환성 CI를 유지하지만 현재 관측된 구 SQLite는 운영 사전 검사에서 거부합니다. 새 프레임워크나 관리자 웹 대시보드는 도입하지 않았습니다.
 
-## 익명 식별과 개인 복구
+## 고객 등록과 기존 스탬프 찾기
 
-1. 새 카드 버튼의 POST가 고객과 세션을 만듭니다. QR GET·HEAD·미리보기 요청은 고객 생성이나 적립을 하지 않습니다.
+1. 등록 POST에서 정규화한 번호의 HMAC을 확인하고 한 트랜잭션으로 고객·프로필·세션을 저장합니다. 이미 등록된 번호는 찾기 버튼으로 안내합니다. 입력값은 현재 폼에 유지되며 찾기 POST에서 이름과 번호가 모두 일치하면 원래 고객 ID에 새 세션을 발급합니다.
 2. 추측하기 어려운 세션 토큰을 HTTPS 환경의 `__Host-` 쿠키에 넣습니다. `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`를 사용하고 DB에는 토큰 원문 대신 SHA-256 해시를 저장합니다.
 3. 선택적 개인 복구 링크는 `/recover#토큰` 형식입니다. fragment는 일반 HTTP URL 요청에 포함되지 않으며, 고객이 복구를 실행할 때 POST 본문으로 검증합니다. DB에는 복구 토큰 해시와 만료 시각을 저장하고 재발급하면 이전 링크를 무효화합니다.
 4. Host·Origin·JSON 요청·클라이언트 헤더·세션 CSRF를 검사합니다. 개인 복구 링크 자체는 소유한 사람이 기록을 복구할 수 있는 비밀이므로 공개하면 안 됩니다.
 
-기본 카메라가 여는 브라우저와 카카오톡 등 인앱 브라우저의 저장 공간은 다를 수 있습니다. 같은 휴대폰이라도 다른 브라우저가 자동으로 같은 고객이 되는 방식은 아닙니다. 도메인이 달라지면 기존 쿠키도 자동 이전되지 않습니다.
+기본 카메라가 여는 브라우저와 앱 내부 브라우저는 쿠키 저장소가 다를 수 있습니다. 등록한 카드는 이름·전화번호로 다시 찾을 수 있습니다. 프로필 도입 전 익명 카드는 기존 쿠키나 개인 복구 링크로 엽니다.
+
+```mermaid
+flowchart TD
+    Q["일반 주소 또는 상품 QR GET"] --> S{"유효한 세션 쿠키?"}
+    S -->|예| Card["기존 고객의 카드 조회"]
+    S -->|아니오| Form["등록 또는 기존 스탬프 찾기"]
+    Form -->|등록 POST · 안내 확인| Unique{"정규화한 번호가 이미 등록됐는가?"}
+    Unique -->|아니오| Create["고객 + 프로필 + 세션을 함께 저장"]
+    Unique -->|예| Dup["중복 안내 · 찾기 버튼 · 입력값 유지"]
+    Dup --> Find["찾기 POST"]
+    Form -->|기존 스탬프 찾기| Find
+    Find --> Match{"이름과 번호 일치?"}
+    Match -->|예| Session["같은 고객 ID에 새 세션 발급"]
+    Match -->|아니오| Correct["재입력 또는 매장 정정 안내"]
+    Create --> Card
+    Session --> Card
+    Card -->|상품 QR · 적립 POST| Stamp["상품당 한 번 적립"]
+    Stamp -->|10종 완성 · 지급 POST| Reward["고객당 한 번 보상 기록"]
+```
 
 ## SQLite 구조와 중복 방지
 
 ```mermaid
 erDiagram
+    customers ||--o| customer_profiles : registers
     customers ||--o{ sessions : identifies
     customers ||--o{ stamps : collects
     products ||--o{ stamps : corresponds
@@ -73,6 +93,17 @@ erDiagram
         TEXT id PK
         INTEGER created_at
         INTEGER redeemed_at
+    }
+    customer_profiles {
+        TEXT customer_id PK,FK
+        TEXT display_name
+        TEXT phone_lookup_hmac UK
+        TEXT notice_version
+        INTEGER notice_acknowledged_at
+    }
+    metadata {
+        TEXT key PK
+        TEXT value
     }
     products {
         TEXT id PK
@@ -101,7 +132,7 @@ erDiagram
     }
 ```
 
-`metadata`에는 기존 이벤트 ID·상품 ID 조합을 기록해 다른 이벤트 설정으로 기존 DB를 잘못 여는 것을 막습니다. 전체 정의는 [schema.sql](app/schema.sql)입니다.
+`metadata`에는 기존 이벤트·상품 ID 서명과 전화번호 검색 비밀 키의 확인값을 저장합니다. 기존 익명 고객은 프로필 0개, 신규 등록 고객은 프로필 1개입니다. 전화번호 원문은 저장하지 않습니다. [전체 스키마](app/schema.sql) · [DB와 검색 키의 격리 복원](docs/BACKUP_RECOVERY.md) · [PR 1 구현·검증 기록](docs/PR1_CUSTOMER_PROFILES.md)
 
 - `stamps`의 복합 기본키 `(customer_id, product_id)`와 `INSERT OR IGNORE`로 동일 상품 중복 적립을 막습니다. 프런트의 중복 방지만 신뢰하지 않습니다.
 - 단일 Waitress 프로세스에서 쓰기 요청을 순서대로 조정해 Windows의 SQLite 쓰기 잠금 경합을 줄입니다. 중복 방지의 기준은 계속 DB의 기본키/트랜잭션입니다. 다중 서버/프로세스 운영을 추가한 것은 아닙니다.

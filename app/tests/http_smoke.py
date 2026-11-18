@@ -5,6 +5,7 @@ Usage: python tests/http_smoke.py /absolute/path/to/demo/manifest.json
 """
 import http.cookiejar
 import json
+import secrets
 import statistics
 import sys
 import threading
@@ -22,6 +23,7 @@ def main():
     base = f"{parsed.scheme}://{parsed.netloc}"
     keys = [urlsplit(p["url"]).path.split("/")[-1] for p in manifest]
     measurements, lock = [], threading.Lock()
+    first_number = secrets.randbelow(100_000_000 - 30)
 
     def visit(index):
         client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
@@ -40,7 +42,8 @@ def main():
             with lock: measurements.append((time.perf_counter() - started) * 1000)
             return result
         assert call("/api/state")["event"]["draft"] is True
-        call("/api/session", {})
+        call("/api/register", {"name": "부하 테스트", "phone": f"010{first_number + index:08d}",
+                               "notice_acknowledged": True})
         state = call("/api/state")
         csrf = state["csrf"]
         assert state["customer"]["count"] == 0

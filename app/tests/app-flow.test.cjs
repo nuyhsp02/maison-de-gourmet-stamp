@@ -3,14 +3,102 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { openApp, URL_A } = require('./app-harness.cjs');
 
-test('new visitor is never created automatically; explicit button creates then collects', async () => {
+const profile = { name: '시연 이름', phone: '010-0000-0001' };
+function fillProfile(app) {
+  app.element('identity-name').value = profile.name;
+  app.element('identity-phone').value = profile.phone;
+}
+test('new QR visitor registers explicitly; the pending product still requires a collection POST', async () => {
   const app = await openApp({ customer: false });
-  assert.equal(app.posts('/api/session').length, 0);
+  assert.equal(app.requests.filter(r => r.method === 'POST').length, 0);
+  assert.equal(app.element('identity-panel').hidden, false);
+  assert.equal(app.element('notice-acknowledged').checked, false);
+  assert.equal(app.element('collection-panel').hidden, true);
+  assert.equal(app.element('identity-qr').hidden, false);
+  fillProfile(app);
+  await app.submitIdentity();
+  assert.equal(app.posts('/api/register').length, 0);
+  app.element('notice-acknowledged').checked = true;
+  await app.submitIdentity();
+  assert.deepEqual(app.posts('/api/register').map(r => r.body), [{ ...profile, notice_acknowledged: true }]);
+  assert.equal(app.element('identity-panel').hidden, true);
+  assert.equal(app.element('identity-phone').value, '');
+  assert.equal(app.element('identity-name').value, '');
+  assert.equal(app.element('pending-panel').hidden, false);
   assert.equal(app.posts('/api/collect').length, 0);
   await app.click('collect-button');
-  assert.equal(app.posts('/api/session').length, 1);
+  assert.equal(app.posts('/api/session').length, 0);
   assert.equal(app.posts('/api/collect').length, 1);
   assert.equal(app.server.customer.count, 1);
+});
+
+test('duplicate registration opens find only on request, keeping inputs out of URLs and history', async () => {
+  const app = await openApp({ customer: false, registerFailure: { status: 409, code: 'phone_registered',
+    error: '이미 등록된 스탬프가 있어요. 기존 스탬프 찾기로 이동해 주세요.' },
+    foundCard: { stamps: { p2: 1 }, count: 1, status: 'collecting', registered: true } });
+  fillProfile(app);
+  app.element('notice-acknowledged').checked = true;
+  await app.submitIdentity();
+  assert.match(app.element('identity-error').textContent, /기존 스탬프 찾기/);
+  assert.equal(app.element('identity-submit').hidden, true);
+  await app.submitIdentity();
+  assert.equal(app.posts('/api/register').length, 1);
+  assert.equal(app.posts('/api/find').length, 0);
+  await app.click('identity-switch');
+  assert.equal(app.element('identity-submit').hidden, false);
+  assert.equal(app.posts('/api/find').length, 0);
+  assert.equal(app.element('registration-notice').hidden, true);
+  assert.equal(app.element('identity-title').textContent, '기존 스탬프 찾기');
+  assert.equal(app.element('identity-name').value, profile.name);
+  assert.equal(app.element('identity-phone').value, profile.phone);
+  await app.submitIdentity();
+  assert.deepEqual(app.posts('/api/find').map(r => r.body), [profile]);
+  assert.equal(app.element('stamp-count').textContent, 1);
+  assert.equal(app.posts('/api/collect').length, 0);
+  assert.equal(app.element('pending-panel').hidden, false);
+  assert.equal(app.location.href, URL_A);
+  assert.equal(app.history.state, null);
+  for (const request of app.requests) {
+    assert.ok(!decodeURIComponent(request.url).includes(profile.name));
+    assert.ok(!request.url.includes(profile.phone));
+  }
+});
+
+test('failed find keeps the form and correction guidance, leaving the visitor unsigned', async () => {
+  const app = await openApp({ customer: false, findFailure: { status: 404, code: 'profile_not_found',
+    error: '입력 정보를 확인해 주세요. 정정은 매장에 문의해 주세요.' } });
+  await app.click('identity-switch');
+  fillProfile(app);
+  await app.submitIdentity();
+  assert.equal(app.server.customer, null);
+  assert.equal(app.posts('/api/register').length, 0);
+  assert.match(app.element('identity-error').textContent, /정정/);
+  assert.equal(app.element('identity-panel').hidden, false);
+  await app.windowEvent('pagehide');
+  await app.windowEvent('pageshow', { persisted: true });
+  assert.equal(app.element('identity-name').value, '');
+  assert.equal(app.element('identity-phone').value, '');
+});
+
+test('blocked session cookie keeps registration screen and prevents collection', async () => {
+  const app = await openApp({ customer: false, blockCookie: true });
+  fillProfile(app); app.element('notice-acknowledged').checked = true;
+  await app.submitIdentity();
+  assert.equal(app.element('identity-panel').hidden, false);
+  assert.match(app.element('identity-error').textContent, /쿠키/);
+  assert.equal(app.posts('/api/collect').length, 0);
+});
+
+test('legacy recovery link restores the anonymous card without requesting registration', async () => {
+  const app = await openApp({ customer: false, url: 'http://127.0.0.1:8765/recover#test-token',
+    linkCard: { stamps: { p1: 1 }, count: 1, status: 'collecting', registered: false } });
+  assert.equal(app.location.hash, '');
+  assert.equal(app.element('restore-dialog').open, true);
+  await app.click('restore-button');
+  assert.equal(app.posts('/api/recover').length, 1);
+  assert.equal(app.posts('/api/register').length, 0);
+  assert.equal(app.element('identity-panel').hidden, true);
+  assert.match(app.element('cookie-notice').textContent, /개인 복구 링크/);
 });
 test('valid returning visitor auto POSTs exactly once and sends CSRF', async () => {
   const app = await openApp();
@@ -58,7 +146,8 @@ test('expired session during auto POST never falls through to customer creation'
   assert.equal(app.posts('/api/collect').length, 1);
   assert.equal(app.posts('/api/session').length, 0);
   assert.equal(app.server.customer, null);
-  assert.match(app.element('collect-button').querySelector('span').textContent, /새 스탬프판/);
+  assert.equal(app.element('identity-panel').hidden, false);
+  assert.equal(app.element('collect-button').disabled, true);
 });
 test('one reward button directly posts, no checkbox/dialog; state survives reread', async () => {
   const stamps = Object.fromEntries(Array.from({ length: 10 }, (_, i) => ['p' + i, 1]));

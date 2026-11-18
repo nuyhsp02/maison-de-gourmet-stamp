@@ -1,7 +1,9 @@
-"""One event, one laptop, anonymous collections. No GET writes customer data."""
+"""Single-event stamp cards. No GET writes customer data."""
 import hashlib
+import hmac
 from contextlib import closing, contextmanager
 import json
+import os
 import re
 import secrets
 import sqlite3
@@ -17,7 +19,9 @@ from werkzeug.exceptions import HTTPException
 
 ROOT = Path(__file__).resolve().parent
 LIFETIME = 90 * 86400
+MAX_EVENT_DAYS = 62  # Two consecutive calendar months can span 62 days.
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
+NOTICE_VERSION = "demo-v1"
 
 
 def digest(value):
@@ -51,8 +55,8 @@ def load_event(path):
     if not event["draft"]:
         start, end, reward = [timestamp(event.get(k)) for k in (
             "starts_at", "ends_at", "reward_until")]
-        if not start < end <= reward or end - start > 32 * 86400:
-            raise ValueError("이벤트 기간은 32일 이내, 보상 마감은 종료 이후여야 합니다.")
+        if not start < end <= reward or end - start > MAX_EVENT_DAYS * 86400:
+            raise ValueError(f"이벤트 기간은 {MAX_EVENT_DAYS}일 이내이며, 보상 마감은 종료 시각과 같거나 늦어야 합니다.")
     return event
 
 
@@ -68,28 +72,108 @@ def connect_db(path):
     return db
 
 
-def init_db(path, event):
+def default_profile_key_path(database):
+    return Path(str(database) + ".profile.key")
+
+
+def key_fingerprint(key):
+    return hmac.digest(key, b"maison/profile-key-check/v1", "sha256").hex()
+
+
+def read_profile_key(path):
+    try:
+        key = Path(path).read_bytes()
+    except OSError as exc:
+        raise ValueError("전화번호 검색 키를 읽을 수 없습니다. 보관한 원본 키를 복원하세요.") from exc
+    if len(key) != 32:
+        raise ValueError("전화번호 검색 키 형식이 잘못되었습니다. 보관한 원본 키를 복원하세요.")
+    return key
+
+
+def verify_profile_key(db, key_path):
+    """Read-only check for startup and staged restores, including pre-profile DBs."""
+    marker = db.execute("SELECT value FROM metadata WHERE key='profile_key_check_v1'").fetchone()
+    has_table = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='customer_profiles'").fetchone()
+    if marker is None:
+        if has_table and db.execute("SELECT 1 FROM customer_profiles LIMIT 1").fetchone():
+            raise ValueError("등록 정보의 키 확인값이 없습니다. DB와 키의 백업을 확인하세요.")
+        return None
+    if not has_table:
+        raise ValueError("키 확인값에 대응하는 고객 등록 테이블이 없습니다. 백업을 확인하세요.")
+    key = read_profile_key(key_path)
+    if not hmac.compare_digest(key_fingerprint(key), marker[0]):
+        raise ValueError("전화번호 검색 키가 이 DB와 일치하지 않습니다. 원본 키를 복원하세요.")
+    return key
+
+
+def bind_profile_key(db, path):
+    # Serialized by the migration transaction. Never replace an existing secret.
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        key = read_profile_key(path)
+    else:
+        with os.fdopen(fd, "wb") as stream:
+            key = secrets.token_bytes(32)
+            stream.write(key)
+            stream.flush()
+            os.fsync(stream.fileno())
+    db.execute("INSERT INTO metadata VALUES ('profile_key_check_v1', ?)", (key_fingerprint(key),))
+    return key
+
+
+def apply_schema(db):
+    # executescript() implicitly commits an open transaction on supported runtimes.
+    # Keep validation, additive DDL and key binding in the same transaction.
+    statement = ""
+    for line in (ROOT / "schema.sql").read_text(encoding="utf-8").splitlines(keepends=True):
+        statement += line
+        if sqlite3.complete_statement(statement):
+            db.execute(statement)
+            statement = ""
+    if statement.strip():
+        raise ValueError("schema.sql에 완료되지 않은 SQL 문이 있습니다.")
+
+
+def init_db(path, event, profile_key_path=None):
     path = Path(path)
+    key_path = profile_key_path or default_profile_key_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     # SQLite connection context managers commit/rollback but do not close the handle.
     # Close explicitly so Windows can move a stopped database during recovery.
     with closing(connect_db(path)) as db:
-        db.executescript((ROOT / "schema.sql").read_text())
         signature = json.dumps([event["id"], sorted(p["id"] for p in event["products"])])
-        db.execute("BEGIN IMMEDIATE")
         try:
-            existing = db.execute("SELECT value FROM metadata WHERE key='event'").fetchone()
-            if existing and existing[0] != signature:
-                raise ValueError("기존 DB의 이벤트/상품 ID가 다릅니다. 초기화하지 말고 설정을 확인하세요.")
+            db.execute("BEGIN IMMEDIATE")
+            tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            key = existing = None
+            if tables:
+                if "metadata" not in tables:
+                    raise ValueError("기존 DB에 행사 메타데이터가 없습니다. 백업을 확인하세요.")
+                existing = db.execute("SELECT value FROM metadata WHERE key='event'").fetchone()
+                if existing and existing[0] != signature:
+                    raise ValueError("기존 DB의 이벤트/상품 ID가 다릅니다. 초기화하지 말고 설정을 확인하세요.")
+                if existing:
+                    stored_ids = {row[0] for row in db.execute("SELECT id FROM products")}
+                    if stored_ids != {p["id"] for p in event["products"]}:
+                        raise ValueError("기존 DB에 등록된 상품 구성이 다릅니다. 원래 QR이 보존된 백업을 확인하세요.")
+                key = verify_profile_key(db, key_path)
+            apply_schema(db)
             db.execute("INSERT OR IGNORE INTO metadata VALUES ('event', ?)", (signature,))
-            for p in event["products"]:
-                db.execute("INSERT OR IGNORE INTO products VALUES (?, ?)",
-                           (p["id"], secrets.token_urlsafe(24)))
+            if key is None:
+                key = bind_profile_key(db, key_path)
+            if existing is None:
+                for p in event["products"]:
+                    db.execute("INSERT OR IGNORE INTO products VALUES (?, ?)",
+                               (p["id"], secrets.token_urlsafe(24)))
             db.commit()
         except Exception:
             db.rollback()
             raise
+        db.execute("PRAGMA journal_mode = WAL")
     path.chmod(0o600)
+    return key
 
 
 class Limits:
@@ -118,8 +202,18 @@ class APIError(Exception):
         self.message, self.status, self.code = message, status, code
 
 
+def normalized_phone(value):
+    if isinstance(value, str) and len(value) <= 64:
+        compact = re.sub(r"[ ()-]", "", value.strip())
+        if compact.startswith("+82"):
+            compact = "0" + compact[3:]
+        if re.fullmatch(r"010[0-9]{8}|01[16789][0-9]{7,8}", compact):
+            return compact
+    raise APIError("국내 휴대전화번호를 확인해 주세요.")
+
+
 def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765",
-               dev=False, testing=False):
+               dev=False, testing=False, profile_key_path=None):
     event = load_event(event_path or ROOT / "event.json")
     parsed = urlsplit(public_url)
     if parsed.path not in ("", "/") or parsed.query or parsed.fragment or parsed.username:
@@ -142,7 +236,7 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     # One Waitress process, one SQLite writer. Coordinate request writers here
     # instead of letting Windows busy retries repeatedly race for the DB lock.
     app.write_lock = threading.Lock()
-    init_db(app.config["DATABASE"], event)
+    profile_key = init_db(app.config["DATABASE"], event, profile_key_path)
 
     def db():
         if "db" not in g:
@@ -215,7 +309,7 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     def require_identity():
         who = identity()
         if who is None:
-            raise APIError("브라우저 기록을 확인할 수 없습니다. 쿠키를 허용하거나 복구 링크를 사용하세요.",
+            raise APIError("쿠키를 허용하고 기존 스탬프 찾기 또는 저장한 복구 링크를 이용해 주세요.",
                            401, "session_required")
         if not secrets.compare_digest(request.headers.get("X-CSRF-Token", ""), who["csrf"]):
             raise APIError("화면을 새로고침한 후 다시 시도하세요.", 403, "csrf_failed")
@@ -300,7 +394,10 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                                   (who["customer_id"],)).fetchall()
             recovery = db().execute("SELECT expires_at FROM recovery WHERE customer_id=? AND expires_at>?",
                                     (who["customer_id"], int(time.time()))).fetchone()
+            registered = db().execute("SELECT 1 FROM customer_profiles WHERE customer_id=?",
+                                      (who["customer_id"],)).fetchone()
             result.update(csrf=who["csrf"], customer={
+                "registered": bool(registered),
                 "stamps": {s["product_id"]: s["collected_at"] for s in stamps},
                 "count": len(stamps), "status": "redeemed" if customer["redeemed_at"] else
                     ("complete" if len(stamps) == 10 else "collecting"),
@@ -339,7 +436,7 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                             and request.headers.get("Sec-Fetch-User") == "?1"
                             and request.headers.get("Sec-Fetch-Mode") == "navigate"
                             and request.headers.get("Sec-Fetch-Dest") == "document")
-        return render_template("index.html", auto_collect=auto_collect)
+        return render_template("index.html", auto_collect=auto_collect, notice_version=NOTICE_VERSION)
 
     @app.get("/health")
     def health():
@@ -353,19 +450,57 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     @app.post("/api/session")
     def start():
         body()
-        who = identity()
-        if who:
+        if identity():
+            return jsonify(snapshot(require_identity()))
+        raise APIError("새 스탬프 카드를 등록하거나 기존 스탬프 찾기를 이용해 주세요.",
+                       401, "registration_required")
+
+    def profile_input(data):
+        limited(("profile_ip", request.remote_addr), 120)
+        if identity():
             require_identity()
-            return jsonify(snapshot(who))
+            raise APIError("이 브라우저에는 이미 사용 중인 스탬프 카드가 있습니다.", 409, "active_session")
+        raw_name = data.get("name")
+        name = raw_name.strip() if isinstance(raw_name, str) else ""
+        if not 1 <= len(name) <= 80 or not name.isprintable():
+            raise APIError("이름을 1~80자로 입력해 주세요.")
+        phone = normalized_phone(data.get("phone"))
+        lookup = hmac.digest(profile_key, phone.encode("ascii"), "sha256").hex()
+        limited(("profile_number", lookup), 10)
+        return name, lookup
+
+    @app.post("/api/register")
+    def register():
         require_active()
-        limited(("new", request.remote_addr), 120)
-        customer_id = secrets.token_hex(16)
-        with write_transaction():
+        data = body()
+        name, lookup = profile_input(data)
+        if data.get("notice_acknowledged") is not True:
+            raise APIError("개인정보 수집·이용 안내를 확인해 주세요.")
+        with write_transaction() as connection:
             require_active()
-            db().execute("DELETE FROM sessions WHERE expires_at<=?", (int(time.time()),))
-            db().execute("INSERT INTO customers VALUES (?, ?, NULL)", (customer_id, int(time.time())))
+            if connection.execute("SELECT 1 FROM customer_profiles WHERE phone_lookup_hmac=?",
+                                  (lookup,)).fetchone():
+                raise APIError("이미 등록된 스탬프가 있어요. 기존 스탬프 찾기로 이동해 주세요. "
+                               "이름 정정은 매장에 문의해 주세요.", 409, "phone_registered")
+            customer_id, now = secrets.token_hex(16), int(time.time())
+            connection.execute("DELETE FROM sessions WHERE expires_at<=?", (now,))
+            connection.execute("INSERT INTO customers VALUES (?, ?, NULL)", (customer_id, now))
+            connection.execute("INSERT INTO customer_profiles "
+                               "(customer_id, display_name, phone_lookup_hmac, notice_version, notice_acknowledged_at) "
+                               "VALUES (?, ?, ?, ?, ?)", (customer_id, name, lookup, NOTICE_VERSION, now))
             token = new_session(customer_id)
-        # Client reads state again to prove the browser accepted its cookie.
+        return set_cookie(jsonify(ok=True), token)
+
+    @app.post("/api/find")
+    def find():
+        name, lookup = profile_input(body())
+        with write_transaction() as connection:
+            target = connection.execute("SELECT customer_id FROM customer_profiles "
+                                        "WHERE phone_lookup_hmac=? AND display_name=?", (lookup, name)).fetchone()
+            if target is None:
+                raise APIError("이름과 휴대전화번호를 확인해 주세요. 정정이 필요하면 매장에 문의해 주세요.",
+                               404, "profile_not_found")
+            token = new_session(target["customer_id"])
         return set_cookie(jsonify(ok=True), token)
 
     @app.post("/api/collect")

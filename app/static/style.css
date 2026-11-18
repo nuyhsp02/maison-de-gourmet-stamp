@@ -112,6 +112,15 @@ progress::-moz-progress-bar { background:var(--red); }
 .help { margin-top:12px; border-top:1px solid var(--mint-line); font-size:12px; color:var(--muted); }
 summary { display:list-item; min-height:44px; padding:11px 0; cursor:pointer; color:var(--ink); font-size:12px; }
 .help p { margin:0 0 12px; }
+.identity-panel { align-self:start; min-width:0; padding:22px 18px; border:1px solid var(--mint-line); border-radius:8px; background:var(--card); }
+.identity-panel>p { margin-top:8px; }
+.identity-panel>p:not(.fine-print) { font-size:14px; }
+.identity-panel form>label { display:block; margin:14px 0 4px; font-weight:600; }
+.identity-panel form>input { width:100%; min-height:48px; padding:8px 12px; border:1px solid #9cab96; border-radius:5px; background:white; color:var(--ink); font-size:16px; }
+.identity-panel .checkbox-label { align-items:center; min-height:44px; margin:4px 0; font-size:14px; }
+.identity-panel .checkbox-label input { margin:0; }
+.identity-panel .error-text:empty { display:none; }
+.identity-panel .button { margin-top:10px; }
 .pending-panel { margin-bottom:14px; border:1px solid #bd8d86; padding:17px; border-radius:7px; background:#fff7ee; }
 .pending-panel .eyebrow { color:var(--red); }
 .pending-panel h2 { margin:5px 0; }
@@ -220,7 +229,7 @@ textarea { width:100%; padding:12px; font-size:16px; color:var(--ink); backgroun
   .how-it-works ol { list-style:none; padding:0; margin:13px 0 18px; }
   .how-it-works li { display:flex; gap:12px; margin:8px 0; font-size:12px; }
   .how-it-works li span { color:var(--red); font:italic 13px var(--serif); padding-top:4px; }
-  .pending-panel,.collection,.actions { grid-column:2; }
+  .identity-panel,.pending-panel,.collection,.actions { grid-column:2; }
   .collection { padding:24px 24px 17px; }
   .board-heading h2 { font-size:19px; }
   .collection-topline { font-size:8px; }

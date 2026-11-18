@@ -57,9 +57,13 @@ def state(client):
     return client.get('/api/state',base_url='https://stamps.example.invalid').json
 
 
+def register(client):
+    return post(client, '/api/register', {'name': '복원 테스트', 'phone': '01000000001', 'notice_acknowledged': True})
+
+
 def populated(root):
     app,client=visitor(root)
-    assert post(client,'/api/session',{}).status_code==200
+    assert register(client).status_code==200
     csrf=state(client)['csrf']
     with closing(ops.readonly(root/'data/collection.sqlite')) as db:
         keys=[r[0] for r in db.execute('SELECT qr_key FROM products ORDER BY id')]
@@ -220,6 +224,27 @@ def test_import_only_to_missing_database(installed,tmp_path):
     assert source.exists()
 
 
+def test_restore_rejects_mismatched_key_before_copy_or_switch(installed):
+    populated(installed)
+    live = installed / 'data/collection.sqlite'
+    snapshot = ops.backup(installed)['daily']
+    candidate = ops.stage_restore(installed, snapshot)['candidate']
+    key = Path(str(live) + '.profile.key')
+    original = key.read_bytes()
+    key.write_bytes(bytes(byte ^ 0xff for byte in original))
+    before = sha(live)
+    (installed / 'config/maintenance.flag').touch()
+    with pytest.raises(ValueError):
+        ops.stage_restore(installed, snapshot)
+    with pytest.raises(ValueError):
+        ops.activate_restore(installed, candidate, True)
+    assert sha(live) == before and not (installed / 'data/retired').exists()
+    key.write_bytes(original)
+    _, fresh = visitor(installed)
+    assert post(fresh, '/api/find', {'name': '복원 테스트', 'phone': '01000000001'}).status_code == 200
+    assert state(fresh)['customer']['count'] == 1
+
+
 def test_package_checksums_and_traversal(tmp_path):
     package=tmp_path/'package';package.mkdir();(package/'ok').write_bytes(b'ok')
     manifest={'format':'maison-windows-v1','version':'1.4','sha256':{'ok':sha(package/'ok')}}
@@ -350,7 +375,7 @@ def test_init_db_closes_connections_on_success_and_event_mismatch(installed, mon
 def test_request_write_coordination_keeps_get_readonly_and_releases_after_error(installed):
     module,_=ops.event_for(installed)
     app,client=visitor(installed)
-    assert post(client,'/api/session',{}).status_code==200
+    assert register(client).status_code==200
     csrf=state(client)['csrf']
     # GET does not acquire the writer slot, even while another writer owns it.
     assert app.write_lock.acquire(timeout=1)
@@ -370,6 +395,6 @@ def test_database_exception_releases_request_writer_slot(installed,monkeypatch):
     original=module.connect_db
     def unavailable(_path):raise sqlite3.OperationalError('synthetic failure')
     monkeypatch.setattr(module,'connect_db',unavailable)
-    assert post(client,'/api/session',{}).status_code==503
+    assert register(client).status_code==503
     monkeypatch.setattr(module,'connect_db',original)
-    assert post(client,'/api/session',{}).status_code==200
+    assert register(client).status_code==200
