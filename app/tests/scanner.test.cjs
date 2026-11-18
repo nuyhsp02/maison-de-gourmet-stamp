@@ -117,6 +117,19 @@ test('real jsQR pixels: rotated center QR decodes without extra rotation', async
   place(pixels, fixtures[0], Math.floor(200 - size / 2), Math.floor(200 - size / 2), 3, true);
   assert.equal((await decode(pixels)).raw, fixtures[0].url);
 });
+test('750 ms between frames is stable and a 751 ms gap restarts the three-frame count', () => {
+  const stable = new Core.ScanGate();
+  assert.equal(stable.claim('a', 0, 'portrait'), false);
+  assert.equal(stable.claim('a', 750, 'portrait'), false);
+  assert.equal(stable.claim('a', 1500, 'portrait'), true);
+
+  const delayed = new Core.ScanGate();
+  assert.equal(delayed.claim('a', 0, 'portrait'), false);
+  assert.equal(delayed.claim('a', 180, 'portrait'), false);
+  assert.equal(delayed.claim('a', 931, 'portrait'), false);
+  assert.equal(delayed.claim('a', 1111, 'portrait'), false);
+  assert.equal(delayed.claim('a', 1291, 'portrait'), true);
+});
 test('three stable frames, in-flight lock, per-session dedupe and interruption reset', () => {
   const gate = new Core.ScanGate();
   assert.equal(gate.claim('a', 0, 'portrait'), false);

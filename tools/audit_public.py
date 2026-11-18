@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 PATTERNS = [
+    ('basic-password-hash', re.compile(rb'\$2[aby]\$[0-9]{2}\$[./a-zA-Z0-9]{53}')),
     ('staff-password-hash', re.compile(rb'pbkdf2:sha256:[0-9]+\$[A-Za-z0-9]+\$[0-9a-f]{64}')),
     ('private-key', re.compile(rb'-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----')),
     ('github-token', re.compile(rb'(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})')),
@@ -20,7 +21,7 @@ PATTERNS = [
 ]
 QR_LITERAL = re.compile(rb'/q/([A-Za-z0-9_-]{32})(?![A-Za-z0-9_-])')
 PRIVATE_DIRS = {'data', 'backups', 'logs', '.venv', '.test-venv', 'venv', 'qr-export', 'qr-exports', '__pycache__', 'work', 'node_modules'}
-PRIVATE_SUFFIXES = {'.sqlite', '.sqlite3', '.db', '.backup', '.bak', '.pem', '.key', '.pfx', '.p12', '.crt', '.cer', '.pyc', '.zip', '.exe', '.dll'}
+PRIVATE_SUFFIXES = {'.sqlite', '.sqlite3', '.db', '.backup', '.bak', '.pem', '.key', '.pfx', '.p12', '.crt', '.cer', '.pyc', '.zip', '.exe', '.dll', '.cms'}
 
 
 def git(*arguments, root=ROOT):
@@ -37,7 +38,7 @@ def inspect_blob(name, data):
         findings.append('runtime-or-binary-file')
     if path.parts and path.parts[0] == 'config' and name not in ('config/event.example.json', 'config/operations.example.json'):
         findings.append('private-config')
-    if path.name == '.env' or path.name.startswith('.env.') and path.name != '.env.example' or path.name == 'tunnel-token.txt':
+    if path.name.endswith(('.htpasswd', '.env')) or path.name.startswith('.env.') and path.name != '.env.example' or path.name == 'tunnel-token.txt':
         findings.append('credential-file')
     if data.startswith(b'SQLite format 3\0'):
         findings.append('sqlite-content')

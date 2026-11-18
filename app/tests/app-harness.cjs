@@ -45,6 +45,7 @@ async function openApp(options = {}) {
   element('switch-confirm').hidden = true;
   const documentEvents = {}, windowEvents = {}, timers = new Map();
   const requests = [], drawCalls = []; let timerId = 0;
+  let clockMs = Date.now();
   const document = {
     body: { dataset: { autoCollect: options.eligible === false ? 'manual' : 'eligible' } },
     visibilityState: options.hidden ? 'hidden' : 'visible', hidden: !!options.hidden,
@@ -130,6 +131,8 @@ async function openApp(options = {}) {
   };
   context.window = context;
   vm.createContext(context);
+  // Advance the scanner's clock with its simulated timers, independent of decoder CPU time.
+  vm.runInContext('Date', context).now = () => clockMs;
   for (const file of ['collection-core.js', 'stamp-art.js', 'app.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../static', file), 'utf8'), context, { filename: file });
   }
@@ -150,7 +153,9 @@ async function openApp(options = {}) {
       for (let i = 0; i < count; i++) {
         const entry = [...timers].find(([, value]) => value.ms === 180);
         if (!entry) break;
-        timers.delete(entry[0]); await entry[1].fn(); await pause();
+        timers.delete(entry[0]);
+        clockMs += entry[1].ms;
+        await entry[1].fn(); await pause();
       }
     }
   };

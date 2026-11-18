@@ -17,6 +17,10 @@ import build_release
 
 @pytest.mark.parametrize('name,data,expected', [
     ('data/collection.sqlite', b'anything', 'runtime-or-binary-file'),
+    ('gate.htpasswd', b'fixture', 'credential-file'),
+    ('demo.env', b'fixture', 'credential-file'),
+    ('snapshot.cms', b'fixture', 'runtime-or-binary-file'),
+    ('renamed.txt', ('$2y$12$' + 'a' * 53).encode(), 'basic-password-hash'),
     ('config/event.json', b'{}', 'private-config'),
     ('safe.txt', b'SQLite format 3\0payload', 'sqlite-content'),
     ('safe.py', ('ghp_'+'x'*36).encode(), 'github-token'),

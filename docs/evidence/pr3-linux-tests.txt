@@ -1,0 +1,435 @@
+Maison de Gourmet · PR 3 · 2026-11-18 KST
+로컬 Ubuntu 실측 기록
+
+PR2 기준     aa006a7 (부모 f1919cd)
+시험 환경    Ubuntu 24.04.5 amd64 / Docker Desktop LinuxKit / 비루트 UID 65534
+격리         --network none, --cap-drop ALL, no-new-privileges. 공개 포트 없음
+최종 회귀    CPU 3, RAM 상한 1 GiB, pytest 합성 파일은 /tmp tmpfs, field HTTP 시험은 /var/tmp
+의존성       저장소 requirements-test.lock으로 설치. pip check / pip freeze 실제 출력 아래
+SQLite       별도 라이브러리. 빌드 전에 SQLite 3.51.3 공식 릴리스의 sqlite3.c SHA3-256 대조
+입구 시험    Nginx, 로컬 인증서, htpasswd -B, Waitress. 인증서와 합성 비밀번호는 임시 생성
+소스 전달    Git index 트리를 git archive로 전달. 컨테이너 내 임시 Git 저장소에서 회귀 도구 실행
+
+[초기 시험 및 수정]
+처음에는 장비 부하에 따라 스캐너 모의 프레임의 실제 간격이 판정 한도를 넘었다.
+기존 코드로 실행한 개별 Node 명령 결과에서 발췌
+not ok 32 - actual jsQR fallback loop uses the same crop as native loop
+  ---
+  duration_ms: 18605.847395
+  location: '/tmp/final/app/tests/app-flow.test.cjs:221:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    0 !== 1
+# tests 52
+# suites 0
+# pass 51
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 23344.998259
+..                                                                       [100%]
+2 passed in 13.36s
+node_exit=1 https_exit=0
+
+테스트 VM의 Date.now와 이미 사용하던 가상 180ms 타이머를 일치시켰다. 750ms 및 751ms 경계 시험을 추가했다.
+기동·복원 시험용 게스트 이미지 빌드와 겹친 초기 전체 회차는 Docker 연결 EOF로 중단되어 완주 결과에서 제외했다.
+중단 스트림에는 두 개의 F가 표시됐다. 종료 요약과 두 번째 실패의 traceback은 회수되지 않았다.
+동일한 HTTPS 시나리오는 단독 실행에서 통과했다. 아래에 최종 후보로 완주한 전체 시험 결과를 기록한다.
+
+[최종 Ubuntu 전체 실행 · exit 0]
+Ubuntu 24.04.5 LTS
+Linux 6.12.76-linuxkit x86_64 GNU/Linux
+nginx version: nginx/1.24.0 (Ubuntu)
+OpenSSL 3.0.13 30 Jan 2024 (Library: OpenSSL 3.0.13 30 Jan 2024)
+systemd 255 (255.4-1ubuntu8.18)
+v18.19.1
+No broken requirements found.
+blinker==1.9.0
+click==8.1.8
+colorama==0.4.6
+Flask==3.1.2
+iniconfig==2.1.0
+itsdangerous==2.2.0
+Jinja2==3.1.6
+MarkupSafe==3.0.4
+packaging==26.3
+pluggy==1.6.0
+Pygments==2.21.0
+pytest==8.4.2
+qrcode==8.2
+waitress==3.0.2
+Werkzeug==3.1.9
+{"python": "3.12.3", "sys_version": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]", "implementation": "cpython", "bits": 64, "free_threaded": false, "gil_enabled": true, "sqlite": "3.51.3", "sqlite_source_id": "2026-03-13 10:38:09 737ae4a34738ffa0c3ff7f9bb18df914dd1cad163f28fd6b6e114a344fe6d618", "official_fixed_version_range": true, "vendor_backport_verified": false, "reference": "https://sqlite.org/wal.html#walreset"}
+
+$ MAISON_HTTPS_TEST=1 MAISON_HTTP_TESTS=1 python -m pytest -q -ra --tb=short -x app/tests tests
+........................................................................ [ 33%]
+........................................................................ [ 67%]
+......................................................................   [100%]
+214 passed in 273.86s (0:04:33)
+
+$ node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs app/tests/admin-flow.test.cjs
+TAP version 13
+# Subtest: staff login clears password, fetches protected stats only after authentication
+ok 1 - staff login clears password, fetches protected stats only after authentication
+  ---
+  duration_ms: 156.026451
+  ...
+# Subtest: phone search uses POST and staff CSRF, then scrubs input, results and token on logout
+ok 2 - phone search uses POST and staff CSRF, then scrubs input, results and token on logout
+  ---
+  duration_ms: 19.868831
+  ...
+# Subtest: each cancellation requires selecting, confirming and sending that exact stamp revision
+ok 3 - each cancellation requires selecting, confirming and sending that exact stamp revision
+  ---
+  duration_ms: 25.270485
+  ...
+# Subtest: 409 refreshes paid-out card and removes all cancellation actions
+ok 4 - 409 refreshes paid-out card and removes all cancellation actions
+  ---
+  duration_ms: 22.47925
+  ...
+# Subtest: session expiry clears detail and metrics; late protected search cannot restore UI after logout
+ok 5 - session expiry clears detail and metrics; late protected search cannot restore UI after logout
+  ---
+  duration_ms: 49.093698
+  ...
+# Subtest: rotated admin CSRF clears results, statistics and credentials before another staff login
+ok 6 - rotated admin CSRF clears results, statistics and credentials before another staff login
+  ---
+  duration_ms: 17.007477
+  ...
+# Subtest: a committed cancellation with failed stats holds searches until the older card read settles
+ok 7 - a committed cancellation with failed stats holds searches until the older card read settles
+  ---
+  duration_ms: 25.951
+  ...
+# Subtest: new QR visitor registers explicitly; the pending product still requires a collection POST
+ok 8 - new QR visitor registers explicitly; the pending product still requires a collection POST
+  ---
+  duration_ms: 202.108301
+  ...
+# Subtest: duplicate registration opens find only on request, keeping inputs out of URLs and history
+ok 9 - duplicate registration opens find only on request, keeping inputs out of URLs and history
+  ---
+  duration_ms: 36.633936
+  ...
+# Subtest: failed find keeps the form and correction guidance, leaving the visitor unsigned
+ok 10 - failed find keeps the form and correction guidance, leaving the visitor unsigned
+  ---
+  duration_ms: 56.849714
+  ...
+# Subtest: blocked session cookie keeps registration screen and prevents collection
+ok 11 - blocked session cookie keeps registration screen and prevents collection
+  ---
+  duration_ms: 41.291412
+  ...
+# Subtest: legacy recovery link restores the anonymous card without requesting registration
+ok 12 - legacy recovery link restores the anonymous card without requesting registration
+  ---
+  duration_ms: 56.088612
+  ...
+# Subtest: valid returning visitor auto POSTs exactly once and sends CSRF
+ok 13 - valid returning visitor auto POSTs exactly once and sends CSRF
+  ---
+  duration_ms: 48.688824
+  ...
+# Subtest: automatic collection blocked for reload, manual fallback works
+ok 14 - automatic collection blocked for reload, manual fallback works
+  ---
+  duration_ms: 25.915784
+  ...
+# Subtest: automatic collection blocked for back, manual fallback works
+ok 15 - automatic collection blocked for back, manual fallback works
+  ---
+  duration_ms: 38.870856
+  ...
+# Subtest: automatic collection blocked for prefetch, manual fallback works
+ok 16 - automatic collection blocked for prefetch, manual fallback works
+  ---
+  duration_ms: 28.932259
+  ...
+# Subtest: automatic collection blocked for hidden, manual fallback works
+ok 17 - automatic collection blocked for hidden, manual fallback works
+  ---
+  duration_ms: 27.15559
+  ...
+# Subtest: automatic collection blocked for unfocused, manual fallback works
+ok 18 - automatic collection blocked for unfocused, manual fallback works
+  ---
+  duration_ms: 29.650454
+  ...
+# Subtest: automatic collection blocked for prerender, manual fallback works
+ok 19 - automatic collection blocked for prerender, manual fallback works
+  ---
+  duration_ms: 42.011485
+  ...
+# Subtest: automatic collection blocked for activatedPrerender, manual fallback works
+ok 20 - automatic collection blocked for activatedPrerender, manual fallback works
+  ---
+  duration_ms: 29.649964
+  ...
+# Subtest: automatic collection blocked for missingNavigation, manual fallback works
+ok 21 - automatic collection blocked for missingNavigation, manual fallback works
+  ---
+  duration_ms: 34.631902
+  ...
+# Subtest: automatic collection blocked for attempted, manual fallback works
+ok 22 - automatic collection blocked for attempted, manual fallback works
+  ---
+  duration_ms: 23.453888
+  ...
+# Subtest: already-collected product shows status without another POST
+ok 23 - already-collected product shows status without another POST
+  ---
+  duration_ms: 14.02947
+  ...
+# Subtest: lost automatic response is read back; retry and reload do not auto POST again
+ok 24 - lost automatic response is read back; retry and reload do not auto POST again
+  ---
+  duration_ms: 42.977843
+  ...
+# Subtest: expired session during auto POST never falls through to customer creation
+ok 25 - expired session during auto POST never falls through to customer creation
+  ---
+  duration_ms: 21.083679
+  ...
+# Subtest: one reward button directly posts, no checkbox/dialog; state survives reread
+ok 26 - one reward button directly posts, no checkbox/dialog; state survives reread
+  ---
+  duration_ms: 51.725938
+  ...
+# Subtest: navigation interrupted before session response cannot auto collect: pagehide
+ok 27 - navigation interrupted before session response cannot auto collect: pagehide
+  ---
+  duration_ms: 41.966807
+  ...
+# Subtest: navigation interrupted before session response cannot auto collect: visibility
+ok 28 - navigation interrupted before session response cannot auto collect: visibility
+  ---
+  duration_ms: 22.922137
+  ...
+# Subtest: actual scanner loop crops native input, ignores outside/multiple codes, posts once
+ok 29 - actual scanner loop crops native input, ignores outside/multiple codes, posts once
+  ---
+  duration_ms: 82.148396
+  ...
+# Subtest: lost reward response is reconciled to completed state without an active retry button
+ok 30 - lost reward response is reconciled to completed state without an active retry button
+  ---
+  duration_ms: 32.969043
+  ...
+# Subtest: scanner closed while native decode is pending cannot collect
+ok 31 - scanner closed while native decode is pending cannot collect
+  ---
+  duration_ms: 39.478949
+  ...
+# Subtest: actual jsQR fallback loop uses the same crop as native loop
+ok 32 - actual jsQR fallback loop uses the same crop as native loop
+  ---
+  duration_ms: 8300.175685
+  ...
+# Subtest: V1.2 renders ten ornaments in original product order with season/select metadata
+ok 33 - V1.2 renders ten ornaments in original product order with season/select metadata
+  ---
+  duration_ms: 17.306602
+  ...
+# Subtest: V1.2 branded tree displays restored collection without changing customer data
+ok 34 - V1.2 branded tree displays restored collection without changing customer data
+  ---
+  duration_ms: 17.194328
+  ...
+# Subtest: V1.2 ten ornaments remain collected after one-button reward and reopening
+ok 35 - V1.2 ten ornaments remain collected after one-button reward and reopening
+  ---
+  duration_ms: 38.331516
+  ...
+# Subtest: V1.3 every registered menu has a fixed decorative artwork slot and matching SVG symbol
+ok 36 - V1.3 every registered menu has a fixed decorative artwork slot and matching SVG symbol
+  ---
+  duration_ms: 16.790617
+  ...
+# Subtest: V1.3 collected items alone receive ink ring and check; all items retain artwork geometry
+ok 37 - V1.3 collected items alone receive ink ring and check; all items retain artwork geometry
+  ---
+  duration_ms: 18.335827
+  ...
+# Subtest: V1.3 unregistered product ID falls back to existing icon without changing event data
+ok 38 - V1.3 unregistered product ID falls back to existing icon without changing event data
+  ---
+  duration_ms: 22.764241
+  ...
+# Subtest: cover maps landscape source into the visible central square
+ok 39 - cover maps landscape source into the visible central square
+  ---
+  duration_ms: 13.003519
+  ...
+# Subtest: portrait/rotated metadata recalculates source coordinates
+ok 40 - portrait/rotated metadata recalculates source coordinates
+  ---
+  duration_ms: 0.794017
+  ...
+# Subtest: page offsets, aspect ratio and finder inner border are represented
+ok 41 - page offsets, aspect ratio and finder inner border are represented
+  ---
+  duration_ms: 1.527766
+  ...
+# Subtest: contain handles centered letterbox; finder in bars is rejected
+ok 42 - contain handles centered letterbox; finder in bars is rejected
+  ---
+  duration_ms: 2.98096
+  ...
+# Subtest: invalid or unavailable video geometry never falls back to full frame
+ok 43 - invalid or unavailable video geometry never falls back to full frame
+  ---
+  duration_ms: 0.95475
+  ...
+# Subtest: only a fully contained single QR covering the target is selected
+ok 44 - only a fully contained single QR covering the target is selected
+  ---
+  duration_ms: 1.538615
+  ...
+# Subtest: native detector receives cropped canvas and rejects multiple results
+ok 45 - native detector receives cropped canvas and rejects multiple results
+  ---
+  duration_ms: 3.581206
+  ...
+# Subtest: real jsQR pixels: center code selected, outside neighbors excluded
+ok 46 - real jsQR pixels: center code selected, outside neighbors excluded
+  ---
+  duration_ms: 608.924692
+  ...
+# Subtest: real jsQR pixels: no center code means outside QR never selected
+ok 47 - real jsQR pixels: no center code means outside QR never selected
+  ---
+  duration_ms: 83.449412
+  ...
+# Subtest: real jsQR pixels: two QR codes within ROI are ambiguous
+ok 48 - real jsQR pixels: two QR codes within ROI are ambiguous
+  ---
+  duration_ms: 195.556116
+  ...
+# Subtest: jsQR second pass masks the first quadrilateral and rejects a second code
+ok 49 - jsQR second pass masks the first quadrilateral and rejects a second code
+  ---
+  duration_ms: 10.510861
+  ...
+# Subtest: real jsQR pixels: rotated center QR decodes without extra rotation
+ok 50 - real jsQR pixels: rotated center QR decodes without extra rotation
+  ---
+  duration_ms: 168.885204
+  ...
+# Subtest: 750 ms between frames is stable and a 751 ms gap restarts the three-frame count
+ok 51 - 750 ms between frames is stable and a 751 ms gap restarts the three-frame count
+  ---
+  duration_ms: 1.042927
+  ...
+# Subtest: three stable frames, in-flight lock, per-session dedupe and interruption reset
+ok 52 - three stable frames, in-flight lock, per-session dedupe and interruption reset
+  ---
+  duration_ms: 1.018517
+  ...
+# Subtest: automatic collection requires all explicit safety signals
+ok 53 - automatic collection requires all explicit safety signals
+  ---
+  duration_ms: 0.804968
+  ...
+1..53
+# tests 53
+# suites 0
+# pass 53
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10326.120863
+
+$ python tools/field_http.py run --out /var/tmp/field-synthetic --tooling-smoke
+FIELD_TOOL_STAGE paced_5_passed
+FIELD_TOOL_STAGE paced_10_passed
+FIELD_TOOL_STAGE paced_30_passed
+[2026-11-18 11:42:38,657] WARNING in app: Write admission timed out
+{"tool_checks_passed": true, "field_acceptance": "not_performed"}
+컨테이너 명령 종료 코드 0. Write admission timed out 한 줄은 field_http.py가 잠금을 보유해
+15초 후 503을 의도적으로 유도하고 재시도를 검증한 사례다. 실제 서버 현장 인수는 별도다.
+
+[암호문 전달과 복원 · 서로 다른 로컬 Ubuntu 컨테이너 · exit 0]
+송신 deploy/linux/backup.py create --state-dir <합성 상태> --event <합성 구성> --recipient-cert <수신 공개 인증서> --output <새 암호문>
+수신 deploy/linux/backup.py restore --archive <수신 암호문> --event <합성 구성> --recipient-cert <수신 공개 인증서> --identity <수신 전용 키> --destination <새 격리 디렉터리>
+Two temporary Ubuntu containers: UID 65534, no network/ports/mounts, read-only root, all capabilities dropped.
+Ubuntu 24.04.5 LTS
+Python 3.12.3
+OpenSSL 3.0.13 30 Jan 2024 (Library: OpenSSL 3.0.13 30 Jan 2024)
+{"python": "3.12.3", "sys_version": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]", "implementation": "cpython", "bits": 64, "free_threaded": false, "gil_enabled": true, "sqlite": "3.51.3", "sqlite_source_id": "2026-03-13 10:38:09 737ae4a34738ffa0c3ff7f9bb18df914dd1cad163f28fd6b6e114a344fe6d618", "official_fixed_version_range": true, "vendor_backport_verified": false, "reference": "https://sqlite.org/wal.html#walreset"}
+Vault generated its disposable RSA-3072 key pair; only the public certificate was delivered to sender.
+sender APIs: two synthetic cards registered, 12 stamps collected, 1 cancellation and 1 receipt recorded
+{"counts": {"customer_profiles": 2, "customers": 2, "products": 10, "reward_audit": 1, "stamp_cancel_audit": 1, "stamps": 11}, "status": "ok"}
+Only ciphertext crossed from sender to vault; encrypted artifact SHA-256 matched.
+{"counts": {"customer_profiles": 2, "customers": 2, "products": 10, "reward_audit": 1, "stamp_cancel_audit": 1, "stamps": 11}, "status": "ok"}
+Matched source and restored full rows for products/QR keys, customers, profiles, stamps, rewards and cancellation audit (including actors/times), plus the original profile key.
+vault APIs: two fresh browsers recovered existing cards by name/phone, retaining 1/10 stamps and one redeemed reward; staff statistics matched
+PASS. Local isolated-container recovery rehearsal; no external transfer or server deployment.
+
+[Ubuntu systemd 유닛 검증과 부팅 등록]
+$ systemd-analyze verify /etc/systemd/system/maison-demo.service
+$ systemctl --root=/ enable maison-demo.service
+$ systemctl --root=/ is-enabled maison-demo.service
+Ubuntu systemd unit + offline enable: 0
+systemd 255 (255.4-1ubuntu8.18)
+systemd-analyze verify: OK
+Created symlink /etc/systemd/system/multi-user.target.wants/maison-demo.service → /etc/systemd/system/maison-demo.service.
+enabled
+/etc/systemd/system/maison-demo.service
+cgroup2 ro,nosuid,nodev,noexec,relatime
+Isolated PID-1 probe: exited 255
+Failed to mount tmpfs (type tmpfs) on /run/lock (MS_NOSUID|MS_NODEV|MS_NOEXEC "mode=1777,size=5242880"): Operation not permitted
+
+[!!!!!!] Failed to mount API filesystems.
+
+Exiting PID 1...
+일반 컨테이너에서 /run/lock을 별도 제공해 재시도한 결과
+Ubuntu systemd unit + offline enable: 0
+systemd 255 (255.4-1ubuntu8.18)
+systemd-analyze verify: OK
+Created symlink /etc/systemd/system/multi-user.target.wants/maison-demo.service → /etc/systemd/system/maison-demo.service.
+enabled
+/etc/systemd/system/maison-demo.service
+cgroup2 ro,nosuid,nodev,noexec,relatime
+Isolated PID-1 probe: exited 255
+systemd 255.4-1ubuntu8.18 running in system mode (+PAM +AUDIT +SELINUX +APPARMOR +IMA +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +IPTC +KMOD +LIBCRYPTSETUP +LIBFDISK +PCRE2 -PWQUALITY +P11KIT +QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD -BPF_FRAMEWORK -XKBCOMMON +UTMP +SYSVINIT default-hierarchy=unified)
+
+Detected virtualization docker.
+
+Detected architecture x86-64.
+
+
+Welcome to Ubuntu 24.04.5 LTS!
+
+
+Failed to create /init.scope control group: Read-only file system
+
+Failed to allocate manager object: Read-only file system
+
+[!!!!!!] Failed to allocate manager object.
+
+Exiting PID 1...
+
+[독립 Ubuntu 게스트 · systemd 255 journal 발췌]
+Starting maison-demo.service - Maison de Gourmet private demonstration...
+Starting maison-demo.service - Maison de Gourmet private demonstration...
+Starting maison-demo.service - Maison de Gourmet private demonstration...
+Starting nginx.service - A high performance web server and a reverse proxy server...
+maison-demo.service: start-pre operation timed out. Terminating.
+maison-demo.service: Control process exited, code=killed, status=15/TERM
+maison-demo.service: Failed with result 'timeout'.
+Failed to start maison-demo.service - Maison de Gourmet private demonstration.
+maison-demo.service: Consumed 26.028s CPU time.
+maison-demo.service: Scheduled restart job, restart counter is at 1.
+Starting maison-demo.service - Maison de Gourmet private demonstration...
+Started nginx.service - A high performance web server and a reverse proxy server.
+{"python": "3.12.3", "sys_version": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]", "implementation": "cpython", "bits": 64, "free_threaded": false, "gil_enabled": true, "sqlite": "3.51.3", "sqlite_source_id": "2026-03-13 10:38:09 737ae4a34738ffa0c3ff7f9bb18df914dd1cad163f28fd6b6e114a344fe6d618", "official_fixed_version_range": true, "vendor_backport_verified": false, "reference": "https://sqlite.org/wal.html#walreset"}
+Started maison-demo.service - Maison de Gourmet private demonstration.
+Starting maison-guest-probe.service - Disposable DEMO guest self-test...

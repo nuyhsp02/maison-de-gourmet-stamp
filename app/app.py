@@ -65,8 +65,14 @@ def load_event(path):
     return event
 
 
-def connect_db(path):
-    db = sqlite3.connect(str(path), timeout=15, isolation_level=None)
+def connect_db(path, *, mode=None):
+    if mode is None:
+        db = sqlite3.connect(str(path), timeout=15, isolation_level=None)
+    else:
+        if mode not in ("ro", "rw"):
+            raise ValueError("기존 DB의 읽기 또는 읽기/쓰기 모드를 지정하세요.")
+        uri = Path(path).absolute().as_uri() + "?mode=" + mode
+        db = sqlite3.connect(uri, uri=True, timeout=15, isolation_level=None)
     try:
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys = ON")
@@ -141,6 +147,10 @@ def apply_schema(db):
         raise ValueError("schema.sql에 완료되지 않은 SQL 문이 있습니다.")
 
 
+def event_signature(event):
+    return json.dumps([event["id"], sorted(p["id"] for p in event["products"])])
+
+
 def init_db(path, event, profile_key_path=None):
     path = Path(path)
     key_path = profile_key_path or default_profile_key_path(path)
@@ -148,7 +158,7 @@ def init_db(path, event, profile_key_path=None):
     # SQLite connection context managers commit/rollback but do not close the handle.
     # Close explicitly so Windows can move a stopped database during recovery.
     with closing(connect_db(path)) as db:
-        signature = json.dumps([event["id"], sorted(p["id"] for p in event["products"])])
+        signature = event_signature(event)
         try:
             db.execute("BEGIN IMMEDIATE")
             tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -220,7 +230,7 @@ def normalized_phone(value):
 
 
 def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765",
-               dev=False, testing=False, profile_key_path=None):
+               dev=False, testing=False, profile_key_path=None, *, validate_existing=None):
     event = load_event(event_path or ROOT / "event.json")
     parsed = urlsplit(public_url)
     if parsed.path not in ("", "/") or parsed.query or parsed.fragment or parsed.username:
@@ -243,11 +253,17 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     # One Waitress process, one SQLite writer. Coordinate request writers here
     # instead of letting Windows busy retries repeatedly race for the DB lock.
     app.write_lock = threading.Lock()
-    profile_key = init_db(app.config["DATABASE"], event, profile_key_path)
+    if validate_existing is None:
+        profile_key = init_db(app.config["DATABASE"], event, profile_key_path)
+    else:
+        profile_key = validate_existing(Path(app.config["DATABASE"]), event)
 
     def db():
         if "db" not in g:
-            g.db = connect_db(app.config["DATABASE"])
+            if validate_existing is None:
+                g.db = connect_db(app.config["DATABASE"])
+            else:
+                g.db = connect_db(app.config["DATABASE"], mode="rw")
         return g.db
 
     @app.teardown_appcontext
@@ -334,6 +350,8 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
 
     @app.before_request
     def check_request():
+        if validate_existing is not None and not request.is_secure:
+            raise APIError("설정된 HTTPS 주소로 접속해 주세요.", 400, "https_required")
         # Validate configured host even in development (DNS rebinding defense).
         if request.host.lower() != parsed.netloc.lower():
             raise APIError("설정된 주소로 접속해 주세요.", 400, "invalid_host")

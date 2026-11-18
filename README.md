@@ -4,9 +4,11 @@
 
 Maison de Gourmet의 겨울·크리스마스 시즌을 위한 **상품 10종 스탬프 카드 웹앱**입니다. 이 개발 브랜치에서는 이름과 휴대전화번호로 카드를 등록하고 다른 브라우저에서 같은 기록을 찾을 수 있습니다. Flask, Waitress, SQLite를 사용하며 기존 Windows 운영·백업 도구를 포함합니다.
 
-현재 공개 소스와 Windows 운영 준비 단계입니다. **실제 카페 운영 실적·실사용 고객 수·한 달 무중단 성과는 확인되지 않았습니다.** 동시 30명·고객 데이터 400명은 설계 목표이며 실제 장비의 보장 성능이 아닙니다.
+**실제 카페 운영 실적·실사용 고객 수·한 달 무중단 성과는 확인되지 않았습니다.** 동시 30명·고객 데이터 400명은 설계 목표이며 실제 장비의 보장 성능이 아닙니다.
 
 [Windows 설치 안내](docs/WINDOWS_INSTALL.md) · [격리 현장 인수 계획](docs/WINDOWS_ACCEPTANCE.md) · [직원 매뉴얼](docs/STAFF_GUIDE.md) · [Git 사용 안내](docs/GIT_GUIDE.md) · [릴리스와 Windows 업데이트](docs/GITHUB_RELEASES.md) · [검증 결과](TEST_REPORT.md)
+
+**11월 25일 비공개 Linux 시연**은 전용 도메인, Nginx 입장 인증, 별도 DEMO DB와 systemd 구성을 사용합니다. [Ubuntu 준비·기동](docs/PR3_LINUX_DEMO.md) · [암호화 백업·복원](docs/DEMO_BACKUP.md) · [휴대폰 2대와 직원 기기 점검표](docs/DEMO_DEVICE_CHECKLIST.md)
 
 ## 카페에서 필요한 흐름
 
@@ -19,7 +21,7 @@ Maison de Gourmet의 겨울·크리스마스 시즌을 위한 **상품 10종 스
 
 UI는 민트 `#C8D7C3`, 레드 `#B61219`, 크리스마스트리 **1·2·3·4** 오너먼트 배치입니다. 사진 기반 라인드로잉과 실제 QR 보드 제작은 후속 범위입니다. [디자인 설명](app/DESIGN_NOTES.md)
 
-## 시스템 구조
+## 기존 Windows 운영 구조
 
 ```mermaid
 flowchart LR

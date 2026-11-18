@@ -22,6 +22,10 @@ qr-exports/
 .env.*
 !.env.example
 *.pem
+*.env
+*.htpasswd
+.htpasswd
+*.cms
 *.key
 *.pfx
 *.p12
