@@ -189,7 +189,7 @@
       const check = text('span', '', 'stamp-check'); check.append(icon('check')); seal.append(check);
       item.title += ' · 적립: ' + dateTime(collected);
     }
-    item.append(seal, text('span', p.name, 'stamp-name'), text('span', collected ? '수집 완료' : '수집 전', 'stamp-status'));
+    item.append(seal, text('span', p.short_name || p.name, 'stamp-name'), text('span', collected ? '수집 완료' : '수집 전', 'stamp-status'));
     return item;
   }
   function render(justAdded) {

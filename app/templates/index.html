@@ -8,11 +8,11 @@
   <meta name="description" content="Maison de Gourmet · 열 가지 맛으로 완성하는 크리스마스트리 스탬프 컬렉션">
   <title>Winter Collection · Maison de Gourmet</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/style.css?v=confirm-1">
+  <link rel="stylesheet" href="/static/style.css?v=catalog-1">
   <script src="/static/vendor/jsQR.js" defer></script>
   <script src="/static/collection-core.js?v=confirm-1" defer></script>
   <script src="/static/stamp-art.js" defer></script>
-  <script src="/static/app.js?v=confirm-1" defer></script>
+  <script src="/static/app.js?v=catalog-1" defer></script>
 </head>
 <body>
   <svg class="svg-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -118,6 +118,22 @@
           <p id="cookie-notice" class="fine-print"></p>
           <details class="help"><summary>카메라가 안 되거나 기록이 보이지 않나요?</summary><p>연속 스캔에 필요한 카메라 권한을 허용해 주세요. 휴대폰 기본 카메라로 QR을 하나씩 열어 적립할 수도 있어요.</p><p>다른 브라우저에서 등록한 스탬프판을 열려면 ‘기존 스탬프 찾기’에 같은 이름과 전화번호를 입력해 주세요. 이름·번호를 등록하기 전에 만든 스탬프판은 저장한 개인 복구 링크로 열 수 있어요. 링크는 다른 사람에게 공유하지 마세요.</p></details>
         </section>
+        {% if catalog %}
+        <section id="product-catalog" class="product-catalog" aria-labelledby="catalog-title">
+          <h2 id="catalog-title">상품 목록</h2>
+          <ul id="product-list" class="product-list" role="list">
+            {% for product in catalog %}
+            <li data-product-id="{{ product.id }}">
+              <div class="product-photo" aria-hidden="true"></div>
+              <div>
+                <h3 class="product-name">{{ product.name }}</h3>
+                <p class="product-description" aria-hidden="true"></p>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+        </section>
+        {% endif %}
       </div>
     </div>
   </main>

@@ -1,0 +1,15 @@
+{
+  "event_id": "demo-gourmetstamp-20261125-rehearsal",
+  "products": {
+    "season-01": {"name": "그론도나 라따 비스꼬띠니 디 파스티체리아 (틴 기프트박스) 310G", "short_name": "그론도나 틴 기프트박스"},
+    "season-02": {"name": "피터스야드 로즈마리&씨솔트 사워도우 크래커 90G", "short_name": "피터스야드 크래커"},
+    "season-03": {"name": "이즈니 처닝 버터 250G", "short_name": "이즈니 처닝버터"},
+    "season-04": {"name": "모나미 생 폴랑 바질 150G", "short_name": "모나미 생 폴랑 바질"},
+    "select-01": {"name": "알랭밀리아 블랙커런트잼 300g", "short_name": "알랭밀리아 블랙커런트잼"},
+    "select-02": {"name": "파머스 립 페더웨이 쉬라즈", "short_name": "파머스립 쉬라즈"},
+    "select-03": {"name": "베리 크리스마스", "short_name": "베리 크리스마스"},
+    "select-04": {"name": "매우 반짝이는 코", "short_name": "매우 반짝이는 코"},
+    "select-05": {"name": "뱅쇼", "short_name": "뱅쇼"},
+    "select-06": {"name": "아이올리브유", "short_name": "아이올리브유"}
+  }
+}

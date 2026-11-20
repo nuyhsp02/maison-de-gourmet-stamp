@@ -27,6 +27,7 @@ LIFETIME = 90 * 86400
 MAX_EVENT_DAYS = 62  # Two consecutive calendar months can span 62 days.
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 NOTICE_VERSION = "demo-v1"
+DEMO_CATALOG_EVENT = "demo-gourmetstamp-20261125-rehearsal"
 
 
 def digest(value):
@@ -62,6 +63,14 @@ def load_event(path):
             "starts_at", "ends_at", "reward_until")]
         if not start < end <= reward or end - start > MAX_EVENT_DAYS * 86400:
             raise ValueError(f"이벤트 기간은 {MAX_EVENT_DAYS}일 이내이며, 보상 마감은 종료 시각과 같거나 늦어야 합니다.")
+    if event["id"] == DEMO_CATALOG_EVENT:
+        catalog = json.loads((ROOT / "demo-product-catalog.json").read_text(encoding="utf-8"))
+        if catalog["event_id"] != event["id"] or catalog["products"].keys() != set(ids):
+            raise ValueError("시연 행사와 상품 목록의 ID를 확인해 주세요.")
+        for product in products:
+            labels = catalog["products"][product["id"]]
+            product["name"] = labels["name"]
+            product["short_name"] = labels["short_name"]
     return event
 
 
@@ -454,7 +463,8 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     def page(qr_key=None):
         if qr_key and not db().execute("SELECT 1 FROM products WHERE qr_key=?", (qr_key,)).fetchone():
             raise APIError("사용할 수 없는 QR 주소입니다.", 404)
-        return render_template("index.html", notice_version=NOTICE_VERSION)
+        return render_template("index.html", notice_version=NOTICE_VERSION,
+                               catalog=event["products"] if event["id"] == DEMO_CATALOG_EVENT else ())
 
     @app.get("/health")
     def health():

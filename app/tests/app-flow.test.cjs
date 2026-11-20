@@ -564,6 +564,21 @@ test('V1.3 every registered menu has a fixed decorative artwork slot and matchin
   assert.equal(app.posts('/api/collect').length, 0);
 });
 
+test('approved stamps use the short label and the QR dialog identifies the same ID by its full name', async () => {
+  const catalog = require('../demo-product-catalog.json').products;
+  const products = require('../event.json').products.map(p => ({ ...p, ...catalog[p.id] }));
+  const app = await openApp({ products });
+  const items = app.element('stamp-tree').children;
+  for (let i = 0; i < products.length; i++) {
+    assert.equal(items[i].attributes['data-product-id'], products[i].id);
+    assert.equal(items[i].children.find(child => child.className === 'stamp-name').textContent, products[i].short_name);
+  }
+  assert.equal(app.element('pending-title').textContent, catalog['season-01'].name);
+  assert.equal(app.posts('/api/collect').length, 0);
+  await app.click('dismiss-pending');
+  assert.equal(app.posts('/api/collect').length, 0);
+});
+
 test('V1.3 collected items alone receive ink ring and check; all items retain artwork geometry', async () => {
   const products = require('../event.json').products;
   const collectedId = products[0].id;

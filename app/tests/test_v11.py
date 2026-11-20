@@ -47,10 +47,11 @@ def test_confirmation_assets_bypass_legacy_cache_and_are_not_stored(app):
     client = app.test_client()
     page = client.get("/", base_url=BASE)
     assert page.headers["Cache-Control"] == "no-store"
-    for filename in ("app.js", "collection-core.js", "style.css"):
+    for filename, version in (("app.js", "catalog-1"), ("style.css", "catalog-1"),
+                              ("collection-core.js", "confirm-1")):
         path = "/static/" + filename
         assert f'"{path}"' not in page.text
-        versioned = path + "?v=confirm-1"
+        versioned = path + "?v=" + version
         assert f'"{versioned}"' in page.text
         asset = client.get(versioned, base_url=BASE)
         assert asset.status_code == 200

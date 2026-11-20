@@ -1,4 +1,5 @@
 import hashlib
+import html
 import importlib.util
 import json
 import re
@@ -6,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from app import ROOT, create_app, load_event, timestamp
+from app import ROOT, create_app, event_signature, load_event, timestamp
 from conftest import BASE
 
 spec = importlib.util.spec_from_file_location("mobile_test_setup", ROOT / "tools" / "prepare_mobile_test.py")
@@ -58,11 +59,51 @@ def test_mobile_controls_and_scanner_coordinate_css_contract():
     assert 'width:44px; height:44px;' in css
     assert 'env(safe-area-inset-bottom)' in css
     assert 'prefers-reduced-motion:reduce' in css
-    assert 'white-space:nowrap; text-overflow:ellipsis;' in css
+    stamp_name = re.search(r'\.stamp-name\s*\{([^}]+)\}', css).group(1)
+    assert 'overflow-wrap:anywhere' in stamp_name and 'nowrap' not in stamp_name
     video = re.search(r"\.camera-view video\s*\{([^}]+)\}", css).group(1)
     for declaration in ('object-fit:cover;', 'object-position:50% 50%;', 'transform:none;', 'position:absolute;'):
         assert declaration in video
     assert 'inset:18%; border:2px' in css
+
+
+def test_demo_catalog_matches_by_id_and_keeps_event_order(tmp_path):
+    labels = json.loads((ROOT / "demo-product-catalog.json").read_text())
+    event = json.loads((ROOT / "event.json").read_text())
+    event["id"] = labels["event_id"]
+    event["products"].reverse()
+    config = tmp_path / "demo.json"
+    original = json.dumps(event)
+    config.write_text(original)
+    site = create_app(config, tmp_path / "test.sqlite", public_url=BASE, dev=True, testing=True)
+    client = site.test_client()
+    state = client.get('/api/state', base_url=BASE).json
+    expected = [p | labels["products"][p["id"]] for p in event["products"]]
+    assert state["event"]["products"] == expected
+    assert event_signature(site.event) == event_signature(event)
+    assert config.read_text() == original
+
+    page = client.get('/', base_url=BASE).text
+    catalog = page.split('id="product-catalog"', 1)[1].split('</section>', 1)[0]
+    assert page.index('id="scan-button"') < page.index('id="product-catalog"')
+    assert page.index('id="reward-panel"') < page.index('id="product-catalog"')
+    assert re.findall(r'<li data-product-id="([^"]+)">', catalog) == [p["id"] for p in expected]
+    assert [html.unescape(s) for s in re.findall(r'<h3 class="product-name">([^<]+)</h3>', catalog)] == [
+        p["name"] for p in expected]
+    assert catalog.count('class="product-photo" aria-hidden="true"></div>') == 10
+    assert catalog.count('class="product-description" aria-hidden="true"></p>') == 10
+
+    event["products"][0]["id"] = "different-product"
+    config.write_text(json.dumps(event))
+    with pytest.raises(ValueError, match="상품 목록의 ID"):
+        load_event(config)
+
+
+def test_unrelated_events_keep_configured_product_names(app):
+    event = json.loads((ROOT / "event.json").read_text())
+    client = app.test_client()
+    assert client.get('/api/state', base_url=BASE).json["event"]["products"] == event["products"]
+    assert 'id="product-catalog"' not in client.get('/', base_url=BASE).text
 
 
 def test_mobile_preparation_preserves_source_products_and_never_creates_database(tmp_path):
