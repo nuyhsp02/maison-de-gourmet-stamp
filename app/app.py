@@ -454,15 +454,7 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     def page(qr_key=None):
         if qr_key and not db().execute("SELECT 1 FROM products WHERE qr_key=?", (qr_key,)).fetchone():
             raise APIError("사용할 수 없는 QR 주소입니다.", 404)
-        # Read-only eligibility hint, not an authorization token. Missing browser
-        # navigation signals fail closed to a manual button. GET never collects.
-        purpose = " ".join(request.headers.get(name, "") for name in
-                           ("Purpose", "Sec-Purpose", "X-Purpose")).lower()
-        auto_collect = bool(qr_key and request.method == "GET" and not purpose.strip()
-                            and request.headers.get("Sec-Fetch-User") == "?1"
-                            and request.headers.get("Sec-Fetch-Mode") == "navigate"
-                            and request.headers.get("Sec-Fetch-Dest") == "document")
-        return render_template("index.html", auto_collect=auto_collect, notice_version=NOTICE_VERSION)
+        return render_template("index.html", notice_version=NOTICE_VERSION)
 
     @app.get("/health")
     def health():

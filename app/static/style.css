@@ -121,11 +121,10 @@ summary { display:list-item; min-height:44px; padding:11px 0; cursor:pointer; co
 .identity-panel .checkbox-label input { margin:0; }
 .identity-panel .error-text:empty { display:none; }
 .identity-panel .button { margin-top:10px; }
-.pending-panel { margin-bottom:14px; border:1px solid #bd8d86; padding:17px; border-radius:7px; background:#fff7ee; }
-.pending-panel .eyebrow { color:var(--red); }
-.pending-panel h2 { margin:5px 0; }
-.pending-panel p:not(.eyebrow) { font-size:12px; margin:7px 0 13px; color:var(--muted); }
-.pending-panel .text-button { display:block; margin:4px auto -7px; }
+#registration-review dl { margin:14px 0; padding:12px; border:1px solid var(--line); border-radius:5px; }
+#registration-review dt { font-size:12px; color:var(--muted); }
+#registration-review dd { margin:0; font-size:16px; overflow-wrap:anywhere; }
+#registration-review dd+dt { margin-top:8px; }
 .reward-panel { text-align:center; background:#f9f0e7; border:1px solid #d6b5a4; border-radius:7px; padding:20px 16px; margin-bottom:14px; }
 .reward-flower { width:36px; height:36px; color:var(--gold); fill:#f3e8c8; stroke-width:1.1; }
 .reward-panel .eyebrow { color:var(--red); margin:6px 0; font-size:8px; letter-spacing:1.4px; }
@@ -164,6 +163,9 @@ dialog .eyebrow { color:var(--red); margin:0 0 4px; }
 .scan-results li { display:flex; justify-content:space-between; gap:10px; border-top:1px solid var(--line); padding:7px 0; }
 .scan-results span { font-size:11px; color:var(--muted); }
 dialog .button+.button { margin-top:10px; }
+.product-confirm-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+dialog .product-confirm-actions .button { margin:0; }
+#pending-error:empty { display:none; }
 textarea { width:100%; padding:12px; font-size:16px; color:var(--ink); background:#f0f5ee; border:1px solid var(--mint-line); resize:vertical; overflow-wrap:anywhere; }
 #generated-link { margin-top:14px; }
 #generated-link label { display:block; margin:10px 0; font-size:11px; }
@@ -229,7 +231,7 @@ textarea { width:100%; padding:12px; font-size:16px; color:var(--ink); backgroun
   .how-it-works ol { list-style:none; padding:0; margin:13px 0 18px; }
   .how-it-works li { display:flex; gap:12px; margin:8px 0; font-size:12px; }
   .how-it-works li span { color:var(--red); font:italic 13px var(--serif); padding-top:4px; }
-  .identity-panel,.pending-panel,.collection,.actions { grid-column:2; }
+  .identity-panel,.collection,.actions { grid-column:2; }
   .collection { padding:24px 24px 17px; }
   .board-heading h2 { font-size:19px; }
   .collection-topline { font-size:8px; }

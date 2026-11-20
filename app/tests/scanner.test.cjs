@@ -146,16 +146,3 @@ test('three stable frames, in-flight lock, per-session dedupe and interruption r
   assert.equal(gate.claim('b', 4720, 'landscape'), false);
   assert.equal(gate.claim('b', 4900, 'landscape'), true);
 });
-const eligible = { serverEligible: true, navigationType: 'navigate', initiallyVisible: true,
-  visible: true, focused: true, prerendered: false, attempted: false,
-  hasSession: true, active: true, collected: false, redeemed: false };
-test('automatic collection requires all explicit safety signals', () => {
-  assert.equal(Core.canAutoCollect(eligible), true);
-  for (const [key, value] of Object.entries({ serverEligible: false, navigationType: 'reload',
-    initiallyVisible: false, visible: false, focused: false, prerendered: true,
-    attempted: true, hasSession: false, active: false, collected: true, redeemed: true })) {
-    assert.equal(Core.canAutoCollect({ ...eligible, [key]: value }), false, key);
-  }
-  assert.equal(Core.canAutoCollect({ ...eligible, navigationType: 'back_forward' }), false);
-  assert.equal(Core.canAutoCollect({ ...eligible, navigationType: undefined }), false);
-});

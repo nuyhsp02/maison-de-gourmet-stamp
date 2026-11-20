@@ -3,17 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="format-detection" content="telephone=no">
   <meta name="theme-color" content="#F7F3EA">
   <meta name="description" content="Maison de Gourmet · 열 가지 맛으로 완성하는 크리스마스트리 스탬프 컬렉션">
   <title>Winter Collection · Maison de Gourmet</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=confirm-1">
   <script src="/static/vendor/jsQR.js" defer></script>
-  <script src="/static/collection-core.js" defer></script>
+  <script src="/static/collection-core.js?v=confirm-1" defer></script>
   <script src="/static/stamp-art.js" defer></script>
-  <script src="/static/app.js" defer></script>
+  <script src="/static/app.js?v=confirm-1" defer></script>
 </head>
-<body data-auto-collect="{{ 'eligible' if auto_collect else 'manual' }}">
+<body>
   <svg class="svg-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <symbol id="cup" viewBox="0 0 48 48"><path d="M10 17h25v12c0 8-5 11-12 11s-13-3-13-11V17Zm25 3h3a6 6 0 0 1 0 12h-4M8 42h30M18 6v5m8-7v7"/></symbol>
@@ -77,14 +78,17 @@
               <label class="checkbox-label"><input id="notice-acknowledged" type="checkbox" required>개인정보 수집·이용 안내를 확인했습니다</label>
             </div>
             <p id="identity-error" class="error-text" role="alert"></p>
-            <button id="identity-submit" type="submit" class="button primary">스탬프판 등록하기</button>
+            <button id="identity-submit" type="submit" class="button primary">입력 정보 확인</button>
             <button id="identity-switch" type="button" class="button secondary">기존 스탬프 찾기</button>
           </form>
-        </section>
-        <section id="pending-panel" class="pending-panel" hidden aria-labelledby="pending-title">
-          <p class="eyebrow">QR 확인 완료</p><h2 id="pending-title"></h2><p id="pending-help"></p>
-          <button id="collect-button" class="button primary"><span>이 상품 스탬프 받기</span><svg><use href="#arrow"/></svg></button>
-          <button id="dismiss-pending" class="text-button">다음에 적립하기</button>
+          <div id="registration-review" hidden>
+            <dl>
+              <dt>이름</dt><dd id="review-name"></dd>
+              <dt>휴대전화번호</dt><dd id="review-phone"></dd>
+            </dl>
+            <button id="edit-registration" type="button" class="button secondary">수정하기</button>
+            <button id="confirm-registration" type="button" class="button primary">이대로 등록</button>
+          </div>
         </section>
         <section id="collection-panel" class="collection" aria-labelledby="board-title">
           <div class="collection-topline"><span>MAISON DE GOURMET</span><span>WINTER COLLECTION</span></div>
@@ -120,13 +124,24 @@
   <footer class="site-footer"><span>Maison de Gourmet</span><span>A WARM LITTLE CHRISTMAS.</span></footer>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <dialog id="scanner-dialog" aria-labelledby="scanner-title">
-    <div class="dialog-heading"><div><p class="eyebrow">SCAN & COLLECT</p><h2 id="scanner-title">다음 취향을 비춰주세요</h2></div><button id="close-scanner" class="icon-button" aria-label="카메라 닫기">×</button></div>
-    <p class="dialog-copy">구매한 상품의 QR 하나를 중앙 십자에 맞추고 잠시 멈춰 주세요. 네모 안의 QR만 읽으며 여러 개가 인식되면 적립하지 않아요.</p>
-    <div id="camera-view" class="camera-view"><video id="camera-video" playsinline muted></video><div id="viewfinder" class="viewfinder" aria-hidden="true"></div><span>QR 전체를 네모 안에, 중심은 십자에</span></div>
-    <p id="scanner-status" class="scanner-status" role="status" aria-live="polite">카메라 연결 중…</p>
-    <ul id="scan-results" class="scan-results" aria-label="이번에 스캔한 상품"></ul>
-    <div id="camera-fallback" class="notice" hidden><strong>기본 카메라로 하나씩 적립할 수 있어요.</strong><p>이 창을 닫고 휴대폰 기본 카메라로 매장의 QR을 스캔하세요. 열린 페이지에서 상품을 확인하고 적립 버튼을 눌러 주세요. 같은 브라우저로 열어야 기록이 이어집니다.</p></div>
-    <button id="scanner-done" class="button secondary">스캔 마치고 스탬프판 보기</button>
+    <section id="pending-panel" hidden aria-labelledby="pending-title">
+      <h2 id="pending-title" tabindex="-1"></h2>
+      <p id="pending-help"></p>
+      <p id="pending-error" class="error-text" role="alert"></p>
+      <div class="product-confirm-actions">
+        <button id="dismiss-pending" type="button" class="button secondary">취소</button>
+        <button id="collect-button" type="button" class="button primary">적립하기</button>
+      </div>
+    </section>
+    <div id="scanner-controls">
+      <div class="dialog-heading"><div><p class="eyebrow">SCAN & COLLECT</p><h2 id="scanner-title">다음 취향을 비춰주세요</h2></div><button id="close-scanner" class="icon-button" aria-label="카메라 닫기">×</button></div>
+      <p id="scanner-instructions" class="dialog-copy">구매한 상품의 QR 하나를 중앙 십자에 맞추고 잠시 멈춰 주세요. 상품명이 뜨면 확인한 뒤 적립해 주세요.</p>
+      <div id="camera-view" class="camera-view"><video id="camera-video" playsinline muted></video><div id="viewfinder" class="viewfinder" aria-hidden="true"></div><span>QR 전체를 네모 안에, 중심은 십자에</span></div>
+      <p id="scanner-status" class="scanner-status" role="status" aria-live="polite">카메라 연결 중…</p>
+      <ul id="scan-results" class="scan-results" aria-label="이번에 스캔한 상품"></ul>
+      <div id="camera-fallback" class="notice" hidden><strong>기본 카메라로 하나씩 적립할 수 있어요.</strong><p>이 창을 닫고 휴대폰 기본 카메라로 매장의 QR을 스캔하세요. 열린 페이지에서 상품을 확인하고 적립 버튼을 눌러 주세요. 같은 브라우저로 열어야 기록이 이어집니다.</p></div>
+      <button id="scanner-done" class="button secondary">스캔 마치고 스탬프판 보기</button>
+    </div>
   </dialog>
   <dialog id="recovery-dialog" aria-labelledby="recovery-title">
     <div class="dialog-heading"><h2 id="recovery-title">내 기록의 작은 열쇠</h2><button id="close-recovery" class="icon-button" aria-label="복구 링크 창 닫기">×</button></div>

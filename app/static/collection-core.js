@@ -94,11 +94,23 @@
   }
 
   class ScanGate {
-    constructor() { this.completed = new Set(); this.pending = null; this.reset(); }
+    constructor() {
+      this.completed = new Set();
+      this.pending = null;
+      this.dismissed = null;
+      this.framesAway = 0;
+      this.reset();
+    }
     reset() { this.candidate = null; this.frames = 0; this.lastAt = 0; this.geometry = null; }
-    claim(raw, now, geometry) {
-      if (!raw) { this.reset(); return false; }
-      if (this.pending || this.completed.has(raw)) return false;
+    claim(raw, now, geometry, status) {
+      // A missed or ambiguous decode does not mean the customer removed a cancelled QR.
+      if (this.dismissed) {
+        const away = status === 'none' || (raw && raw !== this.dismissed);
+        this.framesAway = away ? this.framesAway + 1 : 0;
+        if (this.framesAway >= 3) this.dismissed = null;
+      }
+      if (!raw || raw === this.dismissed || this.completed.has(raw)) { this.reset(); return false; }
+      if (this.pending) return false;
       if (raw !== this.candidate || geometry !== this.geometry || now - this.lastAt > 750) {
         this.candidate = raw; this.frames = 0; this.geometry = geometry;
       }
@@ -109,17 +121,10 @@
     }
     settle(raw, committed) {
       if (committed) this.completed.add(raw);
+      else { this.dismissed = raw; this.framesAway = 0; }
       this.pending = null; this.reset();
     }
   }
 
-  function canAutoCollect(context) {
-    return context.serverEligible === true && context.navigationType === 'navigate' &&
-      context.initiallyVisible === true && context.visible === true && context.focused === true &&
-      context.prerendered !== true && context.attempted !== true &&
-      context.hasSession === true && context.active === true && context.collected !== true &&
-      context.redeemed !== true;
-  }
-
-  return { sourceRect, inside, selectCandidate, decodeCrop, ScanGate, canAutoCollect };
+  return { sourceRect, inside, selectCandidate, decodeCrop, ScanGate };
 });
