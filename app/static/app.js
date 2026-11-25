@@ -12,7 +12,9 @@
   let findingCard = false, phoneRegistered = false, reviewingRegistration = false;
   let qrKey = location.pathname.startsWith('/q/') ? location.pathname.slice(3) : null;
   let enteringIdentity = false, stateRead = 0;
-  const isRestore = location.pathname === '/recover';
+  const recoveryButton = $('recovery-button');
+  const production = document.body.dataset.environment === 'production';
+  const isRestore = recoveryButton && location.pathname === '/recover';
   let recoveryToken = isRestore ? location.hash.slice(1) : '';
   // Fragments never reach the server; remove from browser history before other work.
   if (isRestore) history.replaceState(null, '', '/recover');
@@ -60,6 +62,13 @@
     try { result = await response.json(); }
     catch (_) { throw new Error('서버 응답을 확인할 수 없어요. 잠시 후 다시 시도해 주세요.'); }
     if (!response.ok) {
+      if (production && ['privacy_closed', 'privacy_unavailable'].includes(result.code)) {
+        state = null;
+        ++stateRead;
+        clearIdentityForm();
+        document.body.hidden = true;
+        location.replace('/');
+      }
       const error = new Error(result.error || '요청을 처리하지 못했어요.');
       error.code = result.code;
       error.status = response.status;
@@ -105,7 +114,9 @@
       $('identity-intro').textContent = (closed ? '신규 가입은 닫혀 있습니다. ' : '') + '등록할 때 사용한 이름과 휴대전화번호를 입력하면 기존 스탬프판을 이 브라우저에서 열 수 있어요.';
     } else {
       $('identity-title').textContent = '스탬프판 등록';
-      $('identity-intro').textContent = '합성 검수 전용입니다. 지정받은 가상 이름과 전화번호를 입력해 주세요.';
+      $('identity-intro').textContent = identityForm.dataset.registration === 'production' ?
+        '스탬프판에 사용할 이름과 휴대전화번호를 입력해 주세요.' :
+        '합성 검수 전용입니다. 지정받은 가상 이름과 전화번호를 입력해 주세요.';
     }
     $('identity-form').hidden = reviewingRegistration;
     $('registration-review').hidden = !reviewingRegistration;
@@ -166,6 +177,7 @@
   function renderStampArt(p) {
     const frame = text('span', '', 'stamp-art');
     frame.setAttribute('aria-hidden', 'true');
+    if (production) return frame;
     if (p.stamp_image) {
       const image = document.createElement('img');
       image.alt = '';
@@ -209,10 +221,11 @@
     if (!state) return;
     const e = state.event, c = state.customer;
     const count = c?.count || 0;
-    document.title = `${BRAND.title} · ${BRAND.name}`;
-    $('cafe-name').textContent = BRAND.name;
-    $('event-title').textContent = BRAND.title;
-    $('event-description').textContent = BRAND.description;
+    const brand = production ? { name: e.cafe_name, title: e.title, description: e.description } : BRAND;
+    document.title = `${brand.title} · ${brand.name}`;
+    $('cafe-name').textContent = brand.name;
+    $('event-title').textContent = brand.title;
+    $('event-description').textContent = brand.description;
     $('demo-banner').hidden = !e.draft;
     $('event-period').textContent = e.draft ? '겨울 시즌 한정 · 일정 확정 예정' : `${eventDate(e.starts_at)} — ${eventDate(e.ends_at)} (종료 시각 전까지)`;
     if (!e.draft) $('event-period').title = `${e.starts_at} ~ ${e.ends_at} (종료 시각 미포함)`;
@@ -248,14 +261,16 @@
     $('scan-button').hidden = count === 10;
     $('scan-caption').hidden = count === 10;
     $('scan-button').disabled = busy || !c || !isActive();
-    $('recovery-button').disabled = busy || !c;
-    $('cookie-notice').textContent = c?.registered ?
+    $('cookie-notice').textContent = !recoveryButton || c?.registered ?
       '이 브라우저에서는 바로 이용할 수 있어요. 쿠키를 지우거나 다른 브라우저를 쓰면 등록한 이름과 전화번호로 스탬프판을 찾아 주세요.' :
       '이 스탬프판은 이름과 번호를 등록하기 전에 만들었어요. 쿠키를 지우거나 다른 브라우저로 옮기기 전에 개인 복구 링크를 저장해 주세요.';
-    $('recovery-button').textContent = c?.recovery_saved ? '새 링크 만들기 ↗' : '복구 링크 저장 ↗';
-    $('recovery-status').textContent = c?.recovery_saved ? '발급됨 · 나만 볼 수 있는 곳에 보관하세요.' : '선택 사항 · 개인 복구 링크 저장';
-    $('generate-link').disabled = busy;
-    $('restore-button').disabled = busy || (!$('switch-confirm').hidden && !$('switch-checkbox').checked);
+    if (recoveryButton) {
+      recoveryButton.disabled = busy || !c;
+      recoveryButton.textContent = c?.recovery_saved ? '새 링크 만들기 ↗' : '복구 링크 저장 ↗';
+      $('recovery-status').textContent = c?.recovery_saved ? '발급됨 · 나만 볼 수 있는 곳에 보관하세요.' : '선택 사항 · 개인 복구 링크 저장';
+      $('generate-link').disabled = busy;
+      $('restore-button').disabled = busy || (!$('switch-confirm').hidden && !$('switch-checkbox').checked);
+    }
   }
   async function action(fn, errorElement) {
     if (busy) return;
@@ -529,40 +544,42 @@
   });
   window.addEventListener('pageshow', event => { if (event.persisted && state) refresh().catch(() => {}); });
 
-  $('recovery-button').addEventListener('click', () => action(async () => {
-    $('generated-link').hidden = true; $('generate-link').hidden = false;
-    $('recovery-error').textContent = ''; $('recovery-url').value = '';
-    $('recovery-dialog').showModal();
-  }));
-  $('generate-link').addEventListener('click', () => action(async () => {
-    const result = await api('/api/recovery-link', { confirm_rotation: true });
-    $('recovery-url').value = result.url;
-    $('recovery-expiry').textContent = '유효 기간: ' + dateTime(result.expires_at);
-    $('generated-link').hidden = false; $('generate-link').hidden = true;
-    await refresh();
-  }, 'recovery-error'));
-  $('copy-link').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText($('recovery-url').value); toast('복구 링크를 복사했어요. 나만 볼 수 있는 곳에 저장해 주세요.'); }
-    catch (_) { $('recovery-url').focus(); $('recovery-url').select(); toast('링크를 선택했어요. 길게 눌러 복사해 주세요.'); }
-  });
-  $('close-recovery').addEventListener('click', () => $('recovery-dialog').close());
-  $('recovery-dialog').addEventListener('close', () => { $('recovery-url').value = ''; $('generated-link').hidden = true; });
-  $('restore-button').addEventListener('click', () => action(async () => {
-    $('restore-error').textContent = '';
-    try {
-      await api('/api/recover', { token: recoveryToken, confirm_switch: $('switch-checkbox').checked });
+  if (recoveryButton) {
+    recoveryButton.addEventListener('click', () => action(async () => {
+      $('generated-link').hidden = true; $('generate-link').hidden = false;
+      $('recovery-error').textContent = ''; $('recovery-url').value = '';
+      $('recovery-dialog').showModal();
+    }));
+    $('generate-link').addEventListener('click', () => action(async () => {
+      const result = await api('/api/recovery-link', { confirm_rotation: true });
+      $('recovery-url').value = result.url;
+      $('recovery-expiry').textContent = '유효 기간: ' + dateTime(result.expires_at);
+      $('generated-link').hidden = false; $('generate-link').hidden = true;
       await refresh();
-      if (!state.customer) throw new Error('쿠키가 차단되어 복구를 유지할 수 없어요. 쿠키 허용 후 저장한 링크를 다시 열어 주세요.');
-      recoveryToken = ''; history.replaceState(null, '', '/'); $('restore-dialog').close();
-      toast('기존 컬렉션을 이 브라우저에서 이어갈 수 있어요.');
-    } catch (error) {
-      if (error.code === 'confirm_switch') $('switch-confirm').hidden = false;
-      throw error;
-    }
-  }, 'restore-error'));
-  $('switch-checkbox').addEventListener('change', () => render());
-  $('cancel-restore').addEventListener('click', () => $('restore-dialog').close());
-  $('restore-dialog').addEventListener('close', () => { recoveryToken = ''; history.replaceState(null, '', '/'); });
+    }, 'recovery-error'));
+    $('copy-link').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText($('recovery-url').value); toast('복구 링크를 복사했어요. 나만 볼 수 있는 곳에 저장해 주세요.'); }
+      catch (_) { $('recovery-url').focus(); $('recovery-url').select(); toast('링크를 선택했어요. 길게 눌러 복사해 주세요.'); }
+    });
+    $('close-recovery').addEventListener('click', () => $('recovery-dialog').close());
+    $('recovery-dialog').addEventListener('close', () => { $('recovery-url').value = ''; $('generated-link').hidden = true; });
+    $('restore-button').addEventListener('click', () => action(async () => {
+      $('restore-error').textContent = '';
+      try {
+        await api('/api/recover', { token: recoveryToken, confirm_switch: $('switch-checkbox').checked });
+        await refresh();
+        if (!state.customer) throw new Error('쿠키가 차단되어 복구를 유지할 수 없어요. 쿠키 허용 후 저장한 링크를 다시 열어 주세요.');
+        recoveryToken = ''; history.replaceState(null, '', '/'); $('restore-dialog').close();
+        toast('기존 컬렉션을 이 브라우저에서 이어갈 수 있어요.');
+      } catch (error) {
+        if (error.code === 'confirm_switch') $('switch-confirm').hidden = false;
+        throw error;
+      }
+    }, 'restore-error'));
+    $('switch-checkbox').addEventListener('change', () => render());
+    $('cancel-restore').addEventListener('click', () => $('restore-dialog').close());
+    $('restore-dialog').addEventListener('close', () => { recoveryToken = ''; history.replaceState(null, '', '/'); });
+  }
   $('redeem-button').addEventListener('click', () => action(async () => {
     $('redeem-error').textContent = '';
     const result = await api('/api/redeem', { confirm_received: true });

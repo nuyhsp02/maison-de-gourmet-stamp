@@ -1,0 +1,15 @@
+{
+  "environment": "production",
+  "id": "",
+  "draft": true,
+  "public_origin": "",
+  "cafe_name": "",
+  "title": "",
+  "description": "",
+  "reward": "",
+  "starts_at": null,
+  "ends_at": "2027-02-01T00:00:00+09:00",
+  "reward_until": "2027-03-01T00:00:00+09:00",
+  "access_until": "2027-03-31T00:00:00+09:00",
+  "products": []
+}

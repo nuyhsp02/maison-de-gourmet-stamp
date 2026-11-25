@@ -1,4 +1,4 @@
-"""Synthetic contact key custody and interactive single-card viewing on the designated Mac."""
+"""Separate DEMO and PROD recipients and interactive single-card viewing on the designated Mac."""
 import argparse
 import base64
 import getpass
@@ -30,6 +30,17 @@ def write_new(path, data):
         raise
 
 
+def custody_output(path):
+    """Private key copies and PROD provisioning descriptors stay in a separate owner-only directory."""
+    path = Path(path)
+    parent = path.parent
+    if (not path.is_absolute() or parent.resolve(strict=True) != parent or path.exists() or path.is_symlink()
+            or parent.stat().st_uid != os.getuid() or parent.stat().st_mode & 0o077
+            or path.is_relative_to(Path(__file__).resolve().parents[1])
+            or any((folder / ".git").exists() for folder in path.parents)):
+        raise ValueError("저장소 밖의 전용 비공개 디렉터리에 새 파일을 지정하세요.")
+
+
 def lock_key(private, password):
     salt = utils.random(pwhash.argon2id.SALTBYTES)
     derived = derive(password, salt)
@@ -55,7 +66,8 @@ def open_phone(private, reply, event_id, cid):
         raise ValueError("수신 키 또는 카드 불일치")
     message = SealedBox(private).decrypt(base64.b64decode(reply["sealed"], validate=True))
     version, event, owner, digits = json.loads(message)
-    if (version, event, owner) != (contact.NOTICE, event_id, cid) or contact.phone_digits(digits) != digits or not digits:
+    expected = contact.PROD_CONTACT if event_id.startswith("prod-") else contact.NOTICE
+    if (version, event, owner) != (expected, event_id, cid) or contact.phone_digits(digits) != digits or not digits:
         raise ValueError("연락처 확인 실패")
     return digits[:3] + "-" + digits[3:-4] + "-" + digits[-4:]
 
@@ -125,31 +137,39 @@ def view(args, private):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     subs = parser.add_subparsers(dest="action", required=True)
-    create = subs.add_parser("keygen")
-    create.add_argument("--public-config", type=Path, required=True)
-    create.add_argument("--event", required=True)
+    create = subs.add_parser("keygen", help="DEMO synthetic recipient")
+    prod = subs.add_parser("keygen-prod", help="New PROD contact recipient on the designated Mac")
+    for keygen in (create, prod):
+        keygen.add_argument("--public-config", type=Path, required=True)
+        keygen.add_argument("--event", required=True)
     show = subs.add_parser("show")
     show.add_argument("--host", required=True, help="Pinned operator SSH alias")
     show.add_argument("--event", required=True)
     show.add_argument("--ssh-config", type=Path, help="Operator-managed SSH configuration with a pinned host key")
     copy = subs.add_parser("rewrap", help="Create an independently encrypted backup or restored private key")
     copy.add_argument("--output", type=Path, required=True)
-    for cmd in (create, show, copy):
+    for cmd in (create, prod, show, copy):
         cmd.add_argument("--key", required=True, type=Path)
     args = parser.parse_args()
     if sys.platform != "darwin" or not all(stream.isatty() for stream in (sys.stdin, sys.stdout, sys.stderr)):
         parser.exit(1, "지정 Mac의 대화형 터미널에서 실행하세요.\n")
     try:
-        if args.action == "keygen":
-            if not re.fullmatch(r"demo-[a-z0-9-]{1,59}", args.event):
-                raise ValueError("합성 행사 ID 필요")
+        if args.action in ("keygen", "keygen-prod"):
+            production = args.action == "keygen-prod"
+            prefix = "prod-" if production else "demo-"
+            if not re.fullmatch(prefix + r"[a-z0-9][a-z0-9-]{0,58}", args.event):
+                raise ValueError("행사 식별 정보 불일치")
+            if production:
+                custody_output(args.key)
+                custody_output(args.public_config)
             private = PrivateKey.generate()
             encrypted = lock_key(private, prompt_password("새 키 보관 암호 (15자 이상): ", True))
-            # Approved pairs are generated fixtures; no arbitrary real enrollment setting.
-            tags = [contact.profile_tag("합성 검수 " + str(i), prefix + str(i).zfill(size))
-                    for i, (prefix, size) in enumerate([("010", 8), ("011", 7), ("019", 8)], 1)]
-            policy = {"format": contact.NOTICE, "event_id": args.event, "public_key": bytes(private.public_key).hex(),
-                      "allowed_profiles": tags}
+            policy = {"format": "prod-contact-recipient-v1" if production else contact.NOTICE,
+                      "event_id": args.event, "public_key": bytes(private.public_key).hex()}
+            if not production:
+                policy["allowed_profiles"] = [
+                    contact.profile_tag("합성 검수 " + str(i), head + str(i).zfill(size))
+                    for i, (head, size) in enumerate([("010", 8), ("011", 7), ("019", 8)], 1)]
             write_new(args.key, encrypted)
             try:
                 write_new(args.public_config, json.dumps(policy).encode())
@@ -157,6 +177,7 @@ def main():
                 args.key.unlink()  # This invocation created the file exclusively.
                 raise
         elif args.action == "rewrap":
+            custody_output(args.output)
             private = read_private(args.key)
             password = prompt_password("새 보관 사본 암호 (15자 이상): ", True)
             blob = lock_key(private, password)

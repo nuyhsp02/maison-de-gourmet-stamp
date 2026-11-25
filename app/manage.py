@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from app import ROOT, connect_db, create_app, init_db, load_event
-from staff_admin import revoke_manager, write_staff_password
+from staff_admin import is_prod_database, revoke_manager, write_staff_password
 
 
 def main():
@@ -33,12 +33,16 @@ def main():
     admin.add_argument("--actor", required=True, help="취소 기록에 남길 직원 계정 ID")
     manager = commands.add_parser("manager-password", help="이 DB의 예외 정정 관리자 비밀번호 설정·교체")
     manager.add_argument("--actor", required=True, help="정정 감사 기록에 남길 관리자 계정 ID")
+    for name in ("prod-staff-password", "prod-manager-password"):
+        commands.add_parser(name, help="PROD 행사 DB에 전용 자격 발급").add_argument("--actor", required=True)
     commands.add_parser("manager-revoke", help="지정 DB의 관리자 자격 폐기 및 모든 관리자 세션 종료")
     args = parser.parse_args()
     if not args.database:
-        if args.command in ("manager-password", "manager-revoke"):
+        if args.command.startswith("prod-") or args.command in ("manager-password", "manager-revoke"):
             parser.error("--database 로 대상 행사 DB를 명시하세요.")
         args.database = str(ROOT / "data" / "collection.sqlite")
+    if args.command in ("backup", "qr-export", "serve") and is_prod_database(args.database):
+        parser.error("PROD는 Linux 전용 실행·백업 도구를 사용하세요.")
     if args.command == "manager-revoke":
         try:
             revoke_manager(args.database)
@@ -46,8 +50,8 @@ def main():
             parser.error("관리자 자격 폐기 실패. 대상 DB와 검증 파일 권한을 확인하세요.")
         print("관리자 자격을 폐기했습니다.")
         return
-    if args.command in ("admin-password", "manager-password"):
-        role = "admin" if args.command == "manager-password" else "staff"
+    if args.command in ("admin-password", "manager-password", "prod-staff-password", "prod-manager-password"):
+        role = "admin" if args.command.endswith("manager-password") else "staff"
         title = "관리자" if role == "admin" else "직원"
         # getpass would fall back to echoed stdin on some redirected terminals.
         import sys
@@ -63,7 +67,8 @@ def main():
         if password != repeated:
             parser.error("두 비밀번호가 일치하지 않습니다.")
         try:
-            write_staff_password(args.database, args.actor, password, role=role)
+            write_staff_password(args.database, args.actor, password, role=role,
+                                 production=args.command.startswith("prod-"))
         except ValueError as exc:
             parser.error(str(exc))
         except OSError:

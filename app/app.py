@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from flask import Flask, g, jsonify, render_template, request
+from flask import Flask, g, jsonify, make_response, render_template, request
 from werkzeug.exceptions import HTTPException
 
 if __package__:
@@ -30,6 +30,8 @@ MAX_EVENT_DAYS = 62  # Two consecutive calendar months can span 62 days.
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 NOTICE_VERSION = contact.NOTICE
 DEMO_CATALOG_EVENT = "demo-gourmetstamp-20261125-rehearsal"
+PROD_STATIC_FILES = frozenset({"admin.css", "admin.js", "app.js", "collection-core.js", "favicon.svg",
+                               "phone-input.js", "style.css", "vendor/jsQR.js"})
 
 
 def digest(value):
@@ -45,8 +47,7 @@ def timestamp(value):
     return int(parsed.timestamp())
 
 
-def load_event(path):
-    event = json.loads(Path(path).read_text(encoding="utf-8"))
+def validate_event(event):
     products = event.get("products", [])
     ids = [p["id"] for p in products]
     if len(ids) != 10 or len(set(ids)) != 10:
@@ -65,9 +66,15 @@ def load_event(path):
             "starts_at", "ends_at", "reward_until")]
         if not start < end <= reward or end - start > MAX_EVENT_DAYS * 86400:
             raise ValueError(f"이벤트 기간은 {MAX_EVENT_DAYS}일 이내이며, 보상 마감은 종료 시각과 같거나 늦어야 합니다.")
+    return event
+
+
+def load_event(path):
+    event = validate_event(json.loads(Path(path).read_text(encoding="utf-8")))
     if event["id"] == DEMO_CATALOG_EVENT:
+        products = event["products"]
         catalog = json.loads((ROOT / "demo-product-catalog.json").read_text(encoding="utf-8"))
-        if catalog["event_id"] != event["id"] or catalog["products"].keys() != set(ids):
+        if catalog["event_id"] != event["id"] or catalog["products"].keys() != {p["id"] for p in products}:
             raise ValueError("시연 행사와 상품 목록의 ID를 확인해 주세요.")
         for product in products:
             labels = catalog["products"][product["id"]]
@@ -164,6 +171,8 @@ def event_signature(event):
 
 
 def init_db(path, event, profile_key_path=None):
+    if event.get("environment") == "production" or event["id"].startswith("prod-"):
+        raise ValueError("PROD 행사는 전용 초기화 명령을 사용하세요.")
     path = Path(path)
     key_path = profile_key_path or default_profile_key_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -178,6 +187,8 @@ def init_db(path, event, profile_key_path=None):
             if tables:
                 if "metadata" not in tables:
                     raise ValueError("기존 DB에 행사 메타데이터가 없습니다. 백업을 확인하세요.")
+                if db.execute("SELECT 1 FROM metadata WHERE key='linux_prod_v1'").fetchone():
+                    raise ValueError("PROD DB는 전용 운영 진입점에서만 사용할 수 있습니다.")
                 existing = db.execute("SELECT value FROM metadata WHERE key='event'").fetchone()
                 if existing and existing[0] != signature:
                     raise ValueError("기존 DB의 이벤트/상품 ID가 다릅니다. 초기화하지 말고 설정을 확인하세요.")
@@ -239,8 +250,16 @@ def normalized_phone(value):
 
 
 def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765",
-               dev=False, testing=False, profile_key_path=None, *, validate_existing=None, synthetic_config=None):
-    event = load_event(event_path or ROOT / "event.json")
+               dev=False, testing=False, profile_key_path=None, *, validate_existing=None, synthetic_config=None,
+               production_enrollment=None, production_event=None, privacy_access=None):
+    production = production_enrollment is not None
+    if production != (production_event is not None) or (production and (
+            not isinstance(production_enrollment, contact.ProductionEnrollment) or not callable(privacy_access) or validate_existing is None
+            or database is None or dev or synthetic_config is not None)):
+        raise ValueError("PROD 가입에는 전용 행사와 기존 DB 검증이 필요합니다.")
+    event = production_event if production else load_event(event_path or ROOT / "event.json")
+    if production and event["id"] != production_enrollment.event_id:
+        raise ValueError("PROD 행사와 연락처 수신 설정이 일치하지 않습니다.")
     parsed = urlsplit(public_url)
     if parsed.path not in ("", "/") or parsed.query or parsed.fragment or parsed.username:
         raise ValueError("PUBLIC_URL에는 경로/인증정보 없이 도메인과 포트만 지정하세요.")
@@ -253,16 +272,17 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         raise ValueError("실운영에는 HTTPS URL과 draft=false인 확정 이벤트 설정이 필요합니다.")
     origin = f"{parsed.scheme}://{parsed.netloc}"
     app = Flask(__name__)
-    app.config.update(TESTING=testing, MAX_CONTENT_LENGTH=4096,
+    app.config.update(TESTING=testing, PROD_PRIVACY=production, MAX_CONTENT_LENGTH=4096,
                       DATABASE=str(database or ROOT / "data" / "collection.sqlite"))
     app.event = event
+    app.production = production
     app.public_url = origin
-    app.cookie_name = "collection_dev" if dev else "__Host-collection"
+    app.cookie_name = "__Host-maison-prod-collection" if production else ("collection_dev" if dev else "__Host-collection")
     app.limits = Limits()
     # One Waitress process, one SQLite writer. Coordinate request writers here
     # instead of letting Windows busy retries repeatedly race for the DB lock.
     app.write_lock = threading.Lock()
-    enrollment = None
+    enrollment = production_enrollment
     if synthetic_config is not None:
         if parsed.hostname not in ("localhost", "127.0.0.1", "::1") and not parsed.hostname.endswith(".invalid"):
             raise ValueError("합성 가입은 로컬 시험 주소에서만 사용할 수 있습니다.")
@@ -275,10 +295,13 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         profile_key = init_db(app.config["DATABASE"], event, profile_key_path)
     else:
         profile_key = validate_existing(Path(app.config["DATABASE"]), event)
-    if enrollment is None:
-        with closing(connect_db(app.config["DATABASE"], mode="ro")) as source:
-            if contact.contact_key_id(source) is not None:
-                raise ValueError("연락처 DB의 공개키 설정이 필요합니다.")
+    with closing(connect_db(app.config["DATABASE"], mode="ro")) as source:
+        marker = source.execute("SELECT value FROM metadata WHERE key='linux_prod_v1'").fetchone()
+        if (marker is not None) != production or (production and (
+                marker[0] != "1" or contact.contact_key_id(source) != enrollment.key_id)):
+            raise ValueError("환경 식별자 또는 PROD 연락처 공개키가 일치하지 않습니다.")
+        if enrollment is None and contact.contact_key_id(source) is not None:
+            raise ValueError("연락처 DB의 공개키 설정이 필요합니다.")
     app.contact_enabled = enrollment is not None
 
     def db():
@@ -295,6 +318,14 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         if connection is not None:
             connection.close()
 
+    def require_privacy_access():
+        if production:
+            state = privacy_access()
+            if state == "closed":
+                raise APIError("행사가 종료되어 고객 카드를 조회할 수 없습니다.", 410, "privacy_closed")
+            if state != "open":
+                raise APIError("현재 고객 정보를 확인할 수 없습니다.", 503, "privacy_unavailable")
+
     @contextmanager
     def write_transaction():
         # Open/configure before admission; request validation also happens outside.
@@ -309,7 +340,9 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                                503, "storage_unavailable")
             try:
                 connection.execute("BEGIN IMMEDIATE")
+                require_privacy_access()
                 yield connection
+                require_privacy_access()
                 connection.commit()
             except BaseException:
                 # Includes cancellation. Do not admit another writer while a failed
@@ -367,8 +400,9 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     def require_identity():
         who = identity()
         if who is None:
-            raise APIError("쿠키를 허용하고 기존 스탬프 찾기 또는 저장한 복구 링크를 이용해 주세요.",
-                           401, "session_required")
+            message = ("쿠키를 허용하고 이름과 전화번호로 기존 스탬프를 찾아 주세요." if production
+                       else "쿠키를 허용하고 기존 스탬프 찾기 또는 저장한 복구 링크를 이용해 주세요.")
+            raise APIError(message, 401, "session_required")
         if not secrets.compare_digest(request.headers.get("X-CSRF-Token", ""), who["csrf"]):
             raise APIError("화면을 새로고침한 후 다시 시도하세요.", 403, "csrf_failed")
         return who
@@ -390,6 +424,13 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         # Validate configured host even in development (DNS rebinding defense).
         if request.host.lower() != parsed.netloc.lower():
             raise APIError("설정된 주소로 접속해 주세요.", 400, "invalid_host")
+        if production and request.url_rule is None:
+            return  # Let Flask reject unmapped routes, including retired recovery APIs.
+        if production and request.endpoint == "static" and request.view_args["filename"] not in PROD_STATIC_FILES:
+            raise APIError("제공하지 않는 파일입니다.", 404, "http_404")
+        if production and request.endpoint not in ("static", "health"):
+            g.privacy_guarded = True
+            require_privacy_access()
         if request.method not in ("GET", "HEAD", "OPTIONS"):
             if request.headers.get("Origin") != origin or request.headers.get("X-Stamp-Client") != "1":
                 raise APIError("사이트 내 버튼으로 다시 시도하세요.", 403, "invalid_origin")
@@ -398,8 +439,27 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
             # 30 visitors behind one café NAT must remain usable.
             limited(("writes", request.remote_addr), 1800)
 
+    def privacy_response(error):
+        if request.endpoint in ("page", "admin_page"):
+            closed = error.code == "privacy_closed"
+            response = make_response(render_template("event_closed.html", closed=closed), 200 if closed else 503)
+        else:
+            response = make_response(jsonify(error=error.message, code=error.code), error.status)
+        if error.code == "privacy_closed":
+            with app.limits.lock:
+                app.limits.entries.clear()
+            for name in (app.cookie_name, "__Host-maison-prod-staff"):
+                response.delete_cookie(name, path="/", secure=True, httponly=True, samesite="Strict")
+        return response
+
     @app.after_request
     def security_headers(response):
+        # A read can straddle midnight, even when the request entered on time.
+        if g.get("privacy_guarded") and not g.get("privacy_denied"):
+            try:
+                require_privacy_access()
+            except APIError as error:
+                response = privacy_response(error)
         response.headers.update({
             "Cache-Control": "no-store",
             "Referrer-Policy": "no-referrer",
@@ -418,6 +478,9 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
 
     @app.errorhandler(APIError)
     def api_error(error):
+        if error.code in ("privacy_closed", "privacy_unavailable"):
+            g.privacy_denied = True
+            return privacy_response(error)
         return jsonify(error=error.message, code=error.code), error.status
 
     @app.errorhandler(HTTPException)
@@ -447,14 +510,17 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     def build_snapshot(who=None, qr=None):
         # Products never disclose the fixed QR URLs to the stamp board.
         public_event = {k: v for k, v in event.items() if k != "id"}
+        if production:
+            public_event = {k: event[k] for k in ("cafe_name", "title", "description", "draft",
+                                                   "starts_at", "ends_at", "reward_until", "reward")}
+            public_event["products"] = [{k: p[k] for k in ("id", "category", "name", "short_name")}
+                                        for p in event["products"]]
         result = {"event": public_event, "phase": phase(), "reward_open": reward_open(),
                   "customer": None, "csrf": None, "pending": None}
         if who is not None:
             customer = db().execute("SELECT * FROM customers WHERE id=?", (who["customer_id"],)).fetchone()
             stamps = db().execute("SELECT product_id, collected_at FROM stamps WHERE customer_id=?",
                                   (who["customer_id"],)).fetchall()
-            recovery = db().execute("SELECT expires_at FROM recovery WHERE customer_id=? AND expires_at>?",
-                                    (who["customer_id"], int(time.time()))).fetchone()
             profile = db().execute("SELECT display_name FROM customer_profiles WHERE customer_id=?",
                                    (who["customer_id"],)).fetchone()
             result.update(csrf=who["csrf"], customer={
@@ -464,8 +530,11 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                 "count": len(stamps), "status": "redeemed" if customer["redeemed_at"] else
                     ("complete" if len(stamps) == 10 else "collecting"),
                 "redeemed_at": customer["redeemed_at"],
-                "recovery_saved": bool(recovery),
             })
+            if not production:
+                recovery = db().execute("SELECT expires_at FROM recovery WHERE customer_id=? AND expires_at>?",
+                                        (who["customer_id"], int(time.time()))).fetchone()
+                result["customer"]["recovery_saved"] = bool(recovery)
         if qr:
             product = db().execute("SELECT id FROM products WHERE qr_key=?", (qr,)).fetchone()
             if not product:
@@ -485,13 +554,15 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         return response
 
     @app.get("/")
-    @app.get("/recover")
     @app.get("/q/<qr_key>")
     def page(qr_key=None):
         if qr_key and not db().execute("SELECT 1 FROM products WHERE qr_key=?", (qr_key,)).fetchone():
             raise APIError("사용할 수 없는 QR 주소입니다.", 404)
-        return render_template("index.html", notice_version=NOTICE_VERSION, registration_open=app.contact_enabled,
-                               catalog=event["products"] if event["id"] == DEMO_CATALOG_EVENT else ())
+        policy = enrollment.approved_notice() if production else None
+        return render_template("index.html", production=production, event=event, policy=policy,
+                               notice_version=(policy["notice_version"] if policy else "") if production else NOTICE_VERSION,
+                               registration_open=bool(policy) if production else app.contact_enabled,
+                               catalog=event["products"] if production or event["id"] == DEMO_CATALOG_EVENT else ())
 
     @app.get("/health")
     def health():
@@ -530,19 +601,25 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
 
     @app.post("/api/register")
     def register():
+        policy = enrollment.approved_notice() if production else None
+        if production and policy is None:
+            raise APIError("현재 신규 가입을 받지 않습니다.", 403, "registration_closed")
+        notice_version = policy["notice_version"] if production else NOTICE_VERSION
         require_active()
         data = body()
         name, lookup, number = profile_input(data)
         if data.get("notice_acknowledged") is not True:
-            raise APIError("개인정보 수집·이용 안내를 확인해 주세요.")
+            raise APIError("개인정보 처리 안내를 확인해 주세요.")
         if enrollment is None:
             raise APIError("운영 정책 확정 전에는 신규 가입을 받지 않습니다.", 403, "registration_closed")
-        if data.get("notice_version") != NOTICE_VERSION:
+        if data.get("notice_version") != notice_version:
             raise APIError("새 안내를 확인하고 다시 등록해 주세요.", 409, "notice_changed")
-        if contact.profile_tag(name, number) not in enrollment.allowed_profiles:
+        if not production and contact.profile_tag(name, number) not in enrollment.allowed_profiles:
             raise APIError("지정된 합성 정보만 등록할 수 있습니다.", 403, "synthetic_only")
         with write_transaction() as connection:
             require_active()
+            if production and enrollment.approved_notice() is None:
+                raise APIError("현재 신규 가입을 받지 않습니다.", 403, "registration_closed")
             if connection.execute("SELECT 1 FROM customer_profiles WHERE phone_lookup_hmac=?",
                                   (lookup,)).fetchone():
                 raise APIError("이미 등록된 스탬프가 있어요. 기존 스탬프 찾기로 이동해 주세요. "
@@ -552,7 +629,7 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
             connection.execute("INSERT INTO customers VALUES (?, ?, NULL)", (customer_id, now))
             connection.execute("INSERT INTO customer_profiles "
                                "(customer_id, display_name, phone_lookup_hmac, notice_version, notice_acknowledged_at) "
-                               "VALUES (?, ?, ?, ?, ?)", (customer_id, name, lookup, NOTICE_VERSION, now))
+                               "VALUES (?, ?, ?, ?, ?)", (customer_id, name, lookup, notice_version, now))
             enrollment.store(connection, customer_id, number, now)
             token = new_session(customer_id)
         return set_cookie(jsonify(ok=True), token)
@@ -591,7 +668,6 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                 added = cursor.rowcount == 1
         return jsonify(**snapshot(who), added=added, product_id=product["id"])
 
-    @app.post("/api/recovery-link")
     def recovery_link():
         who = require_identity()
         if body().get("confirm_rotation") is not True:
@@ -606,7 +682,6 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                          (who["customer_id"], digest(token), expiry))
         return jsonify(url=f"{origin}/recover#{token}", expires_at=expiry)
 
-    @app.post("/api/recover")
     def recover():
         limited(("recover", request.remote_addr), 60)
         data = body()
@@ -627,6 +702,11 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                 db().execute("DELETE FROM sessions WHERE token_hash=?", (current["token_hash"],))
             cookie = new_session(target["customer_id"])
         return set_cookie(jsonify(ok=True), cookie)
+
+    if not production:
+        app.add_url_rule("/recover", endpoint="recover_page", view_func=page)
+        app.add_url_rule("/api/recovery-link", view_func=recovery_link, methods=["POST"])
+        app.add_url_rule("/api/recover", view_func=recover, methods=["POST"])
 
     @app.post("/api/redeem")
     def redeem():

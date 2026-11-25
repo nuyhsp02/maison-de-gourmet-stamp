@@ -1,15 +1,22 @@
-"""Synthetic enrollment and operator-only sealed contact records."""
+"""Environment-bound enrollment and operator-only sealed contact records."""
+from __future__ import annotations
+
 from contextlib import closing
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
 import re
 import sqlite3
+import stat
 
+from nacl.bindings import crypto_scalarmult
+from nacl.exceptions import CryptoError
 from nacl.public import PublicKey, SealedBox
 
 NOTICE = "synthetic-contact-v1"
+PROD_CONTACT = "prod-contact-v1"
 ROOT = Path(__file__).resolve().parent
 CONTACT_TABLES = {"customer_contacts", "contact_access_audit"}
 SEPARATOR = r"(?: *- *| +)"
@@ -61,12 +68,74 @@ class SyntheticEnrollment:
         return cls(event_id, PublicKey(bytes.fromhex(obj["public_key"])), frozenset(obj["allowed_profiles"]))
 
     def store(self, db, cid, number, now):
-        if contact_key_id(db) != self.key_id:
-            raise ValueError("연락처 DB와 수신 키가 일치하지 않습니다.")
-        data = json.dumps([NOTICE, self.event_id, cid, number], separators=(",", ":")).encode()
-        sealed = SealedBox(self.public_key).encrypt(data)
-        db.execute("INSERT INTO customer_contacts VALUES (?, ?, ?, 1, ?, ?)",
-                   (cid, sealed, self.key_id, masked(number), now))
+        store_contact(self, NOTICE, db, cid, number, now)
+
+
+def store_contact(enrollment, envelope_format, db, cid, number, now):
+    if contact_key_id(db) != enrollment.key_id:
+        raise ValueError("연락처 DB와 수신 키가 일치하지 않습니다.")
+    data = json.dumps([envelope_format, enrollment.event_id, cid, number], separators=(",", ":")).encode()
+    sealed = SealedBox(enrollment.public_key).encrypt(data)
+    db.execute("INSERT INTO customer_contacts VALUES (?, ?, ?, 1, ?, ?)",
+               (cid, sealed, enrollment.key_id, masked(number), now))
+
+
+@dataclass(frozen=True)
+class ProductionEnrollment:
+    event_id: str
+    public_key: PublicKey
+    policy_path: Path | None
+    approved_policy_sha256: str | None
+
+    @property
+    def key_id(self):
+        return hashlib.sha256(bytes(self.public_key)).hexdigest()
+
+    @classmethod
+    def read(cls, path, event_id, policy_path=None, *, approved_policy_sha256=None):
+        obj = json.loads(Path(path).read_text(encoding="utf-8"))
+        if (not isinstance(obj, dict) or set(obj) != {"format", "event_id", "public_key"}
+                or obj["format"] != "prod-contact-recipient-v1" or obj["event_id"] != event_id
+                or not isinstance(obj["public_key"], str) or not re.fullmatch("[a-f0-9]{64}", obj["public_key"])):
+            raise ValueError("PROD 행사와 전용 연락처 수신 공개키를 확인하세요.")
+        public_key = PublicKey(bytes.fromhex(obj["public_key"]))
+        # libsodium rejects small-order recipients. This public probe scalar is never used to seal a contact.
+        try:
+            crypto_scalarmult(bytes([1]) * 32, bytes(public_key))
+        except CryptoError:
+            raise ValueError("PROD 연락처 수신 공개키가 올바르지 않습니다.") from None
+        return cls(event_id, public_key, Path(policy_path) if policy_path is not None else None,
+                   approved_policy_sha256)
+
+    def approved_notice(self):
+        """Only the explicitly pinned, complete approval can open enrollment. Withdrawal takes effect live."""
+        if not self.policy_path or not re.fullmatch("[a-f0-9]{64}", self.approved_policy_sha256 or ""):
+            return None
+        try:
+            if not stat.S_ISREG(self.policy_path.lstat().st_mode):
+                return None
+            with self.policy_path.open("rb") as stream:
+                raw = stream.read(32769)
+            if len(raw) > 32768 or hashlib.sha256(raw).hexdigest() != self.approved_policy_sha256:
+                return None
+            policy = json.loads(raw)
+            fields = {"format", "status", "event_id", "recipient_key_id", "notice_version", "notice_text",
+                      "purpose", "legal_basis_ref", "retention", "inquiry_contact", "approved_at"}
+            if (not isinstance(policy, dict) or set(policy) != fields
+                    or any(not isinstance(v, str) or not v.strip() for v in policy.values())
+                    or policy["format"] != "prod-registration-policy-v1" or policy["status"] != "approved"
+                    or policy["event_id"] != self.event_id or policy["recipient_key_id"] != self.key_id
+                    or not re.fullmatch(r"prod-[a-z0-9][a-z0-9.-]{0,58}", policy["notice_version"])):
+                return None
+            approved_at = datetime.fromisoformat(policy["approved_at"].replace("Z", "+00:00"))
+            if approved_at.tzinfo is None or approved_at > datetime.now(timezone.utc):
+                return None
+        except (OSError, UnicodeError, ValueError, RecursionError):
+            return None
+        return policy
+
+    def store(self, db, cid, number, now):
+        store_contact(self, PROD_CONTACT, db, cid, number, now)
 
 
 def schema_rows(db):

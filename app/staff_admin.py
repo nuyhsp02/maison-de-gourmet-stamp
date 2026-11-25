@@ -22,6 +22,7 @@ else:
     from correction_schema import correction_enabled
 
 MANAGER_BINDING = "manager_credential_v1"
+PROD_STAFF_BINDING = "prod_staff_credential_v1"
 SESSION_SECONDS = 8 * 3600
 PASSWORD_METHOD = "pbkdf2:sha256:1000000"
 ACTOR = re.compile(r"[A-Za-z0-9_.-]{1,64}")
@@ -67,6 +68,52 @@ def retire_restored_manager(db):
         db.execute("DELETE FROM admin_sessions WHERE token_hash GLOB 'manager:*'")
 
 
+def prod_instance(db):
+    markers = dict(db.execute("SELECT key,value FROM metadata WHERE key IN ('linux_prod_v1','prod_instance_id')"))
+    if not markers:
+        return None
+    instance = markers.get("prod_instance_id", "")
+    if markers.get("linux_prod_v1") != "1" or not re.fullmatch(r"[a-f0-9]{64}", instance):
+        raise ValueError("PROD 자격을 연결할 DB 식별 정보가 올바르지 않습니다.")
+    return instance
+
+
+def is_prod_database(database):
+    path = Path(database)
+    if not path.is_file():
+        return False
+    with closing(sqlite3.connect(path.absolute().as_uri() + "?mode=ro", uri=True)) as db:
+        return bool(db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='metadata'").fetchone()
+                    and prod_instance(db))
+
+
+def retire_prod_credentials(db):
+    if not prod_instance(db):
+        raise ValueError("PROD 복원 후보를 확인하세요.")
+    db.execute("UPDATE metadata SET value='revoked' WHERE key IN (?,?)", (MANAGER_BINDING, PROD_STAFF_BINDING))
+    db.execute("DELETE FROM admin_sessions")
+
+
+def bound_prod_verifier(db, database, role, instance):
+    path = manager_key_path(database) if role == "admin" else staff_key_path(database)
+    credentials = read_credentials(path, private=True, scope=instance + "/" + role)
+    binding = MANAGER_BINDING if role == "admin" else PROD_STAFF_BINDING
+    row = db.execute("SELECT value FROM metadata WHERE key=?", (binding,)).fetchone()
+    if credentials and row and hmac.compare_digest(row[0], manager_fingerprint(credentials)):
+        return credentials
+    return None
+
+
+def validate_prod_credentials(db, database):
+    instance = prod_instance(db)
+    if not instance:
+        raise ValueError("PROD DB를 확인하세요.")
+    staff = bound_prod_verifier(db, database, "staff", instance)
+    manager = bound_prod_verifier(db, database, "admin", instance)
+    if not staff or not manager or staff[0].casefold() == manager[0].casefold() or staff[1] == manager[1]:
+        raise ValueError("이 PROD DB용 직원·관리자 자격을 별도로 발급하세요.")
+
+
 @contextmanager
 def manager_writer(database):
     # Never create a DB or run application startup/migrations during provisioning.
@@ -90,7 +137,7 @@ def revoke_manager(database):
         manager_key_path(database).unlink(missing_ok=True)
 
 
-def write_staff_password(database, actor, password, *, role="staff"):
+def write_staff_password(database, actor, password, *, role="staff", production=False):
     """Provision a staff verifier or rotate the manager's file and DB binding."""
     if not ACTOR.fullmatch(actor):
         raise ValueError("계정 ID는 영문·숫자·마침표·밑줄·하이픈 1~64자로 지정하세요.")
@@ -112,6 +159,31 @@ def write_staff_password(database, actor, password, *, role="staff"):
         raise ValueError("알 수 없는 계정 역할입니다.")
     path = paths[role]
     other_path = paths["staff" if role == "admin" else "admin"]
+    if production:
+        with manager_writer(database) as db:
+            instance = prod_instance(db)
+            if not instance:
+                raise ValueError("PROD 행사 DB를 명시하세요.")
+            peer_role = "staff" if role == "admin" else "admin"
+            peer = read_credentials(other_path, private=True, scope=instance + "/" + peer_role)
+            if (other_path.exists() and not peer) or overlapping_credentials(actor, password, peer):
+                raise ValueError("같은 PROD DB의 별개 직원·관리자 자격을 확인하세요.")
+            scope = instance + "/" + role
+            old = read_credentials(path, private=True, scope=scope)
+            if old and check_password_hash(old[1], password):
+                raise ValueError("기존 비밀번호와 다른 비밀번호를 설정하세요.")
+            verifier = generate_password_hash(password, method=PASSWORD_METHOD)
+            binding = MANAGER_BINDING if role == "admin" else PROD_STAFF_BINDING
+            db.execute("INSERT INTO metadata VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                       (binding, manager_fingerprint((actor, verifier))))
+            if role == "admin":
+                db.execute("DELETE FROM admin_sessions WHERE token_hash GLOB 'manager:*'")
+            else:
+                db.execute("DELETE FROM admin_sessions WHERE token_hash NOT GLOB 'manager:*'")
+            save_verifier(path, {"actor": actor, "password_hash": verifier, "prod_scope": scope})
+        return
+    if is_prod_database(database):
+        raise ValueError("PROD 전용 자격 발급 명령을 사용하세요.")
     other = read_credentials(other_path, private=(role == "staff"))
     if other is None and other_path.exists():
         raise ValueError("다른 역할의 로그인 설정을 확인하세요.")
@@ -148,15 +220,20 @@ def save_verifier(path, record):
         Path(temporary).unlink(missing_ok=True)
 
 
-def read_credentials(path, *, private=False):
+def read_credentials(path, *, private=False, scope=None):
     try:
         if private:
-            mode = path.lstat().st_mode
+            info = path.lstat()
+            mode = info.st_mode
             if not stat.S_ISREG(mode) or (os.name == "posix" and stat.S_IMODE(mode) != 0o600):
+                return None
+            if scope and (info.st_nlink != 1 or info.st_uid != os.geteuid()):
                 return None
         with path.open(encoding="utf-8") as stream:
             data = json.loads(stream.read(2048))
         actor, verifier = data["actor"], data["password_hash"]
+        if data.get("prod_scope") != scope:
+            return None
         if isinstance(actor, str) and ACTOR.fullmatch(actor) and isinstance(verifier, str) and PASSWORD_HASH.fullmatch(verifier):
             return actor, verifier
     except (OSError, ValueError, KeyError, TypeError):
@@ -166,6 +243,8 @@ def read_credentials(path, *, private=False):
 
 def install_admin(app, *, dev, get_db, write_transaction, staff_window, phone_lookup, json_body, api_error):
     cookie_name = "stamp_admin_dev" if dev else "__Host-stamp-admin"
+    if getattr(app, "production", False):
+        cookie_name = "__Host-maison-prod-staff"
     paths = {"staff": staff_key_path(app.config["DATABASE"]), "admin": manager_key_path(app.config["DATABASE"])}
     # Only the process holds this key. Even a restored DB containing a revoked
     # session cannot authenticate its old cookie when the server restarts.
@@ -173,6 +252,9 @@ def install_admin(app, *, dev, get_db, write_transaction, staff_window, phone_lo
     products = {item["id"]: item["name"] for item in app.event["products"]}
 
     def verifier(role, db):
+        if getattr(app, "production", False):
+            instance = prod_instance(db)
+            return bound_prod_verifier(db, app.config["DATABASE"], role, instance) if instance else None
         credentials = read_credentials(paths[role], private=(role == "admin"))
         if role == "admin" and credentials is not None:
             active = db.execute("SELECT value FROM metadata WHERE key=?", (MANAGER_BINDING,)).fetchone()

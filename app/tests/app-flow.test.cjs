@@ -8,6 +8,38 @@ function fillProfile(app) {
   app.element('identity-name').value = profile.name;
   app.element('identity-phone').value = profile.phone;
 }
+test('PROD closed registration offers only named card lookup with no recovery dialogs', async () => {
+  const app = await openApp({ production: true, customer: false, registration: 'closed' });
+  assert.equal(app.element('identity-title').textContent, '기존 스탬프 찾기');
+  assert.equal(app.element('identity-switch').hidden, true);
+  assert.equal(app.element('registration-notice').hidden, true);
+  assert.equal(app.element('restore-dialog'), null);
+  assert.equal(app.element('recovery-button'), null);
+  await app.click('collect-button');
+  fillProfile(app);
+  await app.submitIdentity();
+  assert.equal(app.posts('/api/find').length, 1);
+  assert.equal(app.posts('/api/register').length, 0);
+  assert.equal(app.posts('/api/collect').length, 0);
+  assert.doesNotMatch(app.element('cookie-notice').textContent, /복구 링크/);
+});
+
+test('PROD registration uses the displayed notice; the stamp board needs no portfolio art', async () => {
+  const products = [{ id: 'p0', name: 'Fixture product', short_name: 'Fixture', stamp_image: 'cookie.png' }];
+  const app = await openApp({ production: true, products, customer: false });
+  await app.click('collect-button');
+  assert.doesNotMatch(app.element('identity-intro').textContent, /합성/);
+  fillProfile(app);
+  app.element('notice-acknowledged').checked = true;
+  await app.submitIdentity();
+  assert.equal(app.posts('/api/register').length, 0);
+  await app.click('confirm-registration');
+  assert.equal(app.posts('/api/register')[0].body.notice_version, 'prod-fixture-v1');
+  assert.equal(app.element('board-title').textContent, '나의 겨울 트리');
+  assert.equal(app.element('stamp-tree').children[0].children[0].children[0].children.length, 0);
+  assert.equal(app.posts('/api/collect').length, 0);
+});
+
 test('new QR visitor registers explicitly; the pending product still requires a collection POST', async () => {
   const app = await openApp({ customer: false });
   assert.equal(app.requests.filter(r => r.method === 'POST').length, 0);
@@ -631,4 +663,17 @@ test('V1.3 unregistered product ID falls back to existing icon without changing 
   const art = seal.children.find(child => child.className === 'stamp-art');
   assert.equal(art.children[0].children[0].attributes.href, '#' + products[0].icon);
   assert.equal(JSON.stringify(products), before);
+});
+
+test('a PROD privacy closure clears a pending identity form and opens the public notice', async () => {
+  const app = await openApp({production:true, customer:false, registration:'closed',
+    findFailure:{status:410, code:'privacy_closed', error:'행사 종료'}});
+  app.element('identity-name').value = '합성';
+  app.element('identity-phone').value = '010' + '0'.repeat(8);
+  await app.submitIdentity();
+  assert.equal(app.posts('/api/find').length, 1);
+  assert.equal(app.element('identity-name').value, '');
+  assert.equal(app.element('identity-phone').value, '');
+  assert.equal(app.document.body.hidden, true);
+  assert.equal(app.location.pathname, '/');
 });

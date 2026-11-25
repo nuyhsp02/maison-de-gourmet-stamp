@@ -44,16 +44,19 @@ async function openApp(options = {}) {
     phase: 'demo', reward_open: true };
   const elements = new Map();
   const element = id => {
+    if (options.production && /^(recovery-|restore-|generate-link|generated-link|copy-link|close-recovery|cancel-restore|switch-confirm|switch-checkbox)/.test(id)) return null;
     if (!elements.has(id)) elements.set(id, new Element(id));
     return elements.get(id);
   };
-  element('identity-form').dataset.noticeVersion = 'synthetic-contact-v1';
-  element('switch-confirm').hidden = true;
+  element('identity-form').dataset.noticeVersion = options.production ? 'prod-fixture-v1' : 'synthetic-contact-v1';
+  if (options.production) element('identity-form').dataset.registration = options.registration || 'production';
+  else element('switch-confirm').hidden = true;
   const documentEvents = {}, windowEvents = {}, timers = new Map();
   const requests = [], drawCalls = []; let timerId = 0;
   let clockMs = Date.now();
   const document = {
-    body: { dataset: { autoCollect: options.eligible === false ? 'manual' : 'eligible' } },
+    body: { dataset: { autoCollect: options.eligible === false ? 'manual' : 'eligible',
+      environment: options.production ? 'production' : 'synthetic' } },
     visibilityState: options.hidden ? 'hidden' : 'visible', hidden: !!options.hidden,
     prerendering: !!options.prerender,
     hasFocus: () => options.focused !== false,
@@ -69,6 +72,7 @@ async function openApp(options = {}) {
     addEventListener: (name, fn) => (documentEvents[name] ||= []).push(fn)
   };
   const location = new URL(options.url || URL_A);
+  location.replace = url => { location.href = new URL(url, location.href).href; };
   const history = { state: options.history || null,
     replaceState(value, _title, url) { this.state = value; location.href = new URL(url, location.href).href; } };
   const video = element('camera-video');
