@@ -37,8 +37,19 @@ def write_staff_password(database, actor, password):
     """Provision/rotate a local verifier atomically, without opening the database."""
     if not ACTOR.fullmatch(actor):
         raise ValueError("계정 ID는 영문·숫자·마침표·밑줄·하이픈 1~64자로 지정하세요.")
-    if not 12 <= len(password) <= 256 or not password.isprintable():
-        raise ValueError("비밀번호는 표시 가능한 문자 12~256자로 지정하세요.")
+    if not 15 <= len(password) <= 256 or not password.isprintable():
+        raise ValueError("비밀번호는 표시 가능한 문자 15~256자로 지정하세요.")
+    normalized = re.sub(r"[^\w]", "", password.casefold()).replace("_", "")
+    stems = ("password", "qwerty", "letmein", "administrator", "maisondegourmet",
+             "gourmetstamp", "iloveyou", "비밀번호", re.sub(r"\W", "", actor.casefold()))
+    common = {"correcthorsebatterystaple", "thisismypassword", "letmeinplease", "changemypassword"}
+    sequences = ("0123456789", "abcdefghijklmnopqrstuvwxyz", "qwertyuiop", "asdfghjkl")
+    predictable = any(normalized in (sequence * 26) or normalized in (sequence[::-1] * 26)
+                      for sequence in sequences)
+    if (not normalized or predictable or normalized in common or len(set(normalized)) <= 3
+            or any(re.fullmatch(re.escape(stem) + r"[0-9]*", normalized) for stem in stems)
+            or re.fullmatch(r"(.{1,10})\1+", normalized)):
+        raise ValueError("흔하거나 반복되는 비밀번호입니다. 새로운 긴 문구를 입력하세요.")
     record = {"actor": actor, "password_hash": generate_password_hash(password, method=PASSWORD_METHOD)}
     path = staff_key_path(database)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -179,11 +190,14 @@ def install_admin(app, *, dev, get_db, write_transaction, phone_lookup, json_bod
         else:
             raise api_error("카드 ID 또는 휴대전화번호 한 가지를 입력해 주세요.")
         # One SELECT gives the profile, redemption and all ten products one read snapshot.
-        rows = db.execute("""
-            SELECT c.id, p.display_name, c.redeemed_at, item.id AS product_id, s.collected_at,
+        mask_column = "contact.phone_masked" if app.contact_enabled else "NULL"
+        contact_join = "LEFT JOIN customer_contacts contact ON contact.customer_id=c.id" if app.contact_enabled else ""
+        rows = db.execute(f"""
+            SELECT c.id, p.display_name, {mask_column} AS phone_masked, c.redeemed_at, item.id AS product_id, s.collected_at,
                    COALESCE((SELECT MAX(a.id) FROM stamp_cancel_audit a
                              WHERE a.customer_id=c.id AND a.product_id=item.id), 0) AS revision
             FROM customers c LEFT JOIN customer_profiles p ON p.customer_id=c.id
+            {contact_join}
             CROSS JOIN products item
             LEFT JOIN stamps s ON s.customer_id=c.id AND s.product_id=item.id
             WHERE """ + predicate, (value,)).fetchall()
@@ -192,8 +206,11 @@ def install_admin(app, *, dev, get_db, write_transaction, phone_lookup, json_bod
         by_product = {row["product_id"]: row for row in rows}
         stamps = [dict(product_id=pid, name=name, collected_at=by_product[pid]["collected_at"],
                        revision=by_product[pid]["revision"]) for pid, name in products.items()]
+        mask = rows[0]["phone_masked"]
+        if mask is not None and (not isinstance(mask, str) or not re.fullmatch(r"01[016789]-\*{3,4}-[0-9]{4}", mask)):
+            raise api_error("연락처 표시 형식을 확인할 수 없습니다.", 503, "contact_unavailable")
         return jsonify(customer_id=rows[0]["id"], name=rows[0]["display_name"],
-                       redeemed_at=rows[0]["redeemed_at"], stamps=stamps)
+                       phone_masked=mask, redeemed_at=rows[0]["redeemed_at"], stamps=stamps)
 
     @app.post("/api/admin/cancel")
     def admin_cancel():

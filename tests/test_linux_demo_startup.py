@@ -204,9 +204,9 @@ def test_only_existing_db_is_opened_on_start_and_every_request(ready, monkeypatc
         monkeypatch.setattr(module, "connect_db", observed)
     app = demo.demo_app(state, config, ORIGIN)
     client = app.test_client()
-    assert modes == ["ro"]
+    assert modes == ["ro", "ro"]  # Inventory and contact-recipient checks are read-only.
     assert client.get("/health", base_url=ORIGIN).status_code == 200
-    assert modes == ["ro", "rw"]
+    assert modes == ["ro", "ro", "rw"]
     assert not any(q.startswith(("CREATE", "INSERT", "UPDATE", "DELETE", "ALTER", "DROP"))
                    for q in statements)
     database.unlink()

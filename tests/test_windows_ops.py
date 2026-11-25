@@ -42,8 +42,15 @@ def installed(tmp_path):
 
 
 def visitor(root,cookie=None):
-    app=ops.load_source(root/'app').create_app(root/'config/event.json',root/'data/collection.sqlite',
-                                              'https://stamps.example.invalid',testing=True)
+    sys.path.insert(0, str(PACKAGE/'tools'))
+    import contact_fixture
+    module = ops.load_source(root/'app')
+    config = root/'config/event.json'
+    database = root/'data/collection.sqlite'
+    policy = root/'config/synthetic-contacts.json'
+    if not policy.exists():
+        contact_fixture.prepare(module, config, database, policy, [('복원 테스트', '01000000001')])
+    app = module.create_app(config, database, 'https://stamps.example.invalid', testing=True, synthetic_config=policy)
     client=app.test_client()
     if cookie: client.set_cookie(app.cookie_name,cookie,domain='stamps.example.invalid')
     return app,client
@@ -59,7 +66,7 @@ def state(client):
 
 
 def register(client):
-    return post(client, '/api/register', {'name': '복원 테스트', 'phone': '01000000001', 'notice_acknowledged': True})
+    return post(client, '/api/register', {'name': '복원 테스트', 'phone': '01000000001', 'notice_acknowledged': True, 'notice_version': 'synthetic-contact-v1'})
 
 
 def populated(root):

@@ -8,7 +8,8 @@
   <link rel="icon" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/admin.css">
-  <script src="/static/admin.js" defer></script>
+  <script src="/static/phone-input.js?v=contact-1" defer></script>
+  <script src="/static/admin.js?v=contact-1" defer></script>
 </head>
 <body class="admin">
   <header class="site-header">
@@ -48,14 +49,16 @@
             <select id="search-type"><option value="phone">휴대전화번호</option><option value="customer_id">카드 ID</option></select>
           </label>
           <div class="field"><label id="query-label" for="query">휴대전화번호 전체</label>
-            <input type="tel" id="query" required autocapitalize="off" spellcheck="false" autocomplete="off">
+            <input type="tel" inputmode="numeric" aria-describedby="query-help" id="query" required autocapitalize="off" spellcheck="false" autocomplete="off">
+            <small id="query-help">숫자만 입력해 주세요. 하이픈은 자동으로 입력됩니다.</small>
           </div>
           <button type="submit" id="search" class="primary">카드 찾기</button>
         </form>
       </section>
       <section id="detail" class="card-detail" aria-labelledby="card-name" hidden>
         <div class="detail-heading">
-          <div><h2 id="card-name"></h2><p class="card-id" id="card-id"></p></div>
+          <div><h2 id="card-name"></h2>
+          <p id="card-phone"></p><p class="card-id" id="card-id"></p></div>
           <button type="button" id="dismiss" class="quiet">조회 닫기</button>
         </div>
         <p id="card-state" class="card-state"></p>

@@ -15,14 +15,14 @@ import pytest
 from werkzeug.serving import make_server
 
 from app import ROOT, connect_db, create_app, digest
-from conftest import BASE, Visitor
+from conftest import BASE, Visitor, fixture_app
 
 
 NAME = "Profile Test Visitor"
 PHONE = "010-0000-0081"
 NUMBER = "01000000081"
 PROFILE = {"name": NAME, "phone": PHONE}
-REGISTER = {**PROFILE, "notice_acknowledged": True}
+REGISTER = {**PROFILE, "notice_acknowledged": True, "notice_version": "synthetic-contact-v1"}
 
 
 def row_counts(app, *tables):
@@ -79,7 +79,7 @@ def test_normalized_duplicate_and_wrong_name_do_not_issue_session_or_overwrite(a
 
 def test_two_app_instances_racing_for_one_phone_create_one_card(app):
     # Separate application locks force the uniqueness guarantee to live in SQLite.
-    second_app = create_app(database=app.config["DATABASE"], public_url=BASE, dev=True, testing=True)
+    second_app = fixture_app(database=app.config["DATABASE"], public_url=BASE, dev=True, testing=True)
     barrier = threading.Barrier(2)
 
     def register(server, phone):
@@ -163,7 +163,7 @@ def test_two_browsers_and_deleted_cookie_share_stamps_and_one_reward(app, keys):
 
 
 def test_rate_limits_apply_to_normalized_phone_across_registration_and_find(tmp_path):
-    app = create_app(database=tmp_path / "limited.sqlite", public_url=BASE, dev=True)
+    app = fixture_app(database=tmp_path / "limited.sqlite", public_url=BASE, dev=True)
     visitor = Visitor(app, start=False)
     for i in range(10):
         response = visitor.post("/api/find", {**PROFILE, "phone": PHONE if i % 2 else NUMBER})
@@ -297,7 +297,7 @@ def test_restored_db_requires_matching_lookup_key_and_recovers_original_card(app
         with closing(connect_db(backup)) as db:
             assert list(db.iterdump()) == baseline
     backup_key.write_bytes(Path(app.config["DATABASE"] + ".profile.key").read_bytes())
-    restored = create_app(database=backup, public_url=BASE, dev=True, testing=True)
+    restored = fixture_app(database=backup, public_url=BASE, dev=True, testing=True)
     visitor = Visitor(restored, start=False)
     assert visitor.post("/api/find", PROFILE).status_code == 200
     assert visitor.read()["customer"] == owner.read()["customer"]
@@ -339,6 +339,7 @@ def test_marked_db_missing_profiles_refuses_start_instead_of_recreating_empty_ta
     original_key = key_path.read_bytes()
     with closing(connect_db(database)) as db:
         # An incomplete restore can pass SQLite's physical integrity check.
+        db.execute("PRAGMA foreign_keys=OFF")  # Model an incomplete external restore.
         db.execute("DROP TABLE customer_profiles")
         assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert db.execute("SELECT 1 FROM metadata WHERE key='profile_key_check_v1'").fetchone()

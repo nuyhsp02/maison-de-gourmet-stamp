@@ -29,9 +29,11 @@ def private_file(path):
 def summary(database):
     # Only counts leave the private directory. QR keys and audit actors stay in SQLite.
     with closing(ops.readonly(database)) as db:
+        tables = ["products", "customers", "customer_profiles", "stamps", "reward_audit", "stamp_cancel_audit"]
+        if db.execute("SELECT 1 FROM metadata WHERE key='contact_recipient_v1'").fetchone():
+            tables.extend(("customer_contacts", "contact_access_audit"))
         return {table: db.execute("SELECT COUNT(*) FROM " + table).fetchone()[0]
-                for table in ("products", "customers", "customer_profiles", "stamps",
-                              "reward_audit", "stamp_cancel_audit")}
+                for table in tables}
 
 
 def sync_directory(directory):

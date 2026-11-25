@@ -2,6 +2,7 @@
 """Laptop operations. Run `python manage.py --help`."""
 import argparse
 import getpass
+import warnings
 import html
 import json
 import os
@@ -36,8 +37,14 @@ def main():
         import sys
         if not sys.stdin.isatty():
             parser.error("비밀번호는 대화형 터미널에서 입력하세요.")
-        password = getpass.getpass("새 직원 비밀번호 (12~256자): ")
-        if password != getpass.getpass("비밀번호 재입력: "):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", getpass.GetPassWarning)
+            try:
+                password = getpass.getpass("새 직원 비밀번호 (15~256자): ")
+                repeated = getpass.getpass("비밀번호 재입력: ")
+            except (EOFError, getpass.GetPassWarning):
+                parser.error("숨김 입력을 사용할 수 없습니다.")
+        if password != repeated:
             parser.error("두 비밀번호가 일치하지 않습니다.")
         try:
             write_staff_password(args.database, args.actor, password)

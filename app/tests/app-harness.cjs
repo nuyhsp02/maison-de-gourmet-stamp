@@ -47,6 +47,7 @@ async function openApp(options = {}) {
     if (!elements.has(id)) elements.set(id, new Element(id));
     return elements.get(id);
   };
+  element('identity-form').dataset.noticeVersion = 'synthetic-contact-v1';
   element('switch-confirm').hidden = true;
   const documentEvents = {}, windowEvents = {}, timers = new Map();
   const requests = [], drawCalls = []; let timerId = 0;
@@ -143,7 +144,7 @@ async function openApp(options = {}) {
   vm.createContext(context);
   // Advance the scanner's clock with its simulated timers, independent of decoder CPU time.
   vm.runInContext('Date', context).now = () => clockMs;
-  for (const file of ['collection-core.js', 'stamp-art.js', 'app.js']) {
+  for (const file of ['collection-core.js', 'stamp-art.js', 'phone-input.js', 'app.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../static', file), 'utf8'), context, { filename: file });
   }
   await pause();

@@ -155,9 +155,14 @@ def test_restored_service_recovers_customer_with_same_phone_and_stamp(backup, re
     cert, identity = recipient
     origin = "https://demo.example.invalid"
     headers = {"Origin": origin, "X-Stamp-Client": "1"}
-    fields = {"name": "가상 고객", "phone": "010-0000-0000", "notice_acknowledged": True}
+    fields = {"name": "가상 고객", "phone": "010-0000-0000", "notice_acknowledged": True, "notice_version": "synthetic-contact-v1"}
     write_staff_password(state / tool.DATABASE_NAME, "demo-staff", token_urlsafe())
-    visitor = demo_app(state, config, origin).test_client()
+    from demo import contact, load_demo_event, migrate_contacts
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+    from contact_fixture import write_config
+    policy = write_config(contact, tmp_path / "synthetic.json", load_demo_event(config)["id"], [(fields["name"], "01000000000")])
+    migrate_contacts(state, config, origin, policy)
+    visitor = demo_app(state, config, origin, policy).test_client()
     assert visitor.post("/api/register", json=fields, headers=headers, base_url=origin).status_code == 200
     csrf = visitor.get("/api/state", base_url=origin).json["csrf"]
     with closing(tool.ops.readonly(state / tool.DATABASE_NAME)) as live:
@@ -171,7 +176,7 @@ def test_restored_service_recovers_customer_with_same_phone_and_stamp(backup, re
     with pytest.raises(ValueError):
         demo_app(target, config, origin)
     write_staff_password(target / tool.DATABASE_NAME, "demo-staff", token_urlsafe())
-    recovered = demo_app(target, config, origin).test_client()
+    recovered = demo_app(target, config, origin, policy).test_client()
     assert recovered.post("/api/find", json={"name": fields["name"], "phone": "+82 10 0000 0000"},
                           headers=headers, base_url=origin).status_code == 200
     customer = recovered.get("/api/state", base_url=origin).json["customer"]

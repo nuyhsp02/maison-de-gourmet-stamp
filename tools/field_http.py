@@ -156,6 +156,11 @@ class Server:
 
     def start(self):
         module = ops.load_source(self.root / 'app')
+        import contact_fixture
+        policy = self.root / 'config/synthetic-contacts.json'
+        if not policy.exists():
+            contact_fixture.prepare(module, self.root/'config/event.json', self.root/'data/collection.sqlite', policy,
+                                    [('현장 테스트', f'010{i:08d}') for i in range(1, 3001)])
         original = module.create_app
         def capture(*args, **kwargs):
             self.app = original(*args, **kwargs)
@@ -233,7 +238,7 @@ class Client:
 
     def start(self):
         self.request('/api/register', {'name': '현장 테스트', 'phone': f'010{next(self.visitor_numbers):08d}',
-                                       'notice_acknowledged': True})
+                                       'notice_acknowledged': True, 'notice_version': 'synthetic-contact-v1'})
         require(self.read()['customer']['count'] == 0, 'new_card_failed')
         return self
 

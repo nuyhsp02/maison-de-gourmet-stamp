@@ -19,6 +19,7 @@ APP_DIR = Path(__file__).resolve().parents[2] / "app"
 sys.path.insert(0, str(APP_DIR))
 from app import (connect_db, create_app, default_profile_key_path, event_signature,
                  init_db, load_event, verify_profile_key)
+import contact_privacy as contact
 from staff_admin import read_credentials, staff_key_path, validate_admin_schema
 
 
@@ -72,7 +73,9 @@ def inventory_signature(db, event, profile_key):
     # for one event. Bind their bootstrap values to its private profile key.
     schema = [tuple(row) for row in db.execute(
         "SELECT type,name,sql FROM sqlite_master WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name")]
-    if {name for kind, name, _ in schema if kind == "table"} != TABLES:
+    recipient = contact.contact_key_id(db)
+    tables = TABLES | (contact.CONTACT_TABLES if recipient else set())
+    if {name for kind, name, _ in schema if kind == "table"} != tables:
         raise DemoError("DEMO DB의 PR2 테이블 구성이 다릅니다.")
     products = [tuple(row) for row in db.execute("SELECT id,qr_key FROM products ORDER BY id")]
     if ([pid for pid, _ in products] != sorted(p["id"] for p in event["products"]) or
@@ -80,7 +83,10 @@ def inventory_signature(db, event, profile_key):
                 for _, qr in products) or len({qr for _, qr in products}) != 10):
         raise DemoError("DEMO 상품 또는 보관된 QR 키 구성이 다릅니다.")
     payload = json.dumps([event_signature(event), schema, products], separators=(",", ":")).encode()
-    return hmac.digest(profile_key, b"maison/linux-demo/inventory/v1\0" + payload, "sha256").hex()
+    label = b"maison/linux-demo/inventory/v1\0"
+    if recipient:
+        label = b"maison/linux-demo/inventory/v2\0" + recipient.encode("ascii") + b"\0"
+    return hmac.digest(profile_key, label + payload, "sha256").hex()
 
 
 def validate_database(database, event, *, require_wal=False):
@@ -93,24 +99,31 @@ def validate_database(database, event, *, require_wal=False):
     check_private(key_path)
     with closing(connect_db(database, mode="ro")) as db:
         db.execute("BEGIN")
-        metadata = dict(db.execute("SELECT key,value FROM metadata"))
-        if (metadata.get("linux_demo_v1") != "1" or metadata.get("admin_schema_v1") != "1" or
-                metadata.get("event") != event_signature(event)):
-            raise DemoError("DEMO 표시, 관리자 버전 또는 행사 서명이 일치하지 않습니다.")
-        try:
-            key = verify_profile_key(db, key_path)
-        except ValueError as exc:
-            raise DemoError("DEMO DB와 프로필 키가 일치하지 않거나 손상되었습니다.") from exc
-        if key is None:
-            raise DemoError("DEMO 프로필 키의 DB 확인값이 없습니다.")
-        validate_admin_schema(db)
-        sealed = metadata.get("linux_demo_inventory_v1")
-        if sealed != inventory_signature(db, event, key):
-            raise DemoError("DEMO 스키마 또는 상품 QR 키가 최초 준비 기록과 다릅니다.")
-        if require_wal and db.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
-            raise DemoError("DEMO DB의 저널 모드가 WAL과 다릅니다.")
-        if db.execute("PRAGMA quick_check").fetchone()[0] != "ok" or db.execute("PRAGMA foreign_key_check").fetchone():
-            raise DemoError("DEMO DB 무결성 검사가 실패했습니다.")
+        return validate_rows(db, event, key_path, require_wal)
+
+
+def validate_rows(db, event, key_path, require_wal=False):
+    metadata = dict(db.execute("SELECT key,value FROM metadata"))
+    if (metadata.get("linux_demo_v1") != "1" or metadata.get("admin_schema_v1") != "1" or
+            metadata.get("event") != event_signature(event)):
+        raise DemoError("DEMO 표시, 관리자 버전 또는 행사 서명이 일치하지 않습니다.")
+    try:
+        key = verify_profile_key(db, key_path)
+    except ValueError as exc:
+        raise DemoError("DEMO DB와 프로필 키가 일치하지 않거나 손상되었습니다.") from exc
+    if key is None:
+        raise DemoError("DEMO 프로필 키의 DB 확인값이 없습니다.")
+    validate_admin_schema(db)
+    recipient = contact.contact_key_id(db)
+    if bool(recipient) != ("linux_demo_inventory_v2" in metadata):
+        raise DemoError("연락처 스키마 버전과 검증 기록이 일치하지 않습니다.")
+    sealed = metadata.get("linux_demo_inventory_v2" if recipient else "linux_demo_inventory_v1")
+    if sealed != inventory_signature(db, event, key):
+        raise DemoError("DEMO 스키마 또는 상품 QR 키가 최초 준비 기록과 다릅니다.")
+    if require_wal and db.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
+        raise DemoError("DEMO DB의 저널 모드가 WAL과 다릅니다.")
+    if db.execute("PRAGMA quick_check").fetchone()[0] != "ok" or db.execute("PRAGMA foreign_key_check").fetchone():
+        raise DemoError("DEMO DB 무결성 검사가 실패했습니다.")
     return key
 
 
@@ -143,7 +156,29 @@ def prepare(state_dir, config, origin):
             raise
 
 
-def demo_app(state_dir, config, origin):
+def migrate_contacts(state_dir, config, origin, synthetic_config):
+    validate_origin(origin)
+    if not urlsplit(origin).hostname.endswith(".invalid"):
+        raise DemoError("격리된 합성 .invalid 호스트에서만 이관할 수 있습니다.")
+    event = load_demo_event(config)
+    enrollment = contact.SyntheticEnrollment.read(synthetic_config, event["id"])
+    database = Path(state_dir) / DATABASE_NAME
+    check_private(database.parent, directory=True)
+    check_private(database)
+    key_path = default_profile_key_path(database)
+    check_private(key_path)
+    with closing(connect_db(database, mode="rw")) as db, db:
+        db.execute("BEGIN IMMEDIATE")
+        key = validate_rows(db, event, key_path, require_wal=True)
+        already = contact.contact_key_id(db)
+        contact.apply_contact_schema(db, enrollment.key_id)
+        if already is None:
+            db.execute("INSERT INTO metadata VALUES ('linux_demo_inventory_v2', ?)",
+                       (inventory_signature(db, event, key),))
+        validate_rows(db, event, key_path, require_wal=True)
+
+
+def demo_app(state_dir, config, origin, synthetic_config=None):
     validate_origin(origin)
     database = Path(state_dir) / DATABASE_NAME
     check_private(database.parent, directory=True)
@@ -152,7 +187,7 @@ def demo_app(state_dir, config, origin):
     if read_credentials(admin_key) is None:
         raise DemoError("DEMO 직원 계정의 비밀번호 검증 파일을 확인하세요.")
     return create_app(config, database, origin,
-                      validate_existing=partial(validate_database, require_wal=True))
+                      validate_existing=partial(validate_database, require_wal=True), synthetic_config=synthetic_config)
 
 
 class JournalFormatter(logging.Formatter):
@@ -178,11 +213,13 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description="Linux 비공개 DEMO 전용")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("prepare", "check", "serve"):
+    for name in ("prepare", "check", "serve", "migrate-contacts"):
         command = commands.add_parser(name)
         command.add_argument("--state-dir", required=True, type=Path)
         command.add_argument("--config", required=True, type=Path)
         command.add_argument("--origin", required=True)
+        if name != "prepare":
+            command.add_argument("--synthetic-config", type=Path, required=name == "migrate-contacts")
         if name == "serve":
             command.add_argument("--port", type=int, default=8875)
     args = parser.parse_args()
@@ -190,8 +227,11 @@ def main():
         if args.command == "prepare":
             prepare(args.state_dir, args.config, args.origin)
             print("새 DEMO DB와 프로필 키를 준비했습니다. 직원 비밀번호를 별도로 설정하세요.")
+        elif args.command == "migrate-contacts":
+            migrate_contacts(args.state_dir, args.config, args.origin, args.synthetic_config)
+            print("합성 연락처 이관 검증 완료")
         else:
-            app = demo_app(args.state_dir, args.config, args.origin)
+            app = demo_app(args.state_dir, args.config, args.origin, args.synthetic_config)
             if args.command == "check":
                 print("DEMO 기동 전 데이터·키·설정 검증 통과")
             elif 0 <= args.port <= 65535:

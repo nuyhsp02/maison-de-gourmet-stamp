@@ -12,7 +12,8 @@
   <script src="/static/vendor/jsQR.js" defer></script>
   <script src="/static/collection-core.js?v=confirm-1" defer></script>
   <script src="/static/stamp-art.js" defer></script>
-  <script src="/static/app.js?v=stamp-ui-1" defer></script>
+  <script src="/static/phone-input.js?v=contact-1" defer></script>
+  <script src="/static/app.js?v=contact-1" defer></script>
 </head>
 <body>
   <svg class="svg-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -60,18 +61,20 @@
         </section>
         <section id="identity-panel" class="identity-panel" hidden aria-labelledby="identity-title">
           <h2 id="identity-title" tabindex="-1">스탬프판 등록</h2>
-          <p id="identity-intro">처음 참여한다면 이름과 휴대전화번호를 등록해 주세요. 번호 하나로 스탬프판 하나를 이용할 수 있어요.</p>
-          <p class="fine-print">비공개 시연에는 가상 이름과 번호만 사용해 주세요.</p>
+          <p id="identity-intro">합성 검수 전용입니다. 지정받은 가상 이름과 전화번호를 입력해 주세요.</p>
+          <p class="fine-print">정식 가입은 준비 중입니다. 검수 환경에서는 지정된 합성 정보만 사용할 수 있어요.</p>
           <p id="identity-qr" class="notice" hidden></p>
-          <form id="identity-form" method="post" autocomplete="off">
+          <form data-notice-version="{{ notice_version }}" data-registration="{{ 'synthetic' if registration_open else 'closed' }}" id="identity-form" method="post" autocomplete="off">
             <label for="identity-name">이름</label>
             <input id="identity-name" type="text" required maxlength="80" autocomplete="off">
             <label for="identity-phone">휴대전화번호</label>
-            <input id="identity-phone" type="tel" required inputmode="tel" autocomplete="off">
+            <input id="identity-phone" type="tel" required inputmode="numeric" aria-describedby="phone-help identity-error" autocomplete="off">
+            <p id="phone-help" class="fine-print">숫자만 입력해 주세요. 하이픈은 자동으로 입력됩니다.</p>
             <div id="registration-notice">
               <details class="help">
                 <summary>개인정보 수집·이용 안내 보기</summary>
-                <p>스탬프판을 한 개만 만들고 다시 찾을 수 있도록 이름과 전화번호를 입력받아요. 이름은 등록한 대로, 전화번호는 검색용 보호값으로 저장해요. 안내를 확인한 시각과 버전도 함께 기록해요.</p>
+                <p>스탬프판을 한 개만 만들고 다시 찾을 수 있도록 이름과 전화번호를 입력받아요. 이름과 검색용 보호값을 저장하고, 합성 검수에서는 전체 연락처를 암호화해 보관합니다. 직원에게는 가려진 번호만 표시됩니다.</p>
+                <p>검토 중인 이용 목적은 상품 준비·수령, 보상, 고객 문의 대응입니다. 광고·판촉 이용은 제외합니다. 보관 선택 여부와 기간은 확정 전이며 실제 고객은 가입할 수 없습니다.</p>
                 <p>등록한 이름과 전화번호를 아는 사람은 이 스탬프판과 보상 상태를 열 수 있어요. 이 브라우저에서는 쿠키로 스탬프판을 이어서 이용해요.</p>
                 <p>비공개 시연용 안내 · {{ notice_version }}</p>
               </details>

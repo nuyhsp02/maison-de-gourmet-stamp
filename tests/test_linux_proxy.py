@@ -146,6 +146,12 @@ def test_tls_gate_and_stamp_flow(tmp_path, monkeypatch):
     app_cmd = [sys.executable, str(DEPLOY / "demo.py"), "serve", "--state-dir", str(state),
                "--config", str(config), "--origin", ORIGIN, "--port", str(app_port)]
     name, phone = "ProxyFixtureName", "01000005555"
+    from demo import contact, load_demo_event, migrate_contacts
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+    from contact_fixture import write_config
+    policy = write_config(contact, tmp_path / "synthetic.json", load_demo_event(config)["id"], [(name, phone)])
+    migrate_contacts(state, config, ORIGIN, policy)
+    app_cmd.extend(["--synthetic-config", str(policy)])
     gate = {"Authorization": authorization}
     post = {**gate, "Origin": ORIGIN, "Content-Type": "application/json", "X-Stamp-Client": "1"}
 
@@ -178,7 +184,7 @@ def test_tls_gate_and_stamp_flow(tmp_path, monkeypatch):
         assert https("/health", headers={**gate, "X-Forwarded-Proto": "http",
                                          "Forwarded": "proto=http", "X-Forwarded-Host": "other.invalid"})[0] == 200
 
-        profile = {"name": name, "phone": phone, "notice_acknowledged": True}
+        profile = {"name": name, "phone": phone, "notice_acknowledged": True, "notice_version": "synthetic-contact-v1"}
         assert https("/api/register", headers={**post, "Origin": "https://other.invalid"}, data=profile)[0] == 403
         code, headers, _ = https("/api/register", headers=post, data=profile)
         assert code == 200

@@ -187,6 +187,12 @@ def restore_checks(root, module):
     def verify(db):
         module.verify_profile_key(db, key_path)
         module.validate_admin_schema(db)
+        recipient = module.contact.contact_key_id(db)
+        policy = root / 'config/synthetic-contacts.json'
+        if recipient or policy.is_file():
+            event = module.load_event(root / 'config/event.json')
+            if not policy.is_file() or module.contact.SyntheticEnrollment.read(policy, event['id']).key_id != recipient:
+                raise OpsError('Contact recipient or schema mismatch')
 
     return verify
 
@@ -365,8 +371,10 @@ def create_http(root, app_dir=None, database=None, port=None):
     key_path = module.default_profile_key_path(source)
     # Legacy validation clones may need their first key. Generate it beside
     # the temporary clone, without creating files beside the source database.
+    policy = root / 'config/synthetic-contacts.json'
     app = module.create_app(root / 'config/event.json', database or source, cfg['PublicUrl'],
-                            profile_key_path=key_path if key_path.exists() else None)
+                            profile_key_path=key_path if key_path.exists() else None,
+                            synthetic_config=policy if policy.is_file() else None)
     sockets = {}
     server = create_server(app, host='127.0.0.1', port=cfg['Port'] if port is None else port,
                            threads=32, map=sockets, trusted_proxy='127.0.0.1', trusted_proxy_count=1,

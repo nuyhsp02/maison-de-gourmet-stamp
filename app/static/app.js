@@ -91,16 +91,21 @@
     $('review-name').textContent = '';
     $('review-phone').textContent = '';
   }
+  const phoneInput = $('identity-phone');
+  const identityForm = $('identity-form');
+  window.MaisonPhone.bind(phoneInput);
   function renderIdentity() {
+    const closed = identityForm.dataset.registration === 'closed';
+    if (closed) findingCard = true;
     if (reviewingRegistration) {
       $('identity-title').textContent = '등록 정보 확인';
       $('identity-intro').textContent = '나중에 스탬프판을 다시 찾을 때 사용할 이름과 휴대전화번호가 맞는지 확인해 주세요.';
     } else if (findingCard) {
       $('identity-title').textContent = '기존 스탬프 찾기';
-      $('identity-intro').textContent = '등록할 때 사용한 이름과 휴대전화번호를 입력하면 기존 스탬프판을 이 브라우저에서 열 수 있어요.';
+      $('identity-intro').textContent = (closed ? '신규 가입은 닫혀 있습니다. ' : '') + '등록할 때 사용한 이름과 휴대전화번호를 입력하면 기존 스탬프판을 이 브라우저에서 열 수 있어요.';
     } else {
       $('identity-title').textContent = '스탬프판 등록';
-      $('identity-intro').textContent = '처음 참여한다면 이름과 휴대전화번호를 등록해 주세요. 번호 하나로 스탬프판 하나를 이용할 수 있어요.';
+      $('identity-intro').textContent = '합성 검수 전용입니다. 지정받은 가상 이름과 전화번호를 입력해 주세요.';
     }
     $('identity-form').hidden = reviewingRegistration;
     $('registration-review').hidden = !reviewingRegistration;
@@ -117,7 +122,8 @@
     $('identity-submit').disabled = busy || phoneRegistered || (!findingCard && !isActive());
     $('identity-switch').textContent = findingCard ? '새 스탬프판 등록으로 돌아가기' : '기존 스탬프 찾기';
     $('identity-switch').className = 'button ' + (phoneRegistered ? 'primary' : 'secondary');
-    $('identity-switch').disabled = busy;
+    $('identity-switch').hidden = closed;
+    $('identity-switch').disabled = busy || closed;
   }
   function isActive() { return ['demo', 'running'].includes(state.phase); }
   function product(id) { return state.event.products.find(p => p.id === id); }
@@ -302,7 +308,14 @@
   $('identity-form').addEventListener('submit', event => {
     event.preventDefault();
     if (busy || state?.customer || phoneRegistered || reviewingRegistration) return;
-    const details = { name: $('identity-name').value, phone: $('identity-phone').value };
+    const number = window.MaisonPhone.digits(phoneInput.value);
+    if (!number) {
+      $('identity-error').textContent = window.MaisonPhone.error;
+      phoneInput.focus();
+      return;
+    }
+    phoneInput.value = window.MaisonPhone.format(number);
+    const details = { name: $('identity-name').value, phone: phoneInput.value };
     if (findingCard) return submitIdentity('/api/find', details);
     if (!isActive()) return;
     if (!$('notice-acknowledged').checked) {
@@ -332,7 +345,7 @@
       $('identity-name').focus();
       return;
     }
-    return submitIdentity('/api/register', { name, phone, notice_acknowledged: true });
+    return submitIdentity('/api/register', { name, phone, notice_acknowledged: true, notice_version: identityForm.dataset.noticeVersion });
   });
 
   async function collectPending() {

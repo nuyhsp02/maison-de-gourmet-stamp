@@ -18,15 +18,17 @@ from flask import Flask, g, jsonify, render_template, request
 from werkzeug.exceptions import HTTPException
 
 if __package__:
+    from . import contact_privacy as contact
     from .staff_admin import install_admin, validate_admin_schema
 else:
+    import contact_privacy as contact
     from staff_admin import install_admin, validate_admin_schema
 
 ROOT = Path(__file__).resolve().parent
 LIFETIME = 90 * 86400
 MAX_EVENT_DAYS = 62  # Two consecutive calendar months can span 62 days.
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
-NOTICE_VERSION = "demo-v1"
+NOTICE_VERSION = contact.NOTICE
 DEMO_CATALOG_EVENT = "demo-gourmetstamp-20261125-rehearsal"
 
 
@@ -230,17 +232,14 @@ class APIError(Exception):
 
 
 def normalized_phone(value):
-    if isinstance(value, str) and len(value) <= 64:
-        compact = re.sub(r"[ ()-]", "", value.strip())
-        if compact.startswith("+82"):
-            compact = "0" + compact[3:]
-        if re.fullmatch(r"010[0-9]{8}|01[16789][0-9]{7,8}", compact):
-            return compact
+    digits = contact.phone_digits(value)
+    if digits is not None:
+        return digits
     raise APIError("국내 휴대전화번호를 확인해 주세요.")
 
 
 def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765",
-               dev=False, testing=False, profile_key_path=None, *, validate_existing=None):
+               dev=False, testing=False, profile_key_path=None, *, validate_existing=None, synthetic_config=None):
     event = load_event(event_path or ROOT / "event.json")
     parsed = urlsplit(public_url)
     if parsed.path not in ("", "/") or parsed.query or parsed.fragment or parsed.username:
@@ -263,10 +262,24 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     # One Waitress process, one SQLite writer. Coordinate request writers here
     # instead of letting Windows busy retries repeatedly race for the DB lock.
     app.write_lock = threading.Lock()
+    enrollment = None
+    if synthetic_config is not None:
+        if parsed.hostname not in ("localhost", "127.0.0.1", "::1") and not parsed.hostname.endswith(".invalid"):
+            raise ValueError("합성 가입은 로컬 시험 주소에서만 사용할 수 있습니다.")
+        enrollment = contact.SyntheticEnrollment.read(synthetic_config, event["id"])
+        # Synthetic enrollment requires an explicitly migrated, existing database.
+        with closing(connect_db(app.config["DATABASE"], mode="ro")) as source:
+            if contact.contact_key_id(source) != enrollment.key_id:
+                raise ValueError("공개키와 명시적으로 이관한 DB가 일치해야 합니다.")
     if validate_existing is None:
         profile_key = init_db(app.config["DATABASE"], event, profile_key_path)
     else:
         profile_key = validate_existing(Path(app.config["DATABASE"]), event)
+    if enrollment is None:
+        with closing(connect_db(app.config["DATABASE"], mode="ro")) as source:
+            if contact.contact_key_id(source) is not None:
+                raise ValueError("연락처 DB의 공개키 설정이 필요합니다.")
+    app.contact_enabled = enrollment is not None
 
     def db():
         if "db" not in g:
@@ -465,7 +478,7 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     def page(qr_key=None):
         if qr_key and not db().execute("SELECT 1 FROM products WHERE qr_key=?", (qr_key,)).fetchone():
             raise APIError("사용할 수 없는 QR 주소입니다.", 404)
-        return render_template("index.html", notice_version=NOTICE_VERSION,
+        return render_template("index.html", notice_version=NOTICE_VERSION, registration_open=app.contact_enabled,
                                catalog=event["products"] if event["id"] == DEMO_CATALOG_EVENT else ())
 
     @app.get("/health")
@@ -498,17 +511,24 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         name = raw_name.strip() if isinstance(raw_name, str) else ""
         if not 1 <= len(name) <= 80 or not name.isprintable():
             raise APIError("이름을 1~80자로 입력해 주세요.")
-        lookup = phone_lookup(data.get("phone"))
+        number = normalized_phone(data.get("phone"))
+        lookup = hmac.digest(profile_key, number.encode("ascii"), "sha256").hex()
         limited(("profile_number", lookup), 10)
-        return name, lookup
+        return name, lookup, number
 
     @app.post("/api/register")
     def register():
         require_active()
         data = body()
-        name, lookup = profile_input(data)
+        name, lookup, number = profile_input(data)
         if data.get("notice_acknowledged") is not True:
             raise APIError("개인정보 수집·이용 안내를 확인해 주세요.")
+        if enrollment is None:
+            raise APIError("운영 정책 확정 전에는 신규 가입을 받지 않습니다.", 403, "registration_closed")
+        if data.get("notice_version") != NOTICE_VERSION:
+            raise APIError("새 안내를 확인하고 다시 등록해 주세요.", 409, "notice_changed")
+        if contact.profile_tag(name, number) not in enrollment.allowed_profiles:
+            raise APIError("지정된 합성 정보만 등록할 수 있습니다.", 403, "synthetic_only")
         with write_transaction() as connection:
             require_active()
             if connection.execute("SELECT 1 FROM customer_profiles WHERE phone_lookup_hmac=?",
@@ -521,12 +541,13 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
             connection.execute("INSERT INTO customer_profiles "
                                "(customer_id, display_name, phone_lookup_hmac, notice_version, notice_acknowledged_at) "
                                "VALUES (?, ?, ?, ?, ?)", (customer_id, name, lookup, NOTICE_VERSION, now))
+            enrollment.store(connection, customer_id, number, now)
             token = new_session(customer_id)
         return set_cookie(jsonify(ok=True), token)
 
     @app.post("/api/find")
     def find():
-        name, lookup = profile_input(body())
+        name, lookup, _ = profile_input(body())
         with write_transaction() as connection:
             target = connection.execute("SELECT customer_id FROM customer_profiles "
                                         "WHERE phone_lookup_hmac=? AND display_name=?", (lookup, name)).fetchone()

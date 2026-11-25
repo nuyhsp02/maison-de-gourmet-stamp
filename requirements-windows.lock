@@ -8,3 +8,7 @@ itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.4
 Werkzeug==3.1.9
+PyNaCl==1.6.2
+cffi==2.0.0; python_version < "3.15"
+cffi==2.1.1; python_version >= "3.15"
+pycparser==2.23

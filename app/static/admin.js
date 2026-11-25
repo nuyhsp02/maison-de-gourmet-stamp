@@ -20,7 +20,7 @@
   function clearCard() {
     clearSelection();
     el('detail').hidden = true;
-    for (const id of ['card-name', 'card-id', 'card-state']) el(id).textContent = '';
+    for (const id of ['card-name', 'card-phone', 'card-id', 'card-state']) el(id).textContent = '';
     el('product-rows').replaceChildren();
     card = null;
   }
@@ -115,6 +115,7 @@
     clearCard();
     const result = await request('search', body);
     card = result;
+    el('card-phone').textContent = result.phone_masked || '연락처 미보관';
     el('card-name').textContent = result.name || '기존 익명 카드';
     el('card-id').textContent = '카드 ID · ' + result.customer_id;
     const count = result.stamps.filter(s => s.collected_at !== null).length;
@@ -191,10 +192,13 @@
     }
   });
   el('refresh').addEventListener('click', () => run(stats));
+  window.MaisonPhone.bind(el('query'));
   el('search-type').addEventListener('change', () => {
     const phone = el('search-type').value === 'phone';
     el('query-label').textContent = phone ? '휴대전화번호 전체' : '카드 ID 전체';
     el('query').type = phone ? 'tel' : 'text';
+    el('query').inputMode = phone ? 'numeric' : 'text';
+    el('query-help').hidden = !phone;
     el('query').value = '';
     clearCard();
     notice('');
@@ -203,7 +207,13 @@
   el('search-form').addEventListener('submit', event => {
     event.preventDefault();
     return run(async () => {
-      const key = el('search-type').value, value = el('query').value.trim();
+      const key = el('search-type').value;
+      let value = el('query').value;
+      if (key === 'phone') {
+        const number = window.MaisonPhone.digits(value);
+        if (!number) { clearCard(); notice(window.MaisonPhone.error); el('query').focus(); return; }
+        value = window.MaisonPhone.format(number);
+      } else value = value.trim();
       el('query').value = '';
       await lookup({[key]: value});
     });

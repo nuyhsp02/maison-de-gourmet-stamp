@@ -26,7 +26,7 @@ test('new QR visitor registers explicitly; the pending product still requires a 
   assert.equal(app.element('review-phone').textContent, profile.phone);
   assert.equal(app.posts('/api/register').length, 0);
   await Promise.all([app.click('confirm-registration'), app.click('confirm-registration')]);
-  assert.deepEqual(app.posts('/api/register').map(r => r.body), [{ ...profile, notice_acknowledged: true }]);
+  assert.deepEqual(app.posts('/api/register').map(r => r.body), [{ ...profile, notice_acknowledged: true, notice_version: 'synthetic-contact-v1' }]);
   assert.equal(app.element('identity-panel').hidden, true);
   assert.equal(app.element('identity-phone').value, '');
   assert.equal(app.element('identity-name').value, '');
@@ -61,7 +61,7 @@ test('editing the registration review retains consent and registers only the rev
   assert.equal(app.requests.filter(r => r.method === 'POST').length, 0);
   await app.click('confirm-registration');
   assert.deepEqual(app.posts('/api/register').map(r => r.body), [
-    { ...profile, name: '수정 <시연>', notice_acknowledged: true }
+    { ...profile, name: '수정 <시연>', notice_acknowledged: true, notice_version: 'synthetic-contact-v1' }
   ]);
   assert.equal(app.posts('/api/collect').length, 0);
 });

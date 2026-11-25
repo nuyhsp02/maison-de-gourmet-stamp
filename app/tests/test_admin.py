@@ -17,7 +17,7 @@ from werkzeug.security import generate_password_hash
 from werkzeug.serving import make_server
 
 from app import ROOT, connect_db, create_app, digest
-from conftest import BASE, Visitor
+from conftest import BASE, Visitor, fixture_app
 
 
 ACTOR = 'counter-demo'
@@ -42,7 +42,7 @@ def provision(database, password_hash):
 def site(tmp_path, credentials):
     database = tmp_path / 'staff.sqlite'
     provision(database, credentials[1])
-    return create_app(database=database, public_url=BASE, dev=True, testing=True)
+    return fixture_app(database=database, public_url=BASE, dev=True, testing=True)
 
 
 def post(client, action, data, csrf='', base=BASE):
@@ -69,7 +69,7 @@ def staff(site, credentials):
 
 def register_card(app):
     visitor = Visitor(app, start=False)
-    assert visitor.post('/api/register', {'name': NAME, 'phone': PHONE, 'notice_acknowledged': True}).status_code == 200
+    assert visitor.post('/api/register', {'name': NAME, 'phone': PHONE, 'notice_acknowledged': True, 'notice_version': 'synthetic-contact-v1'}).status_code == 200
     visitor.read()
     with closing(connect_db(app.config['DATABASE'])) as db:
         card_id = db.execute('SELECT customer_id FROM sessions WHERE token_hash=?', (digest(visitor.cookie()),)).fetchone()[0]
@@ -170,7 +170,7 @@ def test_secure_cookie_expiry_and_server_side_revocation(tmp_path, credentials, 
     config = tmp_path / 'event.json'
     config.write_text(json.dumps(event), encoding='utf-8')
     base = 'https://staff.example.invalid'
-    app = create_app(config, database, base, testing=True)
+    app = fixture_app(config, database, base, testing=True)
     client = app.test_client()
     csrf = login(client, credentials[0], base)
     session = get(client, 'session', base)
@@ -192,13 +192,16 @@ def test_password_rotation_and_restart_require_fresh_admin_login(site, credentia
     database = site.config['DATABASE']
     client = site.test_client()
     login(client, credentials[0])
+    customer = Visitor(site)
+    original_cookie = customer.cookie()
     updated = secrets.token_urlsafe(24)
     write_staff_password(database, ACTOR, updated)
+    assert customer.read()['customer']['registered'] and customer.cookie() == original_cookie
     assert get(client, 'stats').status_code == 401
     assert post(client, 'login', {'password': credentials[0]}).status_code == 401
     login(client, updated)
     old_token = client.get_cookie('stamp_admin_dev', domain='127.0.0.1').value
-    restarted = create_app(database=database, public_url=BASE, dev=True, testing=True)
+    restarted = fixture_app(database=database, public_url=BASE, dev=True, testing=True)
     restored = restarted.test_client()
     restored.set_cookie('stamp_admin_dev', old_token, domain='127.0.0.1')
     assert get(restored, 'stats').status_code == 401
@@ -226,9 +229,11 @@ def test_search_by_id_and_normalized_phone_and_distribution_include_legacy_cards
     assert stats.json == {'cards': 3, 'stamps': 12, 'redeemed': 1, 'distribution': [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1]}
     details = search(staff, {'phone': '+82 10 0000 0074'})
     assert details == search(staff, {'customer_id': card_id})
-    assert set(details) == {'customer_id', 'name', 'redeemed_at', 'stamps'}
+    assert set(details) == {'customer_id', 'name', 'phone_masked', 'redeemed_at', 'stamps'}
     assert details['name'] == NAME and details['redeemed_at'] is None
     assert {s['product_id'] for s in details['stamps']} == set(item_keys)
+    assert details['phone_masked'] == '010-****-' + PHONE[-4:]
+    assert search(staff, {'customer_id': 'legacy-card'})['phone_masked'] is None
     held = visitor.read()['customer']['stamps']
     for stamp in details['stamps']:
         assert set(stamp) == {'product_id', 'name', 'collected_at', 'revision'}
@@ -318,7 +323,7 @@ def parallel_calls(first, second):
 @pytest.mark.parametrize('opponent', ['cancel', 'redeem'])
 def test_cancellation_races_in_separate_app_instances(site, credentials, opponent):
     # Different app.write_lock objects; the SQLite transaction decides the winner.
-    second = create_app(database=site.config['DATABASE'], public_url=BASE, dev=True, testing=True)
+    second = fixture_app(database=site.config['DATABASE'], public_url=BASE, dev=True, testing=True)
     clients = [app.test_client() for app in (site, second)]
     first_staff, other_staff = [(client, login(client, credentials[0])) for client in clients]
     owner, card_id = register_card(second)

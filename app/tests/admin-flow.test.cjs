@@ -30,6 +30,7 @@ async function open(handler) {
       requests.push({url, opts, body});
       return handler(url.split('/').at(-1), body);
     }};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../static/phone-input.js'), 'utf8'), context);
   vm.runInNewContext(code, context);
   await tick();
   return {element, requests, events, async find(value) {
@@ -153,7 +154,7 @@ test('rotated admin CSRF clears results, statistics and credentials before anoth
 
 test('a committed cancellation with failed stats holds searches until the older card read settles', async () => {
   let committed = false, finishEarlierCard;
-  const nextPhone = '01000000002', nextName = '다음 가상 고객';
+  const nextPhone = '010-0000-0002', nextName = '다음 가상 고객';
   const ui = await open((route, body) => {
     if (route === 'cancel') { committed = true; return ok({ok:true}); }
     if (route === 'stats' && committed) return fail(503, '집계 지연');

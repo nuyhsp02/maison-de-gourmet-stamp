@@ -73,3 +73,5 @@ Stop-Service Cloudflared
 Move-Item -LiteralPath "C:\MaisonCafe\logs\tunnel.log" -Destination "C:\MaisonCafe\logs\tunnel-보관할고유이름.log"
 Start-Service Cloudflared
 ```
+
+연락처 암호화 버전의 합성 검수 절차는 [연락처 보관·권한·복원 안내](CONTACT_PRIVACY.md)를 참고하세요.
