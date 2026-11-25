@@ -1,0 +1,27 @@
+[Unit]
+Description=Erase closed production event data after independent custody checks
+Conflicts=maison-prod.service
+Before=maison-prod.service
+OnSuccess=maison-prod.service
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/var/lib/maison-prod
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+User=maison-prod
+Group=maison-prod
+WorkingDirectory=/opt/maison-prod
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=/etc/maison-prod/prod.env
+ExecStart=/opt/maison-prod/.venv/bin/python /opt/maison-prod/deploy/linux/prod.py purge --state-dir /var/lib/maison-prod --config /etc/maison-prod/event.json --recipient /etc/maison-prod/recipient.json --origin ${PUBLIC_URL} --event-id ${PROD_EVENT_ID}
+Restart=on-failure
+RestartSec=5min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/maison-prod
+CapabilityBoundingSet=

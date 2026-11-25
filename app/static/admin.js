@@ -102,6 +102,11 @@
     }
     if (generation !== current) throw stale;
     if (!response.ok) {
+      if (['privacy_closed', 'privacy_unavailable'].includes(body.code)) {
+        lock(body.error);
+        location.replace('/');
+        throw stale;
+      }
       if (csrf && (response.status === 401 || body.code === 'admin_csrf_failed')) {
         lock('직원 세션을 다시 확인해 주세요.');
         throw stale;

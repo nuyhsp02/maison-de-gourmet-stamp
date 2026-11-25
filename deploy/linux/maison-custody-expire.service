@@ -1,0 +1,23 @@
+[Unit]
+Description=Reconcile and expire Maison PROD backup copies on the independent custodian
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+User=maison-custody
+Group=maison-custody
+WorkingDirectory=/opt/maison-custody
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=/etc/maison-custody/expiry.env
+ExecStart=/opt/maison-custody/.venv/bin/python /opt/maison-custody/deploy/linux/prod_backup_custody.py --ledger ${CUSTODY_LEDGER} --config ${PROD_EVENT_CONFIG} --instance ${PROD_INSTANCE_ID} --receipts ${CUSTODY_RECEIPTS}
+Restart=on-failure
+RestartSec=5min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+# A site-specific drop-in must grant writes only to enrolled volumes, ledger and receipts.
+CapabilityBoundingSet=

@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/admin.css?v=correction-1">
   <script src="/static/phone-input.js?v=contact-1" defer></script>
-  <script src="/static/admin.js?v=correction-2" defer></script>
+  <script src="/static/admin.js?v={{ 'prod-privacy-2' if config.PROD_PRIVACY else 'correction-2' }}" defer></script>
 </head>
 <body class="admin">
   <header class="site-header">

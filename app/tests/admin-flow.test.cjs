@@ -31,7 +31,8 @@ async function open(handler) {
   element('search-type').value = 'phone';
   const document = {hidden:false, getElementById:element, createElement:tag => Object.assign(new Element(tag), {style:{}}),
     addEventListener:(type, f) => { events[type] = f; }};
-  const context = {document, crypto:webcrypto, window:{addEventListener:(type,f) => { events[type] = f; }},
+  const location = { pathname: '/admin', replace(url) { this.pathname = url; } };
+  const context = {document, location, crypto:webcrypto, window:{addEventListener:(type,f) => { events[type] = f; }},
     Date:class extends Date { static now() { return wallTime + elapsed; } },
     performance:{now:() => elapsed}, AbortController,
     setTimeout(fn, ms) { timers.set(++timerId, {fn, at:elapsed + ms}); return timerId; },
@@ -43,7 +44,7 @@ async function open(handler) {
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../static/phone-input.js'), 'utf8'), context);
   vm.runInNewContext(code, context);
   await tick();
-  return {element, requests, events,
+  return {element, requests, events, location,
     setWallTime(ms) { wallTime = ms - elapsed; },
     delayTimers(ms) { elapsed += ms; },
     async visibility(hidden) { document.hidden = hidden; events.visibilitychange(); await tick(); },
@@ -583,4 +584,16 @@ test('a suspended timer cannot submit the old confirmation before the queued bou
   await ui.advance(0);
   assert.equal(ui.element('confirmation').open, false);
   assert.equal(action(ui), undefined);
+});
+
+test('staff card and pending controls are cleared on a server privacy closure', async () => {
+  let closed = false;
+  const ui = await open(route => closed ? {ok:false, status:410, json:async () => ({code:'privacy_closed'})} : normal(route));
+  await ui.find('01000000001');
+  assert.equal(ui.element('workspace').hidden, false);
+  closed = true;
+  await ui.find('01000000001');
+  assert.equal(ui.element('workspace').hidden, true);
+  assert.equal(ui.element('product-rows').children.length, 0);
+  assert.equal(ui.location.pathname, '/');
 });
