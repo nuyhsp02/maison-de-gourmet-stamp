@@ -8,18 +8,28 @@ Maison de Gourmet의 겨울·크리스마스 시즌을 위한 **상품 10종 스
 
 [Windows 설치 안내](docs/WINDOWS_INSTALL.md) · [격리 현장 인수 계획](docs/WINDOWS_ACCEPTANCE.md) · [직원 매뉴얼](docs/STAFF_GUIDE.md) · [Git 사용 안내](docs/GIT_GUIDE.md) · [릴리스와 Windows 업데이트](docs/GITHUB_RELEASES.md) · [검증 결과](TEST_REPORT.md)
 
-**11월 25일 비공개 Linux 시연**은 전용 도메인, Nginx 입장 인증, 별도 DEMO DB와 systemd 구성을 사용합니다. [Ubuntu 준비·기동](docs/PR3_LINUX_DEMO.md) · [암호화 백업·복원](docs/DEMO_BACKUP.md) · [휴대폰 2대와 직원 기기 점검표](docs/DEMO_DEVICE_CHECKLIST.md)
+## 어떤 버전을 어디서 사용했나요?
+
+| 환경 | 실행 구조와 확인 범위 |
+|---|---|
+| Windows V1.4.0 | 노트북 한 대에서 Flask·Waitress·SQLite로 실행하도록 설계했습니다. Cloudflare Tunnel이 외부 HTTPS를 연결하며 Windows 설치 도구와 작업 스케줄러가 기동·백업을 담당합니다. [Windows 설치 안내](docs/WINDOWS_INSTALL.md) |
+| Ubuntu 비공개 DEMO | 배포 당시 커밋은 `ce0b22b`입니다. Nginx가 HTTPS와 입장 인증을 처리하고 systemd가 로컬 Waitress·Flask를 실행합니다. 시연 전용 SQLite·키·직원 인증을 사용합니다. 매장 현장 검수 완료는 사용자 확인이며 정확한 검수일과 기기별 기록은 미확인입니다. [Ubuntu 운영](docs/PR3_LINUX_DEMO.md) · [암호화 백업·복원](docs/DEMO_BACKUP.md) · [기기 점검표](docs/DEMO_DEVICE_CHECKLIST.md) |
+| 최신 로컬 개발 후보 | DEMO의 상품 카탈로그·직원 관리에 등록 이름과 상품별 스탬프 일러스트, 신규 합성 연락처 암호화·직원 마스킹·운영자 한 건 조회를 추가했습니다. 당시 보고 커밋은 `aaccb50`이고, 공개 후보 `bbfb27b`는 같은 앱 코드에 PR 문서의 내부 링크 교체를 반영했습니다. 실제 고객 가입과 개인정보 처리 근거는 검토 중이며 PROD 공개는 보류 상태입니다. [단계별 검증 근거](docs/evidence/portfolio-milestones-20261125.md) |
+
+2027년 운영 정책의 배타적 경계는 한국 시각 2월 1일 0시 적립 종료, 3월 1일 0시 보상 수령 종료, 3월 31일 0시 고객 접근 종료·개인정보 파기 기준입니다. 2월 일반 직원 취소 차단과 사유·감사를 갖춘 관리자 예외 정정은 후속 구현 대상입니다. PROD 적용과 백업 보유기간은 미확정입니다. [행사·개인정보 종료 결정](docs/decisions/ADR-008-event-lifecycle.md)
 
 ## 카페에서 필요한 흐름
 
-- 시즌 음료 4종 + 지정 상품 6종을 **순서 없이 상품별 1회** 수집합니다.
+- 지정 상품 10종을 **순서 없이 상품별 1회** 수집합니다.
 - 처음 참여하는 고객은 개인정보 안내를 확인한 뒤 이름·휴대전화번호를 다시 읽고 **[이대로 등록]**을 누릅니다. 기존 카드는 등록한 이름과 번호로 찾습니다.
 - 같은 브라우저에서는 쿠키로 카드를 다시 엽니다. 상품 QR을 열거나 인앱 카메라로 판독하면 상품명이 표시됩니다. **[적립하기]**를 눌러 적립하거나 **[취소]**로 돌아갑니다. 일반 입장 QR은 바로 가입·찾기 또는 스탬프판을 엽니다.
 - 2~3종 동시 구매 시 웹 안에서 QR을 연속 스캔합니다. 카메라 권한을 거부하면 기본 카메라로 하나씩 여는 대안이 있습니다.
 - 10종을 모으면 보상 지급 대기 상태가 됩니다. 직원이 실물 보상을 건넨 뒤 고객 화면에서 버튼 한 번으로 완료합니다. 직원 인증이 없어 고객도 누를 수 있다는 운영상 위험을 화면에 안내합니다.
-- 완료 후 초기화하지 않고 이벤트가 끝나도 기록을 남깁니다.
+- 보상 수령 후에도 지급 완료 기록을 유지합니다. PROD의 행사 종료 후 조회와 개인정보 파기에는 위 운영 정책의 기한을 적용할 예정입니다.
 
-UI는 민트 `#C8D7C3`, 레드 `#B61219`, 크리스마스트리 **1·2·3·4** 오너먼트 배치입니다. 사진 기반 라인드로잉과 실제 QR 보드 제작은 후속 범위입니다. [디자인 설명](app/DESIGN_NOTES.md)
+UI는 민트 `#C8D7C3`, 레드 `#B61219`, 크리스마스트리 **1·2·3·4** 오너먼트 배치입니다. 초기 디자인 이후 로컬 후보에 카페 제공 스탬프 그림 10종을 적용했습니다. 사용자는 이 그림의 비상업적 포트폴리오 사용 허가를 확인했습니다. 적용 파일과 허가 범위는 [자산 안내](docs/ASSET_ATTRIBUTION.md)에 기록했습니다. [초기 디자인 설명](app/DESIGN_NOTES.md) · [고객 화면 검증](docs/devlog/DEV-011-customer-stamp-ui.md)
+
+<a name="시스템-구조"></a>
 
 ## 기존 Windows 운영 구조
 
@@ -57,6 +67,8 @@ flowchart LR
 
 `/admin`에서 직원 비밀번호로 로그인하면 카드·적립·보상 통계를 확인하고, 카드 ID 또는 전체 전화번호로 고객 한 명을 찾을 수 있습니다. 수령 전에는 상품 하나의 적립을 확인 후 취소할 수 있습니다. 취소와 감사 기록은 함께 저장됩니다. [관리자 설정·ERD·검증 보고서](docs/PR2_STAFF_ADMIN.md) · [합성 데이터 화면](docs/evidence/admin-pr2-demo.png)
 
+<a name="익명-식별과-개인-복구"></a>
+
 ## 고객 등록과 기존 스탬프 찾기
 
 1. 등록 POST에서 정규화한 번호의 HMAC을 확인하고 한 트랜잭션으로 고객·프로필·세션을 저장합니다. 이미 등록된 번호는 찾기 버튼으로 안내합니다. 입력값은 현재 폼에 유지되며 찾기 POST에서 이름과 번호가 모두 일치하면 원래 고객 ID에 새 세션을 발급합니다.
@@ -85,7 +97,7 @@ flowchart TD
     Stamp -->|10종 완성 · 지급 POST| Reward["고객당 한 번 보상 기록"]
 ```
 
-## SQLite 구조와 중복 방지
+## DEMO 기준 SQLite 구조와 중복 방지
 
 ```mermaid
 erDiagram
@@ -155,7 +167,7 @@ erDiagram
     }
 ```
 
-`metadata`에는 기존 이벤트·상품 ID 서명과 전화번호 검색 비밀 키의 확인값을 저장합니다. 기존 익명 고객은 프로필 0개, 신규 등록 고객은 프로필 1개입니다. 전화번호 원문은 저장하지 않습니다. [전체 스키마](app/schema.sql) · [DB와 검색 키의 격리 복원](docs/BACKUP_RECOVERY.md) · [PR 1 구현·검증 기록](docs/PR1_CUSTOMER_PROFILES.md)
+`metadata`에는 기존 이벤트·상품 ID 서명과 전화번호 검색 비밀 키의 확인값을 저장합니다. 기존 익명 고객은 프로필 0개, 신규 등록 고객은 프로필 1개입니다. PR 1과 DEMO에서는 전화번호 검색키(HMAC)만 보관합니다. 최신 로컬 후보는 이 검색키를 유지하고 신규 합성 가입 시에만 별도 공개키로 전체 연락처를 암호화합니다. 기존 카드를 찾을 때 번호를 소급 저장하지 않습니다. [스키마](app/schema.sql) · [DB와 검색 키의 격리 복원](docs/BACKUP_RECOVERY.md) · [PR 1 기록](docs/PR1_CUSTOMER_PROFILES.md) · [후속 연락처 보호 설계](docs/decisions/ADR-007-contact-privacy.md)
 
 - `stamps`의 복합 기본키 `(customer_id, product_id)`와 `INSERT OR IGNORE`로 동일 상품 중복 적립을 막습니다. 프런트의 중복 방지만 신뢰하지 않습니다.
 - 단일 Waitress 프로세스에서 쓰기 요청을 순서대로 조정해 Windows의 SQLite 쓰기 잠금 경합을 줄입니다. 중복 방지의 기준은 계속 DB의 기본키/트랜잭션입니다. 다중 서버/프로세스 운영을 추가한 것은 아닙니다.
@@ -222,9 +234,11 @@ Windows 10 보안 업데이트 제공 상태, 실제 도메인·이벤트 기간
 
 AI를 활용한 설계·구현·검수 프로젝트입니다. 확인된 코드/자동 실행 결과와 소유자의 직접 이해·재현 경험을 구분해 기록합니다.
 
-- [ADR 6개 · 선택 근거와 위험](docs/decisions/README.md)
+- [ADR 색인 · V1.4.0의 여섯 결정과 후속 결정](docs/decisions/README.md)
 - [개발 로그 · 문제와 검증 근거](docs/devlog/README.md)
 - [포트폴리오 기록 원칙](docs/PORTFOLIO_RECORDS.md) · [새 로그 템플릿](docs/devlog/TEMPLATE.md)
+
+Windows 노트북과 공개 CI에서 출발해 Ubuntu 비공개 DEMO를 배포한 과정, 이후 로컬 UI·연락처 개선과 PROD 출시 준비 조사를 [단계별 근거표](docs/evidence/portfolio-milestones-20261125.md)에서 추적할 수 있습니다. 2026-11-25 기준 마지막 DEMO 배포 기록은 `ce0b22b`, 개인정보 기능의 당시 로컬 검토 기준은 `aaccb50`입니다. 배포 당시 SHA와 두 차례 정비 후 SHA는 [DEV-015 대응표](docs/devlog/DEV-015-public-history-and-asset-permission.md)에서 대조할 수 있습니다. 후속 사용자 결정과 아직 구현할 항목은 [연락처 보호](docs/decisions/ADR-007-contact-privacy.md)와 [행사·개인정보 종료](docs/decisions/ADR-008-event-lifecycle.md)에 기록했습니다. PROD 공개는 대기 중입니다.
 
 캐시/JavaScript 버전 불일치 사례는 재현·원인·수정 근거가 부족해 미확인으로 표시했습니다. 회고 문서가 추가됐다는 이유로 당시 비교 검토·개인 실물 테스트·운영 성과를 새로 주장하지 않습니다.
 
@@ -233,15 +247,15 @@ AI를 활용한 설계·구현·검수 프로젝트입니다. 확인된 코드/�
 - `main`은 병합 검사 대상, `feature/*`·`fix/*`·`chore/*`·`docs/*`에서 작업 후 PR로 반영합니다.
 - Git 도입 시점의 실제 V1.4 소스부터 기록합니다. V1.0~V1.3의 Git 커밋·태그를 소급 생성하지 않습니다. 기존 변경 문서는 이전 산출물의 설명입니다.
 - 검증한 커밋을 `v1.4.0` 형태의 태그와 GitHub Release로 구분합니다. Windows 릴리스는 커밋된 파일만으로 만듭니다.
-- 다음 검증: 실제 Windows 10 설치/재부팅/권한/장애 복구, HTTPS 터널, iPhone Safari/Galaxy Chrome.
-- 이후 디자인: 실제 상품 사진 기반 라인드로잉 스탬프. QR 보드의 크기·덮개·배치는 별도 협의.
+- Windows 후보의 후속 검증: 실제 Windows 10 설치/재부팅/권한/장애 복구, HTTPS 터널, iPhone Safari/Galaxy Chrome.
+- V1.4.0 당시에는 사진 기반 라인드로잉과 QR 보드 크기·덮개·배치를 후속 작업으로 남겼습니다.
 
 프로젝트 자체 재사용 라이선스는 아직 정하지 않았습니다. 포함된 jsQR의 Apache-2.0 라이선스와 출처는 [THIRD_PARTY.md](app/THIRD_PARTY.md)에 보존합니다. Public 공개가 별도 재사용 허가를 의미한다고 표시하지 않습니다.
 
 B 트랜잭션 잠금 후보의 [검증 및 운영 차단 항목](docs/devlog/DEV-007-transaction-write-scope.md)과 [한국어 백엔드 학습 안내](docs/BACKEND_LEARNING.md)를 제공합니다. [공식 Python 3.15.2 검증](docs/devlog/DEV-008-python315-runtime.md)을 추가했습니다. 코드 검토와 현장 운영 승인은 별개이며 새 릴리스는 아직 없습니다.
 
-운영 전 검증은 [현장 인수 계획](docs/WINDOWS_ACCEPTANCE.md)의 실제 Waitress HTTP 시나리오·미승인 제안 기준과 [빈 결과 양식](docs/evidence/FIELD_ACCEPTANCE_TEMPLATE.md)을 사용합니다. [2026-11-01 Windows 10 실장비 HTTP 합성 시험](docs/evidence/windows10-http-2026-11-01-7667f5c.md)은 사용자 전달 출력 기준으로 9개 사례·47고객/237스탬프/1지급과 정합성 정상입니다. 원본 JSON 독립 대조는 미완료이며 전체 현장 인수는 `not_performed`입니다. 보안/ESU는 보류, HTTPS·휴대폰·자동 시작·장시간 운영은 미실행이고 [DEV-009](docs/devlog/DEV-009-b-admission-bounded-investigation.md)의 간헐 admission timeout은 미해결입니다. PR #4 Draft 해제·병합·운영 배포를 승인하지 않습니다.
+Windows 후보의 운영 전 검증은 [현장 인수 계획](docs/WINDOWS_ACCEPTANCE.md)의 실제 Waitress HTTP 시나리오·미승인 제안 기준과 [빈 결과 양식](docs/evidence/FIELD_ACCEPTANCE_TEMPLATE.md)을 사용합니다. [2026-11-01 Windows 10 실장비 HTTP 합성 시험](docs/evidence/windows10-http-2026-11-01-7667f5c.md)은 사용자 전달 출력 기준으로 9개 사례·47고객/237스탬프/1지급과 정합성 정상입니다. 원본 JSON 독립 대조는 미완료이며 전체 현장 인수는 `not_performed`입니다. 보안/ESU는 보류, HTTPS·휴대폰·자동 시작·장시간 운영은 미실행이고 [DEV-009](docs/devlog/DEV-009-b-admission-bounded-investigation.md)의 간헐 admission timeout은 미해결입니다. PR #4 Draft 해제·병합·운영 배포를 승인하지 않습니다.
 
 시험 후보 패키지와 실제 HTTP 도구의 [실행 순서·Windows 명령](docs/FIELD_SETUP.md)을 제공합니다. 도구는 새 합성 DB만 사용하며 Windows 10·HTTPS·휴대폰 인수는 별도입니다.
 
-[2026-11-01 Windows 10 수동 Waitress 실행](docs/evidence/windows10-manual-server-2026-11-01-7667f5c.md)도 사용자 전달 관측으로 별도 보존했습니다. PID와 127.0.0.1:8875 일치·health 정상·Ctrl+C 뒤 리스너 종료·빈 합성 DB 0/0/0 유지를 확인한 범위이며 원본 로그/DB는 미확보입니다. [HTTPS·실물 휴대폰 후속](docs/FIELD_SETUP.md#후속-계획-격리-https와-실물-휴대폰-시험)은 보안·격리·변경 승인을 포함한 **계획만**입니다. 실제 HTTPS/브라우저 적립/카메라/Cloudflare/자동 실행/카페 운영은 아직 미실행입니다.
+[2026-11-01 Windows 10 수동 Waitress 실행](docs/evidence/windows10-manual-server-2026-11-01-7667f5c.md)도 사용자 전달 관측으로 별도 보존했습니다. PID와 127.0.0.1:8875 일치·health 정상·Ctrl+C 뒤 리스너 종료·빈 합성 DB 0/0/0 유지를 확인한 범위이며 원본 로그/DB는 미확보입니다. [HTTPS·실물 휴대폰 후속](docs/FIELD_SETUP.md#후속-계획-격리-https와-실물-휴대폰-시험)은 보안·격리·변경 승인을 포함한 **계획만**입니다. 해당 Windows 수동 시험에서는 HTTPS·브라우저 적립·카메라·Cloudflare·자동 실행·카페 운영을 검증하지 않았습니다.
