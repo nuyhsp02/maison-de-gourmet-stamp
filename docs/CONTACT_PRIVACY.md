@@ -25,12 +25,17 @@
 
 1. 지정 Mac에서 암호화된 개인키와 공개 설정을 생성한다. 이름과 번호는 합성 검수 도구가 정의한 고정 조합만 허용한다. 개인키 파일·공개 설정·백업 파일 경로는 새 전용 디렉터리에 둔다. 파일 생성은 기존 이름을 덮어쓰지 않는다.
 2. 서버 측 합성 환경에 공개 설정만 복사한다. 배치 전 Mac의 공개키 SHA-256 지문과 대조하고 서비스 계정이 설정을 바꿀 수 없도록 구성한다. DB 프로필 키, CMS 백업 수신 키, 연락처 키, SSH 신원을 각각 구분한다.
-3. 쓰기를 멈추고 v1 DB와 프로필 키의 암호화 백업을 별도 위치에서 복원해 확인한다. 기존 프로필 키·QR 검증이 성공한 대상에만 아래 이관 명령을 적용한다. 신규 테이블 두 개와 v2 메타데이터를 하나의 쓰기 트랜잭션에서 추가한 다음 재검사한다. 기존 행의 연락처를 채우지 않는다. 동일 키로 재실행할 때는 검증만 수행한다.
-4. 새 버전의 기동 검사, 복원 훈련과 기존 카드의 HMAC 찾기·QR·보상을 확인한 후 검수를 연다.
+3. `MIGRATION_WORKSPACE`에는 아직 존재하지 않는 절대 경로를, `EVENT_ID`에는 승인된 합성 행사 설정의 ID를 지정한다. `prepare-migration`이 이관 목적과 경로·파일 식별·최초 인벤토리를 소유자 전용 확인 파일에 남기고, 새로운 합성 원본과 별도 빈 복사본을 만든다. 두 디렉터리를 이동하거나 복원본으로 덮어쓰면 다시 준비해야 한다.
+4. 원본·대상의 행사·상품·QR·서명과 스키마 단계, 기존 고객·적립·세션·감사 데이터가 없는 상태를 확인한다. 쓰기 잠금 후 재검사를 통과한 대상에만 연락처 스키마와 서명을 한 트랜잭션으로 추가한다. 고객이 들어간 DB의 데이터 보존은 격리 테스트에서 검증한다. 공개 연습 명령은 해당 DB에서 중단한다.
+5. 빈 v2 대상에서 동일 공개키로 재확인하려면 `--expected-schema contacts`를 지정한다. 정정까지 연습하려면 최초 준비 때 `--purpose contacts+corrections`를 선택하고, 정정 명령에 현재 스키마를 지정한다. 원본 DB나 실제 DEMO 상태는 이관 연습 대상으로 등록할 수 없다.
+6. 합성 직원 자격을 설정한 뒤 기동 검사와 격리 복원 훈련을 한다.
 
 ~~~sh
 python tools/contact_mac.py keygen --event "$EVENT_ID" --key "$MAC_CONTACT_KEY" --public-config "$PUBLIC_CONFIG"
-python deploy/linux/demo.py migrate-contacts --state-dir "$SYNTH_STATE" --config "$EVENT_CONFIG" --origin https://fixture.example.invalid --synthetic-config "$PUBLIC_CONFIG"
+python deploy/linux/demo.py prepare-migration --workspace "$MIGRATION_WORKSPACE" --purpose contacts --config "$EVENT_CONFIG" --origin https://fixture.example.invalid
+SYNTH_STATE="$MIGRATION_WORKSPACE/target"
+python deploy/linux/demo.py migrate-contacts --state-dir "$SYNTH_STATE" --source-state-dir "$MIGRATION_WORKSPACE/source" --expected-event-id "$EVENT_ID" --expected-schema base --config "$EVENT_CONFIG" --origin https://fixture.example.invalid --synthetic-config "$PUBLIC_CONFIG"
+python app/manage.py --database "$SYNTH_STATE/collection.sqlite" admin-password --actor "$STAFF_ID"
 python deploy/linux/demo.py check --state-dir "$SYNTH_STATE" --config "$EVENT_CONFIG" --origin https://fixture.example.invalid --synthetic-config "$PUBLIC_CONFIG"
 ~~~
 

@@ -35,5 +35,7 @@
 | [DEV-014 · 공개 저장소 이력 및 개인정보 공개 검수](DEV-014-public-history-review.md) | `ed9912a` 이후 8개, 1차 정비 `948f948` | 공개 22개 보존, 작성자·커미터 검사, 내부 링크와 이미지 권한 차단 |
 | [DEV-015 · 공개용 Git 이력 정비 및 이미지 사용 권한 확인](DEV-015-public-history-and-asset-permission.md) | 2차 정비 `bbfb27b` | 과거 내부 링크 제거, 후보 이력 검사, 원본 10종의 비상업적 포트폴리오 사용 범위 |
 | [DEV-016 · 공개 절차 Fail-Closed 및 보안 검수 강화](DEV-016-publication-fail-closed.md) | `bbfb27b` 위 미커밋 작업 | 승인 SHA·비공개 대조 자료 확인, 개인키 탐지와 패키징 오류 출력 검증 |
+| [DEV-017 · 직원 취소 마감과 관리자 예외 정정](DEV-017-stamp-corrections.md) | `19b08b4` 위 로컬 변경 | 역할 분리·보상 자격·쓰기 잠금·감사와 복원 |
+| [DEV-018 · 행사 자동 전환 및 관리자 자격 폐기 안정화](DEV-018-operational-guards.md) | `19b08b4` 위 로컬 보완 | 합성 이관 대상 식별, 열린 확인창과 서버 시각, 자격 폐기·복원 검증 |
 
 각 로그 끝에는 소유자가 합성 환경에서 직접 재현하고 자기 말로 설명한 뒤 채울 칸이 있습니다. [단계별 검증 근거](../evidence/portfolio-milestones-20261125.md)
