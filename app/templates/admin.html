@@ -7,9 +7,9 @@
   <title>직원 관리 · Maison de Gourmet</title>
   <link rel="icon" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css">
-  <link rel="stylesheet" href="/static/admin.css">
+  <link rel="stylesheet" href="/static/admin.css?v=correction-1">
   <script src="/static/phone-input.js?v=contact-1" defer></script>
-  <script src="/static/admin.js?v=contact-1" defer></script>
+  <script src="/static/admin.js?v=correction-2" defer></script>
 </head>
 <body class="admin">
   <header class="site-header">
@@ -19,16 +19,18 @@
   <main>
     <noscript>직원 화면을 사용하려면 자바스크립트를 켜 주세요.</noscript>
     <section class="login-panel" id="login-panel" hidden aria-labelledby="login-title">
-      <h1 id="login-title">직원 로그인</h1>
+      <h1 id="login-title">직원·관리자 로그인</h1>
       <form id="login-form" method="post" autocomplete="off">
-        <label for="password">직원 비밀번호</label>
+        <label for="login-kind">로그인 계정</label>
+        <select id="login-kind"><option value="staff">일반 직원</option><option value="manager">관리자</option></select>
+        <label for="password">비밀번호</label>
         <input type="password" id="password" autocomplete="current-password" required>
         <button class="primary" id="login" type="submit">로그인</button>
       </form>
     </section>
     <div id="workspace" hidden>
       <div class="page-title">
-        <h1>스탬프 관리</h1>
+        <h1 id="management-title">스탬프 관리</h1>
         <button type="button" id="refresh" class="quiet">현황 새로고침</button>
       </div>
       <section class="overview" aria-label="스탬프 운영 현황">
@@ -62,6 +64,7 @@
           <button type="button" id="dismiss" class="quiet">조회 닫기</button>
         </div>
         <p id="card-state" class="card-state"></p>
+        <p id="period-notice"></p>
         <table><caption>상품별 스탬프</caption>
           <thead><tr><th scope="col">상품</th><th scope="col">적립 시각</th><th scope="col">관리</th></tr></thead>
           <tbody id="product-rows"></tbody>
@@ -73,6 +76,30 @@
       <h2 id="confirm-title">이 스탬프를 취소할까요?</h2>
       <p id="target"></p>
       <div class="dialog-actions"><button type="button" id="keep" class="quiet" autofocus>돌아가기</button><button type="button" id="cancel-stamp" class="danger">스탬프 1개 취소</button></div>
+    </dialog>
+    <dialog id="correction" aria-labelledby="correction-title">
+      <h2 id="correction-title">관리자 스탬프 정정</h2>
+      <p id="correction-source"></p>
+      <form id="correction-form" method="dialog">
+        <label for="correction-type">정정 유형</label>
+        <select id="correction-type">
+          <option value="replace">잘못 기록된 상품 변경</option>
+          <option value="remove">잘못 적립된 스탬프 제거</option>
+        </select>
+        <div id="destination-field">
+          <label for="destination">변경할 상품</label>
+          <select id="destination"></select>
+        </div>
+        <label for="reason">정정 사유</label>
+        <input id="reason" type="text" autocomplete="off" spellcheck="false" aria-describedby="reason-help" required>
+        <small id="reason-help">오류와 정정 근거를 10~300자로 적어 주세요. 고객 이름, 전화번호 등 개인정보는 입력하지 마세요.</small>
+        <p id="correction-error" role="alert"></p>
+        <div class="dialog-actions"><button type="button" id="discard" class="quiet">취소</button><button type="submit" class="primary" id="review">정정 내용 확인</button></div>
+      </form>
+      <div id="correction-review" hidden>
+        <p id="changes"></p>
+        <div class="dialog-actions"><button type="button" id="revise" class="quiet">수정하기</button><button type="button" id="apply-correction" class="danger">정정 확정</button></div>
+      </div>
     </dialog>
   </main>
 </body>
