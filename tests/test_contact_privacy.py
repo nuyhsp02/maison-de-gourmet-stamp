@@ -70,6 +70,16 @@ def legacy(tmp_path):
     return state, config, db, policy
 
 
+def migrate_fixture_schema(state, config, origin, policy=None):
+    # Populated synthetic fixtures exercise data preservation / fault injection in the
+    # transactional migration itself. The public drill entry only accepts empty targets.
+    demo.synthetic_origin(origin)
+    path = state / demo.DATABASE_NAME
+    with closing(demo.connect_db(path, mode="rw")) as conn, conn:
+        conn.execute("BEGIN IMMEDIATE")
+        demo._apply_migration(conn, demo.load_demo_event(config), demo.default_profile_key_path(path), policy)
+
+
 def old_rows(conn):
     return {table: [tuple(row) for row in conn.execute("SELECT * FROM " + table + " ORDER BY 1")]
             for table in demo.TABLES if table != "metadata"}
@@ -89,24 +99,24 @@ def test_atomic_migration_preserves_source_failure_retry_and_latest_writes(legac
         with monkeypatch.context() as patch:
             patch.setattr(demo, "inventory_signature", injected)
             with pytest.raises(RuntimeError):
-                demo.migrate_contacts(state, config, ORIGIN, policy)
+                migrate_fixture_schema(state, config, ORIGIN, policy)
         assert contact.contact_key_id(conn) is None
         assert rows == old_rows(conn) and metadata == dict(conn.execute("SELECT * FROM metadata"))
-        demo.migrate_contacts(state, config, ORIGIN, policy)
+        migrate_fixture_schema(state, config, ORIGIN, policy)
         assert rows == old_rows(conn)
         assert all(dict(conn.execute("SELECT * FROM metadata"))[k] == v for k, v in metadata.items())
         assert conn.execute("SELECT count(*) FROM customer_contacts").fetchone()[0] == 0
         conn.execute("INSERT INTO customers VALUES ('after-migration',10,NULL)")
         conn.execute("INSERT INTO stamps VALUES ('after-migration','season-02',11)")
         later = old_rows(conn)
-        demo.migrate_contacts(state, config, ORIGIN, policy)
+        migrate_fixture_schema(state, config, ORIGIN, policy)
         assert old_rows(conn) == later
         assert key == key_path.read_bytes()
     with pytest.raises(ValueError):
         demo.demo_app(state, config, ORIGIN)
     other = contact_fixture.write_config(contact, state.parent / "other.json", "demo-contact-test", [])
     with pytest.raises(ValueError):
-        demo.migrate_contacts(state, config, ORIGIN, other)
+        migrate_fixture_schema(state, config, ORIGIN, other)
     with pytest.raises(ValueError):
         demo.demo_app(state, config, ORIGIN, other)
 
@@ -124,7 +134,7 @@ def test_policy_and_no_legacy_backfill(legacy, monkeypatch):
     client = demo.demo_app(state, config, ORIGIN).test_client()
     assert post(client, "register", signup()).json["code"] == "registration_closed"
     assert post(client, "find", {"name": NAME, "phone": OLD_NUMBER}).status_code == 200
-    demo.migrate_contacts(state, config, ORIGIN, policy)
+    migrate_fixture_schema(state, config, ORIGIN, policy)
     site = demo.demo_app(state, config, ORIGIN, policy)
     client = site.test_client()
     for fields, code in [({"notice_version": "demo-v1"}, "notice_changed"),
@@ -148,7 +158,7 @@ def test_policy_and_no_legacy_backfill(legacy, monkeypatch):
 def test_lookup_audit_first_no_raw_phone_in_database_staff_or_audit(legacy, monkeypatch):
     state, config, db, policy = legacy
     event = demo.load_demo_event(config)
-    demo.migrate_contacts(state, config, ORIGIN, policy)
+    migrate_fixture_schema(state, config, ORIGIN, policy)
     site = demo.demo_app(state, config, ORIGIN, policy)
     visitor = site.test_client()
     response = post(visitor, "register", signup())
@@ -206,8 +216,8 @@ def test_password_floor_common_values_and_unchanged_verifier_on_failure(tmp_path
 def test_live_recipient_and_synthetic_origin_checked_before_writes(legacy):
     state, config, db, policy = legacy
     with pytest.raises(ValueError):
-        demo.migrate_contacts(state, config, "https://public.example.org", policy)
-    demo.migrate_contacts(state, config, ORIGIN, policy)
+        migrate_fixture_schema(state, config, "https://public.example.org", policy)
+    migrate_fixture_schema(state, config, ORIGIN, policy)
     with pytest.raises(ValueError):
         demo.demo_app(state, config, "https://public.example.org", policy)
     site = demo.demo_app(state, config, ORIGIN, policy)
@@ -221,7 +231,7 @@ def test_live_recipient_and_synthetic_origin_checked_before_writes(legacy):
 
 def test_legacy_staff_lookup_and_direct_phone_validation(legacy):
     state, config, db, policy = legacy
-    demo.migrate_contacts(state, config, ORIGIN, policy)
+    migrate_fixture_schema(state, config, ORIGIN, policy)
     password = secrets.token_urlsafe(30)
     write_staff_password(db, "fixture-staff", password)
     site = demo.demo_app(state, config, ORIGIN, policy)
@@ -264,3 +274,70 @@ def test_password_cli_refuses_pipe_mismatched_confirmation_or_echo_fallback(tmp_
     with pytest.raises(SystemExit):
         manage.main()
     assert not Path(str(database) + ".admin.key").exists()
+
+
+@pytest.mark.parametrize("contacts_first", [True, False])
+def test_correction_contact_migrations_preserve_both_orders_and_are_idempotent(legacy, contacts_first):
+    state, config, path, policy = legacy
+    with closing(demo.connect_db(path, mode="ro")) as reader:
+        original = old_rows(reader)
+        original_metadata = dict(reader.execute("SELECT * FROM metadata"))
+        assert not demo.correction_schema.correction_enabled(reader)
+        if contacts_first:
+            migrate_fixture_schema(state, config, ORIGIN, policy)
+        migrate_fixture_schema(state, config, ORIGIN)
+        if not contacts_first:
+            migrate_fixture_schema(state, config, ORIGIN, policy)
+        migrated = dict(reader.execute("SELECT * FROM metadata"))
+        assert {k: migrated[k] for k in original_metadata} == original_metadata
+        assert "linux_demo_inventory_v3" in migrated
+        assert demo.correction_schema.correction_enabled(reader)
+        assert contact.contact_key_id(reader) == contact.SyntheticEnrollment.read(policy, "demo-contact-test").key_id
+        migrate_fixture_schema(state, config, ORIGIN)
+        migrate_fixture_schema(state, config, ORIGIN, policy)
+        assert dict(reader.execute("SELECT * FROM metadata")) == migrated
+        assert old_rows(reader) == original
+        assert reader.execute("PRAGMA foreign_key_check").fetchone() is None
+    assert demo.demo_app(state, config, ORIGIN, policy).test_client().get("/health", base_url=ORIGIN).status_code == 200
+
+
+def test_correction_migration_rollback_and_retry(legacy, monkeypatch):
+    state, config, path, _ = legacy
+    sign = demo.inventory_signature
+
+    def fail_before_commit(conn, event, key):
+        if demo.correction_schema.correction_enabled(conn):
+            raise RuntimeError("synthetic failure after DDL")
+        return sign(conn, event, key)
+
+    with closing(demo.connect_db(path, mode="ro")) as reader:
+        original = old_rows(reader)
+        original_metadata = dict(reader.execute("SELECT * FROM metadata"))
+        with monkeypatch.context() as patch:
+            patch.setattr(demo, "inventory_signature", fail_before_commit)
+            with pytest.raises(RuntimeError):
+                migrate_fixture_schema(state, config, ORIGIN)
+        assert not demo.correction_schema.correction_enabled(reader)
+        assert dict(reader.execute("SELECT * FROM metadata")) == original_metadata
+        assert old_rows(reader) == original
+        migrate_fixture_schema(state, config, ORIGIN)
+        assert demo.correction_schema.correction_enabled(reader)
+        assert old_rows(reader) == original
+
+
+@pytest.mark.parametrize("damage", ["qr", "trigger_body", "inventory"])
+def test_correction_migration_refuses_to_resign_damaged_source(legacy, damage):
+    state, config, path, _ = legacy
+    with closing(demo.connect_db(path, mode="rw")) as writer, writer:
+        if damage == "qr":
+            writer.execute("UPDATE products SET qr_key=? WHERE id='season-01'", (secrets.token_urlsafe(24),))
+        elif damage == "trigger_body":
+            writer.execute("DROP TRIGGER protect_redeemed_stamp")
+            writer.execute("CREATE TRIGGER protect_redeemed_stamp BEFORE DELETE ON stamps BEGIN SELECT 1; END")
+        else:
+            writer.execute("UPDATE metadata SET value='damaged' WHERE key='linux_demo_inventory_v1'")
+    with pytest.raises(ValueError):
+        migrate_fixture_schema(state, config, ORIGIN)
+    with closing(demo.connect_db(path, mode="ro")) as reader:
+        assert not demo.correction_schema.correction_enabled(reader)
+        assert reader.execute("SELECT 1 FROM metadata WHERE key='linux_demo_inventory_v3'").fetchone() is None

@@ -141,7 +141,7 @@ def ensure_space(directory, source_size, minimum_mb):
         raise OpsError('Insufficient free space; no backup removed')
 
 
-def snapshot(source, target, minimum_mb=256, event=None, check_key=None):
+def snapshot(source, target, minimum_mb=256, event=None, check_key=None, *, prepare_restore=None):
     """SQLite backup API, new target, bounded busy wait, integrity then atomic publish."""
     source, target = Path(source).resolve(), Path(target).resolve()
     if source == target or target.exists():
@@ -160,6 +160,10 @@ def snapshot(source, target, minimum_mb=256, event=None, check_key=None):
             dst.commit()
             dst.execute('PRAGMA journal_mode=DELETE')
         inspect_database(temporary, event, check_key)
+        if prepare_restore is not None:
+            # Disarm privileged credentials only in the verified recovery copy, before publication.
+            with contextlib.closing(sqlite3.connect(temporary)) as restored, restored:
+                prepare_restore(restored)
         with temporary.open('r+b') as handle:
             os.fsync(handle.fileno())
         if target.exists():
@@ -288,7 +292,8 @@ def stage_restore(root, backup_file):
     module, event = event_for(root)
     name = 'restore-' + datetime.now().strftime('%Y%m%dT%H%M%S') + '-' + uuid.uuid4().hex[:8] + '.sqlite'
     destination = root / 'data/recovery-check' / name
-    snapshot(backup_file, destination, cfg['MinimumFreeMB'], event, restore_checks(root, module))
+    snapshot(backup_file, destination, cfg['MinimumFreeMB'], event, restore_checks(root, module),
+             prepare_restore=module.retire_restored_manager)
     result = {'candidate': str(destination), 'sha256': hashlib.sha256(destination.read_bytes()).hexdigest(),
               'counts': inspect_database(destination, event), 'source': str(Path(backup_file).resolve())}
     write_json(destination.with_suffix('.receipt.json'), result)
@@ -302,7 +307,7 @@ def import_database(root, backup_file):
     module, event = event_for(root)
     with file_lock(root / 'data/backup.lock'), file_lock(root / 'data/server.lock'):
         target = snapshot(backup_file, root / 'data/collection.sqlite', cfg['MinimumFreeMB'], event,
-                          restore_checks(root, module))
+                          restore_checks(root, module), prepare_restore=module.retire_restored_manager)
     audit(root, 'import-database', 'ok')
     return {'database': str(target), 'counts': inspect_database(target, event)}
 
@@ -324,7 +329,8 @@ def activate_restore(root, candidate, confirmed=False):
         snapshot(database, root / 'backups/pre-restore' / ('before-' + uuid.uuid4().hex + '.sqlite'),
                  cfg['MinimumFreeMB'], event, restore_checks(root, module))
         ready = snapshot(candidate, root / 'data' / ('activate-' + uuid.uuid4().hex + '.sqlite'),
-                         cfg['MinimumFreeMB'], event, restore_checks(root, module))
+                         cfg['MinimumFreeMB'], event, restore_checks(root, module),
+                         prepare_restore=module.retire_restored_manager)
         retired = root / 'data/retired' / (datetime.now().strftime('%Y%m%dT%H%M%S') + '-' + uuid.uuid4().hex[:8])
         retired.mkdir(parents=True)
         moved = []

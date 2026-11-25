@@ -19,10 +19,10 @@ from werkzeug.exceptions import HTTPException
 
 if __package__:
     from . import contact_privacy as contact
-    from .staff_admin import install_admin, validate_admin_schema
+    from .staff_admin import install_admin, retire_restored_manager, validate_admin_schema
 else:
     import contact_privacy as contact
-    from staff_admin import install_admin, validate_admin_schema
+    from staff_admin import install_admin, retire_restored_manager, validate_admin_schema
 
 ROOT = Path(__file__).resolve().parent
 LIFETIME = 90 * 86400
@@ -327,8 +327,9 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
         finally:
             app.write_lock.release()
 
-    def phase():
-        now = int(time.time())
+    def phase(now=None):
+        if now is None:
+            now = int(time.time())
         if event["draft"]:
             return "demo"
         if now < timestamp(event["starts_at"]):
@@ -337,8 +338,19 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
             return "ended"
         return "running"
 
-    def reward_open():
-        return event["draft"] or timestamp(event["starts_at"]) <= time.time() < timestamp(event["reward_until"])
+    def reward_open(now=None):
+        if now is None:
+            now = time.time()
+        return event["draft"] or timestamp(event["starts_at"]) <= now < timestamp(event["reward_until"])
+
+    def staff_window(now):
+        if event["draft"]:
+            return "collection", None
+        if phase(now) != "ended":
+            return "collection", timestamp(event["ends_at"])
+        if reward_open(now):
+            return "correction", timestamp(event["reward_until"])
+        return "closed", None
 
     def require_active():
         if phase() not in ("demo", "running"):
@@ -638,6 +650,6 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                 db().execute("INSERT INTO reward_audit VALUES (?, ?, 'unauthenticated_customer_screen')", (customer_id, now))
         return jsonify(**snapshot(who), already_redeemed=already_redeemed)
 
-    install_admin(app, dev=dev, get_db=db, write_transaction=write_transaction, phone_lookup=phone_lookup,
-                  json_body=body, api_error=APIError)
+    install_admin(app, dev=dev, get_db=db, write_transaction=write_transaction, staff_window=staff_window,
+                  phone_lookup=phone_lookup, json_body=body, api_error=APIError)
     return app

@@ -85,23 +85,23 @@ def contact_key_id(db):
     return marker[0]
 
 
-def apply_contact_schema(db, key_id):
-    """Caller holds BEGIN IMMEDIATE. Accept only the published source/target DDL."""
-    if not db.in_transaction or not re.fullmatch("[a-f0-9]{64}", key_id):
-        raise ValueError("명시적 이관 트랜잭션과 공개키가 필요합니다.")
-    old = contact_key_id(db)
+def apply_extension(db, filename, installed, companion):
+    """Only extend the exact published source schema, inside the caller's write transaction."""
+    if not db.in_transaction:
+        raise ValueError("명시적 이관 트랜잭션이 필요합니다.")
     with closing(sqlite3.connect(":memory:")) as reference:
         reference.executescript((ROOT / "schema.sql").read_text(encoding="utf-8"))
+        if companion:
+            reference.executescript((ROOT / companion).read_text(encoding="utf-8"))
         before = schema_rows(reference)
-        ddl = (ROOT / "contact_schema.sql").read_text(encoding="utf-8")
+        ddl = (ROOT / filename).read_text(encoding="utf-8")
         reference.executescript(ddl)
         after = schema_rows(reference)
-    if old:
-        if old != key_id or schema_rows(db) != after:
-            raise ValueError("연락처 키 또는 이관된 스키마가 일치하지 않습니다.")
-        return
-    if schema_rows(db) != before:
+    if schema_rows(db) != (after if installed else before):
         raise ValueError("기준 스키마와 일치하지 않아 이관을 중단했습니다.")
+    if installed:
+        return
+    # executescript() would commit the caller's transaction before applying DDL.
     statement = ""
     for line in ddl.splitlines(keepends=True):
         statement += line
@@ -109,5 +109,19 @@ def apply_contact_schema(db, key_id):
             db.execute(statement)
             statement = ""
     if statement.strip() or schema_rows(db) != after:
-        raise ValueError("연락처 스키마 검사가 실패했습니다.")
-    db.execute("INSERT INTO metadata VALUES ('contact_recipient_v1', ?)", (key_id,))
+        raise ValueError("이관 후 스키마 검사가 실패했습니다.")
+
+
+def apply_contact_schema(db, key_id):
+    if not re.fullmatch("[a-f0-9]{64}", key_id):
+        raise ValueError("수신 공개키 식별 정보가 필요합니다.")
+    old = contact_key_id(db)
+    if old is not None and old != key_id:
+        raise ValueError("연락처 수신 키 식별 정보가 일치하지 않습니다.")
+    correction = db.execute("SELECT value FROM metadata WHERE key='correction_schema_v1'").fetchone()
+    if correction is not None and correction[0] != "1":
+        raise ValueError("관리자 정정 이관 기록이 일치하지 않습니다.")
+    apply_extension(db, "contact_schema.sql", old is not None,
+                    "correction_schema.sql" if correction else None)
+    if old is None:
+        db.execute("INSERT INTO metadata VALUES ('contact_recipient_v1', ?)", (key_id,))

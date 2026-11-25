@@ -20,10 +20,12 @@ sys.path.insert(0, str(APP_DIR))
 from app import (connect_db, create_app, default_profile_key_path, event_signature,
                  init_db, load_event, verify_profile_key)
 import contact_privacy as contact
+import correction_schema
+import migration_target as guard
 from staff_admin import read_credentials, staff_key_path, validate_admin_schema
 
 
-DATABASE_NAME = "collection.sqlite"
+DATABASE_NAME = guard.DATABASE_NAME
 TABLES = {"metadata", "products", "customers", "customer_profiles", "sessions", "stamps",
           "recovery", "reward_audit", "admin_sessions", "stamp_cancel_audit"}
 
@@ -75,6 +77,9 @@ def inventory_signature(db, event, profile_key):
         "SELECT type,name,sql FROM sqlite_master WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name")]
     recipient = contact.contact_key_id(db)
     tables = TABLES | (contact.CONTACT_TABLES if recipient else set())
+    corrected = correction_schema.correction_enabled(db)
+    if corrected:
+        tables.add("stamp_correction_audit")
     if {name for kind, name, _ in schema if kind == "table"} != tables:
         raise DemoError("DEMO DB의 PR2 테이블 구성이 다릅니다.")
     products = [tuple(row) for row in db.execute("SELECT id,qr_key FROM products ORDER BY id")]
@@ -86,6 +91,8 @@ def inventory_signature(db, event, profile_key):
     label = b"maison/linux-demo/inventory/v1\0"
     if recipient:
         label = b"maison/linux-demo/inventory/v2\0" + recipient.encode("ascii") + b"\0"
+    if corrected:
+        label = b"maison/linux-demo/inventory/v3\0" + (recipient or "").encode("ascii") + b"\0"
     return hmac.digest(profile_key, label + payload, "sha256").hex()
 
 
@@ -115,9 +122,13 @@ def validate_rows(db, event, key_path, require_wal=False):
         raise DemoError("DEMO 프로필 키의 DB 확인값이 없습니다.")
     validate_admin_schema(db)
     recipient = contact.contact_key_id(db)
-    if bool(recipient) != ("linux_demo_inventory_v2" in metadata):
+    corrected = correction_schema.correction_enabled(db)
+    if corrected != ("linux_demo_inventory_v3" in metadata):
+        raise DemoError("정정 스키마 버전과 검증 기록이 일치하지 않습니다.")
+    if not corrected and bool(recipient) != ("linux_demo_inventory_v2" in metadata):
         raise DemoError("연락처 스키마 버전과 검증 기록이 일치하지 않습니다.")
-    sealed = metadata.get("linux_demo_inventory_v2" if recipient else "linux_demo_inventory_v1")
+    version = "v3" if corrected else ("v2" if recipient else "v1")
+    sealed = metadata.get("linux_demo_inventory_" + version)
     if sealed != inventory_signature(db, event, key):
         raise DemoError("DEMO 스키마 또는 상품 QR 키가 최초 준비 기록과 다릅니다.")
     if require_wal and db.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
@@ -156,26 +167,145 @@ def prepare(state_dir, config, origin):
             raise
 
 
-def migrate_contacts(state_dir, config, origin, synthetic_config):
-    validate_origin(origin)
+def synthetic_origin(origin):
+    try:
+        validate_origin(origin)
+    except (TypeError, ValueError):
+        raise guard.MigrationError("migration_synthetic_origin") from None
     if not urlsplit(origin).hostname.endswith(".invalid"):
-        raise DemoError("격리된 합성 .invalid 호스트에서만 이관할 수 있습니다.")
+        raise guard.MigrationError("migration_synthetic_origin")
+
+
+def prepare_migration(workspace, config, origin, *, purpose):
+    """Bind a NEW pair. Service databases and existing copies cannot be enrolled."""
+    synthetic_origin(origin)
+    if purpose not in guard.PURPOSES:
+        raise guard.MigrationError("migration_purpose")
+    workspace = guard.canonical(workspace, new=True)
     event = load_demo_event(config)
-    enrollment = contact.SyntheticEnrollment.read(synthetic_config, event["id"])
-    database = Path(state_dir) / DATABASE_NAME
-    check_private(database.parent, directory=True)
-    check_private(database)
-    key_path = default_profile_key_path(database)
-    check_private(key_path)
-    with closing(connect_db(database, mode="rw")) as db, db:
-        db.execute("BEGIN IMMEDIATE")
-        key = validate_rows(db, event, key_path, require_wal=True)
-        already = contact.contact_key_id(db)
+    try:
+        workspace.mkdir(mode=0o700)
+    except FileExistsError:
+        raise guard.MigrationError("migration_workspace_exists") from None
+    pair = guard.Target(workspace / "source", workspace / "target")
+    pair.source.mkdir(mode=0o700)
+    pair.target.mkdir(mode=0o700)
+    prepare(pair.source, config, origin)
+    source, target = pair.source / DATABASE_NAME, pair.target / DATABASE_NAME
+    guard.write_private(target, b"")
+    with closing(connect_db(source, mode="ro")) as original, closing(connect_db(target, mode="rw")) as copy:
+        original.backup(copy)
+        copy.execute("PRAGMA journal_mode=WAL")
+        seal = original.execute("SELECT value FROM metadata WHERE key='linux_demo_inventory_v1'").fetchone()[0]
+    guard.write_private(default_profile_key_path(target), default_profile_key_path(source).read_bytes())
+    validate_database(target, event, require_wal=True)
+    # Publish last. A failed prepare leaves an unapproved isolated directory.
+    pair.bind(event["id"], seal, purpose)
+    return pair
+
+
+def _apply_migration(db, event, key_path, synthetic_config):
+    """Migrate inside the caller's verified write transaction."""
+    if not db.in_transaction:
+        raise guard.MigrationError("migration_transaction_required")
+    key = validate_rows(db, event, key_path, require_wal=True)
+    corrected = correction_schema.correction_enabled(db)
+    if synthetic_config is None:
+        installed = corrected
+        correction_schema.apply_correction_schema(db)
+        version = "v3"
+    else:
+        enrollment = contact.SyntheticEnrollment.read(synthetic_config, event["id"])
+        installed = contact.contact_key_id(db) is not None
         contact.apply_contact_schema(db, enrollment.key_id)
-        if already is None:
-            db.execute("INSERT INTO metadata VALUES ('linux_demo_inventory_v2', ?)",
-                       (inventory_signature(db, event, key),))
-        validate_rows(db, event, key_path, require_wal=True)
+        version = "v3" if corrected else "v2"
+    if not installed:
+        db.execute("INSERT INTO metadata(key,value) VALUES (?,?) "
+                   "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                   ("linux_demo_inventory_" + version, inventory_signature(db, event, key)))
+    validate_rows(db, event, key_path, require_wal=True)
+
+
+def inspect_migration_db(db, event, proof, expected_schema):
+    marker = dict(db.execute("SELECT key,value FROM metadata"))
+    if marker.get("event") != event_signature(event):
+        raise guard.MigrationError("migration_event_signature")
+    if marker.get("admin_schema_v1") != "1":
+        raise guard.MigrationError("migration_schema")
+    try:
+        extensions = [name for name, enabled in (("contacts", contact.contact_key_id(db)),
+                                                  ("corrections", correction_schema.correction_enabled(db))) if enabled]
+    except ValueError:
+        raise guard.MigrationError("migration_schema") from None
+    if ("+".join(extensions) or "base") != expected_schema:
+        raise guard.MigrationError("migration_schema")
+    products = dict(db.execute("SELECT id,qr_key FROM products"))
+    if set(products) != {item["id"] for item in event["products"]}:
+        raise guard.MigrationError("migration_product_set")
+    if marker.get("linux_demo_inventory_v1") != proof.get("source_inventory"):
+        raise guard.MigrationError("migration_source_inventory")
+    business_tables = TABLES - {"products", "metadata"}
+    if "contacts" in extensions:
+        business_tables |= contact.CONTACT_TABLES
+    if "corrections" in extensions:
+        business_tables.add("stamp_correction_audit")
+    for table in sorted(business_tables):
+        if db.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone():
+            raise guard.MigrationError("migration_has_records")
+    return products
+
+
+def migrate_schema(state_dir, config, origin, *, source_state_dir, expected_event_id,
+                   expected_schema, synthetic_config=None):
+    synthetic_origin(origin)
+    try:
+        purpose = "corrections" if synthetic_config is None else "contacts"
+        pair, proof = guard.Target.confirmed(source_state_dir, state_dir, expected_event_id, expected_schema, purpose)
+        event = load_demo_event(config)
+        if event["id"] != expected_event_id:
+            raise guard.MigrationError("migration_event_id")
+        source, target = pair.source / DATABASE_NAME, pair.target / DATABASE_NAME
+        target_key = default_profile_key_path(target)
+        with closing(connect_db(source, mode="ro")) as original:
+            original.execute("BEGIN")
+            source_products = inspect_migration_db(original, event, proof, "base")
+            source_key = validate_rows(original, event, default_profile_key_path(source), require_wal=True)
+
+            def verify_target(db):
+                if inspect_migration_db(db, event, proof, expected_schema) != source_products:
+                    raise guard.MigrationError("migration_qr_set")
+                if not hmac.compare_digest(validate_rows(db, event, target_key, require_wal=True), source_key):
+                    raise guard.MigrationError("migration_key_pair")
+                if pair.identities() != proof["files"]:
+                    raise guard.MigrationError("migration_file_changed")
+
+            # Read-only preflight before opening the approved target for writes.
+            with closing(connect_db(target, mode="ro")) as preflight:
+                preflight.execute("BEGIN")
+                verify_target(preflight)
+            with closing(connect_db(target, mode="rw")) as db, db:
+                db.execute("BEGIN IMMEDIATE")
+                verify_target(db)
+                _apply_migration(db, event, target_key, synthetic_config)
+                if pair.identities() != proof["files"]:
+                    raise guard.MigrationError("migration_file_changed")
+    except guard.MigrationError:
+        raise
+    except (OSError, sqlite3.Error, ValueError, TypeError, KeyError, OverflowError):
+        raise guard.MigrationError("migration_invalid_inventory") from None
+
+
+def migrate_contacts(state_dir, config, origin, synthetic_config, *, source_state_dir=None,
+                     expected_event_id=None, expected_schema=None):
+    if synthetic_config is None:
+        raise guard.MigrationError("migration_confirmation_missing")
+    migrate_schema(state_dir, config, origin, synthetic_config=synthetic_config, source_state_dir=source_state_dir,
+                   expected_event_id=expected_event_id, expected_schema=expected_schema)
+
+
+def migrate_corrections(state_dir, config, origin, *, source_state_dir=None, expected_event_id=None, expected_schema=None):
+    migrate_schema(state_dir, config, origin, source_state_dir=source_state_dir,
+                   expected_event_id=expected_event_id, expected_schema=expected_schema)
 
 
 def demo_app(state_dir, config, origin, synthetic_config=None):
@@ -213,22 +343,40 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description="Linux 비공개 DEMO 전용")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("prepare", "check", "serve", "migrate-contacts"):
+    for name in ("prepare", "check", "serve", "migrate-contacts", "migrate-corrections"):
         command = commands.add_parser(name)
         command.add_argument("--state-dir", required=True, type=Path)
         command.add_argument("--config", required=True, type=Path)
         command.add_argument("--origin", required=True)
-        if name != "prepare":
+        if name in ("check", "serve", "migrate-contacts"):
             command.add_argument("--synthetic-config", type=Path, required=name == "migrate-contacts")
         if name == "serve":
             command.add_argument("--port", type=int, default=8875)
+        if name.startswith("migrate-"):
+            command.add_argument("--source-state-dir", type=Path)
+            command.add_argument("--expected-event-id")
+            command.add_argument("--expected-schema", choices=guard.SCHEMAS)
+    stage = commands.add_parser("prepare-migration")
+    stage.add_argument("--workspace", required=True, type=Path)
+    stage.add_argument("--purpose", required=True, choices=guard.PURPOSES)
+    stage.add_argument("--config", required=True, type=Path)
+    stage.add_argument("--origin", required=True)
     args = parser.parse_args()
     try:
-        if args.command == "prepare":
+        if args.command.startswith("migrate-"):
+            confirmation = dict(source_state_dir=args.source_state_dir, expected_event_id=args.expected_event_id,
+                                expected_schema=args.expected_schema)
+        if args.command == "prepare-migration":
+            prepare_migration(args.workspace, args.config, args.origin, purpose=args.purpose)
+            print("이관 연습용 합성 원본과 빈 대상을 생성했습니다.")
+        elif args.command == "prepare":
             prepare(args.state_dir, args.config, args.origin)
             print("새 DEMO DB와 프로필 키를 준비했습니다. 직원 비밀번호를 별도로 설정하세요.")
+        elif args.command == "migrate-corrections":
+            migrate_corrections(args.state_dir, args.config, args.origin, **confirmation)
+            print("합성 DB 관리자 정정 감사 스키마 이관 검증 완료")
         elif args.command == "migrate-contacts":
-            migrate_contacts(args.state_dir, args.config, args.origin, args.synthetic_config)
+            migrate_contacts(args.state_dir, args.config, args.origin, args.synthetic_config, **confirmation)
             print("합성 연락처 이관 검증 완료")
         else:
             app = demo_app(args.state_dir, args.config, args.origin, args.synthetic_config)
@@ -238,7 +386,7 @@ def main():
                 run_server(app, args.port)
             else:
                 parser.error("포트 범위를 확인하세요.")
-    except DemoError as exc:
+    except (DemoError, guard.MigrationError) as exc:
         parser.exit(1, f"DEMO 실패: {exc}\n")
     except (OSError, sqlite3.Error, ValueError, TypeError, KeyError, OverflowError):
         # Config parsing failures may carry their source value.

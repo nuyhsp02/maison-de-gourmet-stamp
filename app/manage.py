@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from app import ROOT, connect_db, create_app, init_db, load_event
-from staff_admin import write_staff_password
+from staff_admin import revoke_manager, write_staff_password
 
 
 def main():
@@ -18,7 +18,7 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description="카페 컬렉션 노트북 서버")
     parser.add_argument("--config", default=str(ROOT / "event.json"))
-    parser.add_argument("--database", default=str(ROOT / "data" / "collection.sqlite"))
+    parser.add_argument("--database")
     commands = parser.add_subparsers(dest="command", required=True)
     serve = commands.add_parser("serve", help="서버 시작")
     serve.add_argument("--dev", action="store_true", help="노트북 localhost HTTP 미리보기 전용")
@@ -31,8 +31,24 @@ def main():
     backup.add_argument("destination")
     admin = commands.add_parser("admin-password", help="이 DB의 직원 로그인 비밀번호 설정·교체")
     admin.add_argument("--actor", required=True, help="취소 기록에 남길 직원 계정 ID")
+    manager = commands.add_parser("manager-password", help="이 DB의 예외 정정 관리자 비밀번호 설정·교체")
+    manager.add_argument("--actor", required=True, help="정정 감사 기록에 남길 관리자 계정 ID")
+    commands.add_parser("manager-revoke", help="지정 DB의 관리자 자격 폐기 및 모든 관리자 세션 종료")
     args = parser.parse_args()
-    if args.command == "admin-password":
+    if not args.database:
+        if args.command in ("manager-password", "manager-revoke"):
+            parser.error("--database 로 대상 행사 DB를 명시하세요.")
+        args.database = str(ROOT / "data" / "collection.sqlite")
+    if args.command == "manager-revoke":
+        try:
+            revoke_manager(args.database)
+        except (ValueError, OSError):
+            parser.error("관리자 자격 폐기 실패. 대상 DB와 검증 파일 권한을 확인하세요.")
+        print("관리자 자격을 폐기했습니다.")
+        return
+    if args.command in ("admin-password", "manager-password"):
+        role = "admin" if args.command == "manager-password" else "staff"
+        title = "관리자" if role == "admin" else "직원"
         # getpass would fall back to echoed stdin on some redirected terminals.
         import sys
         if not sys.stdin.isatty():
@@ -40,17 +56,19 @@ def main():
         with warnings.catch_warnings():
             warnings.simplefilter("error", getpass.GetPassWarning)
             try:
-                password = getpass.getpass("새 직원 비밀번호 (15~256자): ")
+                password = getpass.getpass(f"새 {title} 비밀번호 (15~256자): ")
                 repeated = getpass.getpass("비밀번호 재입력: ")
             except (EOFError, getpass.GetPassWarning):
                 parser.error("숨김 입력을 사용할 수 없습니다.")
         if password != repeated:
             parser.error("두 비밀번호가 일치하지 않습니다.")
         try:
-            write_staff_password(args.database, args.actor, password)
+            write_staff_password(args.database, args.actor, password, role=role)
         except ValueError as exc:
             parser.error(str(exc))
-        print("직원 로그인 설정을 저장했습니다.")
+        except OSError:
+            parser.error("로그인 설정을 저장할 수 없습니다. 대상 경로와 권한을 확인하세요.")
+        print(f"{title} 로그인 설정을 저장했습니다.")
     elif args.command == "serve":
         from waitress import serve as run_server
         url = args.public_url or (f"http://127.0.0.1:{args.port}" if args.dev else None)

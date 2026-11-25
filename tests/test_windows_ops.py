@@ -454,3 +454,42 @@ def test_database_exception_releases_request_writer_slot(installed,monkeypatch):
     assert register(client).status_code==503
     monkeypatch.setattr(module,'connect_db',original)
     assert register(client).status_code==200
+
+
+def test_stage_restore_preserves_corrections_and_rejects_weakened_trigger(installed):
+    from importlib import import_module
+
+    module, _ = ops.event_for(installed)
+    schema = import_module(module.__name__ + ".correction_schema")
+    source = installed / "data/collection.sqlite"
+    with closing(module.connect_db(source, mode="rw")) as database, database:
+        database.execute("BEGIN IMMEDIATE")
+        schema.apply_correction_schema(database)
+        database.execute("INSERT INTO customers VALUES ('fixture-card', 1, NULL)")
+        database.execute("INSERT INTO stamp_correction_audit VALUES "
+                         "(1,?,'fixture-card','fixture-manager',3,'remove','erroneous_stamp',"
+                         "'synthetic stamp error','season-01',NULL,2,0,0,0)", ("c" * 32,))
+    daily = Path(ops.backup(installed)["daily"])
+    candidate = ops.stage_restore(installed, daily)["candidate"]
+    with closing(ops.readonly(candidate)) as staged:
+        assert schema.correction_enabled(staged)
+        assert staged.execute("SELECT reason_code FROM stamp_correction_audit").fetchall() == [("erroneous_stamp",)]
+    with closing(sqlite3.connect(daily)) as damaged, damaged:
+        damaged.execute("DROP TRIGGER protect_correction_delete")
+        damaged.execute("CREATE TRIGGER protect_correction_delete BEFORE DELETE ON stamp_correction_audit "
+                        "BEGIN SELECT 1; END")
+    with pytest.raises(ValueError):
+        ops.stage_restore(installed, daily)
+
+
+def test_restore_candidate_requires_new_manager_binding_without_touching_source(installed):
+    database = installed / 'data/collection.sqlite'
+    module, _ = ops.event_for(installed)
+    staff = importlib.import_module('.staff_admin', module.__name__)
+    staff.write_staff_password(database, 'supervisor', secrets.token_urlsafe(24), role='admin')
+    backup = ops.backup(installed)
+    staged = ops.stage_restore(installed, backup['daily'])
+    with closing(ops.readonly(staged['candidate'])) as restored, closing(ops.readonly(database)) as source:
+        query = "SELECT value FROM metadata WHERE key=?"
+        assert restored.execute(query, (staff.MANAGER_BINDING,)).fetchone()[0] == 'revoked'
+        assert source.execute(query, (staff.MANAGER_BINDING,)).fetchone()[0] != 'revoked'

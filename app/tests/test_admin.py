@@ -6,8 +6,9 @@ import secrets
 import sqlite3
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from contextlib import closing
+from datetime import datetime
 from http.client import HTTPConnection
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -229,7 +230,9 @@ def test_search_by_id_and_normalized_phone_and_distribution_include_legacy_cards
     assert stats.json == {'cards': 3, 'stamps': 12, 'redeemed': 1, 'distribution': [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1]}
     details = search(staff, {'phone': '+82 10 0000 0074'})
     assert details == search(staff, {'customer_id': card_id})
-    assert set(details) == {'customer_id', 'name', 'phone_masked', 'redeemed_at', 'stamps'}
+    assert set(details) == {'customer_id', 'name', 'phone_masked', 'redeemed_at', 'stamps',
+                            'permissions', 'correction_revision'}
+    assert not details['permissions']['can_correct']
     assert details['name'] == NAME and details['redeemed_at'] is None
     assert {s['product_id'] for s in details['stamps']} == set(item_keys)
     assert details['phone_masked'] == '010-****-' + PHONE[-4:]
@@ -306,6 +309,89 @@ def test_reward_completion_prevents_api_and_sql_cancellation(site, staff):
         assert db.execute('SELECT COUNT(*) FROM stamp_cancel_audit').fetchone()[0] == 0
         assert db.execute('SELECT COUNT(*) FROM stamps').fetchone()[0] == 10
         assert db.execute('SELECT COUNT(*) FROM reward_audit').fetchone()[0] == 1
+
+
+CUTOFF_KST = '2027-02-01T00:00:00+09:00'
+CUTOFF_UTC = '2027-01-31T15:00:00+00:00'
+CUTOFF_EPOCH = int(datetime.fromisoformat(CUTOFF_UTC).timestamp())
+
+
+@pytest.fixture
+def complete_card_before_cutoff(site, credentials, monkeypatch):
+    site.event.update(draft=False, starts_at='2026-12-01T00:00:00+09:00',
+                      ends_at=CUTOFF_KST, reward_until='2027-03-01T00:00:00+09:00')
+    monkeypatch.setattr(time, 'time', lambda: CUTOFF_EPOCH - 1)
+    client = site.test_client()
+    staff = client, login(client, credentials[0])
+    owner, card_id = register_card(site)
+    items = products(site)
+    for key in items.values():
+        assert owner.collect(key)['added']
+    target = cancellation(staff, card_id, next(iter(items)))
+    return owner, staff, target
+
+
+@pytest.mark.parametrize('ends_at', [CUTOFF_KST, CUTOFF_UTC], ids=['KST', 'UTC'])
+@pytest.mark.parametrize('offset', [-1, 0, 1], ids=['before', 'at', 'after'])
+def test_staff_cancel_cutoff(site, complete_card_before_cutoff, monkeypatch, ends_at, offset):
+    owner, staff, target = complete_card_before_cutoff
+    site.event['ends_at'] = ends_at
+    before = owner.read()['customer']['stamps']
+    assert len(before) == 10
+    now = CUTOFF_EPOCH + offset
+    monkeypatch.setattr(time, 'time', lambda: now)
+    response = cancel(staff, target)
+
+    expected = before.copy()
+    audit = []
+    if offset < 0:
+        assert response.status_code == 200
+        pid = target['product_id']
+        audit.append((target['customer_id'], pid, expected.pop(pid), now, ACTOR))
+    else:
+        assert response.status_code == 409 and response.json['code'] == 'cancel_closed'
+    with closing(connect_db(site.config['DATABASE'])) as db:
+        assert dict(db.execute('SELECT product_id, collected_at FROM stamps')) == expected
+        rows = db.execute('SELECT customer_id, product_id, original_collected_at, cancelled_at, admin_actor '
+                          'FROM stamp_cancel_audit')
+        assert [tuple(row) for row in rows] == audit
+    if offset >= 0:
+        assert owner.post('/api/redeem', {'confirm_received': True}).status_code == 200
+
+
+def test_staff_cancel_waiting_for_sqlite_writer_at_cutoff(site, complete_card_before_cutoff, monkeypatch):
+    owner, staff, target = complete_card_before_cutoff
+    before = owner.read()['customer']['stamps']
+    begin = threading.Event()
+
+    def observe_begin(sql):
+        if sql == 'BEGIN IMMEDIATE':
+            begin.set()
+
+    def observed_connect(*args, **kwargs):
+        db = connect_db(*args, **kwargs)
+        db.set_trace_callback(observe_begin)
+        return db
+
+    with closing(connect_db(site.config['DATABASE'])) as holder, ThreadPoolExecutor(max_workers=1) as pool:
+        holder.execute('BEGIN IMMEDIATE')
+        monkeypatch.setattr('app.connect_db', observed_connect)
+        pending = pool.submit(cancel, staff, target)
+        try:
+            assert begin.wait(timeout=5)
+            # SQLite is executing the request's BEGIN while another connection owns the writer.
+            with pytest.raises(FutureTimeout):
+                pending.result(timeout=0.05)
+            monkeypatch.setattr(time, 'time', lambda: CUTOFF_EPOCH)
+        finally:
+            holder.rollback()
+        response = pending.result(timeout=5)
+        assert response.status_code == 409 and response.json['code'] == 'cancel_closed'
+        assert dict(holder.execute('SELECT product_id, collected_at FROM stamps')) == before
+        assert holder.execute('SELECT COUNT(*) FROM stamp_cancel_audit').fetchone()[0] == 0
+        assert holder.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+        assert not holder.execute('PRAGMA foreign_key_check').fetchall()
+    assert owner.post('/api/redeem', {'confirm_received': True}).status_code == 200
 
 
 def parallel_calls(first, second):
@@ -389,3 +475,344 @@ def test_http_only_authorized_detail_contains_name_and_access_logs_omit_personal
     for secret in (NAME, PHONE, PHONE.replace('-', ''), card_id, password, password_hash,
                    auth['csrf'], headers['Cookie'].split('=', 1)[1]):
         assert secret not in caplog.text
+
+
+REWARD_END = int(datetime.fromisoformat('2027-03-01T00:00:00+09:00').timestamp())
+MANAGER = 'manager-fixture'
+CORRECTION_REASON = '진열 상품표와 적립 상품의 불일치를 확인했습니다.'
+
+
+@pytest.fixture(scope='module')
+def manager_credentials():
+    return secrets.token_urlsafe(24)
+
+
+def manager_session(site, password):
+    client = site.test_client()
+    response = post(client, 'manager-login', {'password': password})
+    assert response.status_code == 200
+    assert response.json['role'] == 'admin' and response.json['actor'] == MANAGER
+    return client, response.json['csrf']
+
+
+@pytest.fixture
+def corrections(site, manager_credentials, monkeypatch):
+    from correction_schema import apply_correction_schema
+
+    database = site.config['DATABASE']
+    with closing(connect_db(database)) as db:
+        db.execute('BEGIN IMMEDIATE')
+        apply_correction_schema(db)
+        db.commit()
+    from staff_admin import write_staff_password
+    write_staff_password(database, MANAGER, manager_credentials, role='admin')
+    site.event.update(draft=False, starts_at='2026-12-01T00:00:00+09:00', ends_at=CUTOFF_KST,
+                      reward_until='2027-03-01T00:00:00+09:00')
+    monkeypatch.setattr(time, 'time', lambda: CUTOFF_EPOCH - 1)
+    owner, card = register_card(site)
+    items = products(site)
+    for key in list(items.values())[:2]:
+        assert owner.collect(key)['added']
+    manager = manager_session(site, manager_credentials)
+    monkeypatch.setattr(time, 'time', lambda: CUTOFF_EPOCH)
+    return manager, card, list(items), owner
+
+
+def correction_request(manager, card, product, replacement=None):
+    return {'customer_id': card, 'product_id': product,
+            'revision': search(manager, {'customer_id': card})['correction_revision'],
+            'request_id': secrets.token_hex(16), 'type': 'replace' if replacement else 'remove',
+            'new_product_id': replacement, 'reason_code': 'wrong_product' if replacement else 'erroneous_stamp',
+            'reason_detail': CORRECTION_REASON}
+
+
+def correct(manager, request):
+    client, csrf = manager
+    return post(client, 'correct', request, csrf)
+
+
+def correction_state(site, card):
+    with closing(connect_db(site.config['DATABASE'])) as db:
+        stamps = dict(db.execute('SELECT product_id,collected_at FROM stamps WHERE customer_id=?', (card,)))
+        audits = [dict(row) for row in db.execute(
+            'SELECT * FROM stamp_correction_audit WHERE customer_id=? ORDER BY id', (card,))]
+        rewards = [tuple(row) for row in db.execute('SELECT * FROM reward_audit WHERE customer_id=?', (card,))]
+        return stamps, audits, rewards
+
+
+def test_correction_authority_comes_from_separate_credentials(site, corrections, credentials, manager_credentials):
+    manager, card, items, owner = corrections
+    client = site.test_client()
+    staff = client, login(client, credentials[0])
+    data = correction_request(manager, card, items[0])
+    before = correction_state(site, card)
+    assert get(client, 'session').json['role'] == 'staff'
+    assert get(manager[0], 'session').json['role'] == 'admin'
+    assert not search(staff, {'customer_id': card})['permissions']['can_correct']
+    assert search(manager, {'customer_id': card})['permissions']['can_correct']
+    assert correct(staff, data).status_code == 403
+    assert correct(staff, dict(data, role='admin')).status_code == 403
+    assert post(site.test_client(), 'correct', data).status_code == 401
+    assert post(owner.client, 'correct', data, owner.csrf).status_code == 401
+    assert post(site.test_client(), 'manager-login', {'password': credentials[0]}).status_code == 401
+    assert post(site.test_client(), 'login', {'password': manager_credentials}).status_code == 401
+    assert correct(manager, dict(data, role='admin')).status_code == 400
+    for csrf in ('', staff[1], owner.csrf):
+        assert post(manager[0], 'correct', data, csrf).status_code == 403
+    assert correction_state(site, card) == before
+
+
+def test_expired_manager_cannot_correct(site, corrections, monkeypatch):
+    manager, card, items, _ = corrections
+    data = correction_request(manager, card, items[0])
+    expires_at = get(manager[0], 'session').json['expires_at']
+    before = correction_state(site, card)
+    monkeypatch.setattr(time, 'time', lambda: expires_at)
+    assert correct(manager, data).status_code == 401
+    assert correction_state(site, card) == before
+
+
+@pytest.mark.parametrize('offset,allowed', [(-1, False), (0, True), (1, True)])
+def test_manager_correction_start(corrections, site, monkeypatch, offset, allowed):
+    manager, card, items, _ = corrections
+    site.event['ends_at'] = CUTOFF_UTC
+    monkeypatch.setattr(time, 'time', lambda: CUTOFF_EPOCH + offset)
+    details = search(manager, {'customer_id': card})
+    assert details['permissions']['can_correct'] is allowed
+    before = correction_state(site, card)
+    response = correct(manager, correction_request(manager, card, items[0]))
+    if allowed:
+        assert response.status_code == 200
+    else:
+        assert response.status_code == 409 and response.json['code'] == 'correction_closed'
+        assert correction_state(site, card) == before
+
+
+@pytest.mark.parametrize('reward_until', ['2027-03-01T00:00:00+09:00', '2027-02-28T15:00:00+00:00'])
+@pytest.mark.parametrize('offset', [-1, 0, 1])
+def test_manager_correction_end(site, corrections, manager_credentials, monkeypatch, reward_until, offset):
+    _, card, items, _ = corrections
+    site.event['reward_until'] = reward_until
+    monkeypatch.setattr(time, 'time', lambda: REWARD_END + offset)
+    manager = manager_session(site, manager_credentials)
+    permission = search(manager, {'customer_id': card})['permissions']
+    assert permission['can_correct'] is (offset < 0)
+    before = correction_state(site, card)
+    response = correct(manager, correction_request(manager, card, items[0]))
+    if offset < 0:
+        assert response.status_code == 200
+    else:
+        assert response.status_code == 409 and response.json['code'] == 'correction_closed'
+        assert correction_state(site, card) == before
+
+
+@pytest.mark.parametrize('replace', [True, False], ids=['replace', 'remove'])
+def test_correction_changes_only_held_stamp_and_appends_exact_audit(site, corrections, replace):
+    manager, card, items, owner = corrections
+    original, target = items[0], items[2] if replace else None
+    data = correction_request(manager, card, original, target)
+    before, _, _ = correction_state(site, card)
+    response = correct(manager, data)
+    assert response.status_code == 200
+    expected = before.copy()
+    collected_at = expected.pop(original)
+    if replace:
+        expected[target] = collected_at
+    stamps, audits, rewards = correction_state(site, card)
+    assert stamps == expected == owner.read()['customer']['stamps']
+    assert not rewards
+    assert len(audits) == 1
+    audit = audits[0]
+    assert {key: value for key, value in audit.items() if key != 'id'} == {
+        'request_id': data['request_id'], 'customer_id': card, 'admin_actor': MANAGER,
+        'corrected_at': CUTOFF_EPOCH, 'correction_type': data['type'], 'reason_code': data['reason_code'],
+        'reason_detail': CORRECTION_REASON, 'old_product_id': original, 'new_product_id': target,
+        'original_collected_at': collected_at, 'stamp_count_after': len(expected),
+        'eligible_before': 0, 'eligible_after': 0}
+    with closing(connect_db(site.config['DATABASE'])) as db:
+        assert db.execute('SELECT COUNT(*) FROM stamp_cancel_audit').fetchone()[0] == 0
+    assert not search(manager, {'customer_id': card})['permissions']['can_cancel']
+
+
+def test_invalid_correction_reason_or_operation_leaves_card_intact(site, corrections):
+    manager, card, items, _ = corrections
+    valid = correction_request(manager, card, items[0], items[2])
+    before = correction_state(site, card)
+    for detail in (None, '', ' ' * 20, '가' * 9, '가' * 301, '전화 연락 ' + PHONE,
+                   '고객 연락 fake@example.invalid', NAME + ' 상품 확인'):
+        payload = dict(valid, reason_detail=detail)
+        if detail is None:
+            del payload['reason_detail']
+        response = correct(manager, payload)
+        assert response.status_code == 400
+        if detail and detail.strip():
+            assert detail not in response.text
+    for fields in ({'type': 'add'}, {'reason_code': 'other'}, {'type': 'remove'}, {'new_product_id': None},
+                   {'new_product_id': items[0]}, {'new_product_id': items[1]}, {'new_product_id': 'absent'},
+                   {'product_id': items[3]}, {'product_id': 'absent'}, {'request_id': 'invalid'},
+                   {'revision': True}):
+        assert correct(manager, dict(valid, **fields)).status_code in (400, 404, 409)
+    assert correction_state(site, card) == before
+
+
+def test_duplicate_request_and_stale_revision_do_not_change_second_stamp(site, corrections):
+    manager, card, items, _ = corrections
+    first = correction_request(manager, card, items[0], items[2])
+    stale = correction_request(manager, card, items[1])
+    assert correct(manager, first).status_code == 200
+    before = correction_state(site, card)
+    fresh = correction_request(manager, card, items[1])
+    assert fresh['revision'] != stale['revision']
+    assert correct(manager, dict(fresh, request_id=first['request_id'])).status_code == 409
+    assert correct(manager, stale).status_code == 409
+    assert correction_state(site, card) == before
+    assert correct(manager, fresh).status_code == 200
+
+
+@pytest.mark.parametrize('redeemed', [False, True], ids=['eligible', 'already-redeemed'])
+def test_manager_preserves_complete_card_and_reward(site, corrections, monkeypatch, redeemed):
+    manager, card, items, owner = corrections
+    monkeypatch.setattr(time, 'time', lambda: CUTOFF_EPOCH - 1)
+    for key in list(products(site).values())[2:]:
+        assert owner.collect(key)['added']
+    monkeypatch.setattr(time, 'time', lambda: CUTOFF_EPOCH)
+    if redeemed:
+        assert owner.post('/api/redeem', {'confirm_received': True}).status_code == 200
+    before = correction_state(site, card)
+    assert len(before[0]) == 10 and len(before[2]) == int(redeemed)
+    assert not search(manager, {'customer_id': card})['permissions']['can_correct']
+    for replacement in (None, items[1]):
+        response = correct(manager, correction_request(manager, card, items[0], replacement))
+        assert response.status_code == 409
+    assert correction_state(site, card) == before
+    if not redeemed:
+        assert owner.post('/api/redeem', {'confirm_received': True}).status_code == 200
+    assert len(correction_state(site, card)[2]) == 1
+
+
+@pytest.mark.parametrize('failure', ["RAISE(ABORT, 'audit unavailable')", 'RAISE(IGNORE)'],
+                         ids=['insert-error', 'silent-skip'])
+def test_failed_correction_audit_rolls_back_and_same_request_can_retry(site, corrections, monkeypatch, failure):
+    manager, card, items, _ = corrections
+    payload = correction_request(manager, card, items[0], items[2])
+    before = correction_state(site, card)
+    observed = []
+
+    def connect_with_fault(*args, **kwargs):
+        db = connect_db(*args, **kwargs)
+        # Only this request sees the fault. The persisted schema and signature stay intact.
+        db.execute(f"""CREATE TEMP TRIGGER fail_fixture BEFORE INSERT ON main.stamp_correction_audit
+                       BEGIN SELECT {failure}; END""")
+        db.set_trace_callback(lambda sql: observed.append(sql.lstrip().split()[0].upper()))
+        return db
+
+    with monkeypatch.context() as scoped:
+        scoped.setattr('app.connect_db', connect_with_fault)
+        assert correct(manager, payload).status_code == 503
+    assert 'UPDATE' in observed and 'ROLLBACK' in observed
+    assert correction_state(site, card) == before
+    with closing(connect_db(site.config['DATABASE'])) as db:
+        assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+        assert not db.execute('PRAGMA foreign_key_check').fetchall()
+    assert correct(manager, payload).status_code == 200
+
+
+@pytest.mark.parametrize('change', ['reward_end', 'logout'], ids=['period-ends', 'session-revoked'])
+def test_correction_rechecks_after_waiting_for_writer(site, corrections, manager_credentials, monkeypatch, change):
+    manager, card, items, _ = corrections
+    monkeypatch.setattr(time, 'time', lambda: REWARD_END - 1)
+    manager = manager_session(site, manager_credentials)
+    payload = correction_request(manager, card, items[0])
+    before = correction_state(site, card)
+    begin = threading.Event()
+
+    def connect_with_signal(*args, **kwargs):
+        db = connect_db(*args, **kwargs)
+        db.set_trace_callback(lambda sql: begin.set() if sql == 'BEGIN IMMEDIATE' else None)
+        return db
+
+    with closing(connect_db(site.config['DATABASE'])) as writer, ThreadPoolExecutor(max_workers=1) as pool:
+        writer.execute('BEGIN IMMEDIATE')
+        monkeypatch.setattr('app.connect_db', connect_with_signal)
+        pending = pool.submit(correct, manager, payload)
+        try:
+            assert begin.wait(timeout=5)
+            with pytest.raises(FutureTimeout):
+                pending.result(timeout=0.05)
+            if change == 'logout':
+                writer.execute('DELETE FROM admin_sessions WHERE admin_actor=?', (MANAGER,))
+            else:
+                monkeypatch.setattr(time, 'time', lambda: REWARD_END)
+        finally:
+            writer.commit()
+        response = pending.result(timeout=5)
+    assert response.status_code == (401 if change == 'logout' else 409)
+    assert correction_state(site, card) == before
+
+
+def test_manager_can_search_but_cannot_correct_without_explicit_migration(site, manager_credentials, monkeypatch):
+    from staff_admin import write_staff_password
+
+    database = site.config['DATABASE']
+    write_staff_password(database, MANAGER, manager_credentials, role='admin')
+    site.event.update(draft=False, starts_at='2026-12-01T00:00:00+09:00', ends_at=CUTOFF_KST,
+                      reward_until='2027-03-01T00:00:00+09:00')
+    monkeypatch.setattr(time, 'time', lambda: CUTOFF_EPOCH - 1)
+    owner, card = register_card(site)
+    product, key = next(iter(products(site).items()))
+    assert owner.collect(key)['added']
+    monkeypatch.setattr(time, 'time', lambda: CUTOFF_EPOCH)
+    manager = manager_session(site, manager_credentials)
+    assert not search(manager, {'customer_id': card})['permissions']['can_correct']
+    response = correct(manager, correction_request(manager, card, product))
+    assert response.status_code == 503 and response.json['code'] == 'correction_unavailable'
+    with closing(connect_db(database)) as db:
+        assert dict(db.execute('SELECT product_id,collected_at FROM stamps')) == {product: CUTOFF_EPOCH - 1}
+        assert not db.execute("SELECT 1 FROM sqlite_master WHERE name='stamp_correction_audit'").fetchone()
+
+
+def test_pre_close_cancel_and_recollection_invalidate_card_revision(site, corrections, credentials, monkeypatch):
+    manager, card, items, owner = corrections
+    monkeypatch.setattr(time, 'time', lambda: CUTOFF_EPOCH - 1)
+    client = site.test_client()
+    staff = client, login(client, credentials[0])
+    stale = correction_request(manager, card, items[0])
+    before = correction_state(site, card)
+    assert cancel(staff, cancellation(staff, card, items[0])).status_code == 200
+    assert owner.collect(products(site)[items[0]])['added']
+    assert correction_state(site, card) == before  # even the collected timestamps match
+    monkeypatch.setattr(time, 'time', lambda: CUTOFF_EPOCH)
+    response = correct(manager, stale)
+    assert response.status_code == 409 and response.json['code'] == 'stamp_changed'
+    assert correction_state(site, card) == before
+
+
+@pytest.mark.parametrize('now, expected_period, next_boundary', [
+    (CUTOFF_EPOCH - 0.25, 'collection', CUTOFF_EPOCH),
+    (CUTOFF_EPOCH, 'correction', REWARD_END),
+    (REWARD_END - 0.25, 'correction', REWARD_END),
+    (REWARD_END, 'closed', None),
+])
+def test_authenticated_session_clock_matches_card_permissions(site, credentials, monkeypatch, now,
+                                                             expected_period, next_boundary):
+    site.event.update(draft=False, starts_at='2026-12-01T00:00:00+09:00',
+                      ends_at=CUTOFF_KST, reward_until='2027-03-01T00:00:00+09:00')
+    monkeypatch.setattr(time, 'time', lambda: now)
+    with closing(connect_db(site.config['DATABASE'])) as db:
+        db.execute("INSERT INTO customers(id, created_at) VALUES ('clock-fixture', 1)")
+    client = site.test_client()
+    assert get(client, 'session').status_code == 401
+    login_reply = post(client, 'login', {'password': credentials[0]})
+    assert login_reply.status_code == 200
+    for body in (login_reply.json, get(client, 'session').json):
+        assert body['server_now'] == now and body['next_transition_at'] == next_boundary
+        assert body['period'] == expected_period
+    card = search((client, login_reply.json['csrf']), {'customer_id': 'clock-fixture'})
+    assert card['permissions']['period'] == expected_period
+
+
+def test_session_clock_has_no_scheduled_transition_for_draft(site, staff):
+    assert site.event['draft']
+    body = get(staff[0], 'session').json
+    assert body['period'] == 'collection' and body['next_transition_at'] is None
+    assert body['server_now'] < body['expires_at']

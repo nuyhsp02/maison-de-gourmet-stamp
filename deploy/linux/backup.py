@@ -1,6 +1,7 @@
 """Create or stage an encrypted backup of one provisioned Linux DEMO."""
 import argparse
 from contextlib import closing
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ import tempfile
 import zipfile
 
 from demo import DATABASE_NAME, load_demo_event, validate_database
+from staff_admin import retire_restored_manager
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -27,13 +29,26 @@ def private_file(path):
 
 
 def summary(database):
-    # Only counts leave the private directory. QR keys and audit actors stay in SQLite.
+    # Take counts and the audit fingerprint from the same snapshot, without exporting its rows.
     with closing(ops.readonly(database)) as db:
+        db.execute("BEGIN")
         tables = ["products", "customers", "customer_profiles", "stamps", "reward_audit", "stamp_cancel_audit"]
         if db.execute("SELECT 1 FROM metadata WHERE key='contact_recipient_v1'").fetchone():
             tables.extend(("customer_contacts", "contact_access_audit"))
-        return {table: db.execute("SELECT COUNT(*) FROM " + table).fetchone()[0]
-                for table in tables}
+        result = {table: db.execute("SELECT COUNT(*) FROM " + table).fetchone()[0] for table in tables}
+        if db.execute("SELECT 1 FROM metadata WHERE key='correction_schema_v1'").fetchone():
+            rows = db.execute("""SELECT id, request_id, customer_id, admin_actor, corrected_at,
+                                 correction_type, reason_code, reason_detail, old_product_id, new_product_id,
+                                 original_collected_at, stamp_count_after, eligible_before, eligible_after
+                                 FROM stamp_correction_audit ORDER BY id""")
+            digest = hashlib.sha256()
+            count = 0
+            for row in rows:
+                digest.update((json.dumps(tuple(row), separators=(",", ":")) + "\n").encode("ascii"))
+                count += 1
+            result["stamp_correction_audit"] = count
+            result["correction_audit_sha256"] = digest.hexdigest()
+        return result
 
 
 def sync_directory(directory):
@@ -107,10 +122,12 @@ def restore(archive, event_path, cert, identity, destination):
         database = destination / DATABASE_NAME
         ops.inspect_database(database, event)
         validate_database(database, event)
-        counts = summary(database)
         # ops.snapshot produces a single transportable DELETE-mode file. Return the
         # validated candidate to the WAL mode used by the service before handoff.
         with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=rw", uri=True)) as db:
+            with db:
+                retire_restored_manager(db)
+            counts = summary(database)
             if db.execute("PRAGMA journal_mode=WAL").fetchone()[0] != "wal":
                 raise ValueError("Could not restore DEMO WAL mode")
         sync_directory(destination)
@@ -144,7 +161,11 @@ def main():
     except (OSError, ValueError, RuntimeError, sqlite3.Error, ops.OpsError,
             zipfile.BadZipFile, subprocess.CalledProcessError):
         parser.exit(1, "DEMO backup operation failed. Check input, credentials, permissions, space and DB/key pairing.\n")
-    print(json.dumps({"status": "ok", "counts": counts}, sort_keys=True))
+    audit_digest = counts.pop("correction_audit_sha256", None)
+    report = {"status": "ok", "counts": counts}
+    if audit_digest is not None:
+        report["correction_audit_sha256"] = audit_digest
+    print(json.dumps(report, sort_keys=True))
 
 
 if __name__ == "__main__":

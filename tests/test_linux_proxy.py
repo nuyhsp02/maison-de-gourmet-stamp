@@ -114,7 +114,7 @@ def test_tls_gate_and_stamp_flow(tmp_path, monkeypatch):
 
     monkeypatch.syspath_prepend(str(ROOT / "app"))
     monkeypatch.syspath_prepend(str(DEPLOY))
-    from demo import prepare
+    from demo import prepare_migration
     from staff_admin import write_staff_password
 
     event = json.loads((ROOT / "app/event.json").read_text())
@@ -123,9 +123,8 @@ def test_tls_gate_and_stamp_flow(tmp_path, monkeypatch):
                  ends_at=(now + timedelta(days=1)).isoformat(), reward_until=(now + timedelta(days=2)).isoformat())
     config = tmp_path / "event.json"
     config.write_text(json.dumps(event))
-    state = tmp_path / "state"
-    state.mkdir(mode=0o700)
-    prepare(state, config, ORIGIN)
+    drill = prepare_migration(tmp_path.resolve() / "drill", config, ORIGIN, purpose="contacts")
+    state = drill.target
     database = state / "collection.sqlite"
     staff_password = secrets.token_urlsafe(24)
     write_staff_password(database, "edge-fixture", staff_password)
@@ -150,7 +149,8 @@ def test_tls_gate_and_stamp_flow(tmp_path, monkeypatch):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
     from contact_fixture import write_config
     policy = write_config(contact, tmp_path / "synthetic.json", load_demo_event(config)["id"], [(name, phone)])
-    migrate_contacts(state, config, ORIGIN, policy)
+    migrate_contacts(state, config, ORIGIN, policy, source_state_dir=drill.source,
+                     expected_event_id=event["id"], expected_schema="base")
     app_cmd.extend(["--synthetic-config", str(policy)])
     gate = {"Authorization": authorization}
     post = {**gate, "Origin": ORIGIN, "Content-Type": "application/json", "X-Stamp-Client": "1"}
