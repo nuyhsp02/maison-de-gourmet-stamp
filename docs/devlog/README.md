@@ -37,5 +37,7 @@
 | [DEV-016 · 공개 절차 Fail-Closed 및 보안 검수 강화](DEV-016-publication-fail-closed.md) | `bbfb27b` 위 미커밋 작업 | 승인 SHA·비공개 대조 자료 확인, 개인키 탐지와 패키징 오류 출력 검증 |
 | [DEV-017 · 직원 취소 마감과 관리자 예외 정정](DEV-017-stamp-corrections.md) | `19b08b4` 위 로컬 변경 | 역할 분리·보상 자격·쓰기 잠금·감사와 복원 |
 | [DEV-018 · 행사 자동 전환 및 관리자 자격 폐기 안정화](DEV-018-operational-guards.md) | `19b08b4` 위 로컬 보완 | 합성 이관 대상 식별, 열린 확인창과 서버 시각, 자격 폐기·복원 검증 |
+| [DEV-019 · PROD 전용 환경과 고객 가입](DEV-019-production-runtime.md) | `2371c00` 위 로컬 변경 | 공개 HTTPS, 가입 승인, 신규 DB·자격 분리와 격리 복원 |
+| [DEV-020 · PROD 개인정보 종료와 파기](DEV-020-prod-privacy-erasure.md) | `2371c00` 위 로컬 변경 | 3월 말 접근 차단, 감사·세션 제거, 독립 원장과 백업 재노출 방지 |
 
 각 로그 끝에는 소유자가 합성 환경에서 직접 재현하고 자기 말로 설명한 뒤 채울 칸이 있습니다. [단계별 검증 근거](../evidence/portfolio-milestones-20261125.md)
