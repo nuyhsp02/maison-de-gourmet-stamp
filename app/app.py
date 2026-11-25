@@ -71,6 +71,7 @@ def load_event(path):
             labels = catalog["products"][product["id"]]
             product["name"] = labels["name"]
             product["short_name"] = labels["short_name"]
+            product["stamp_image"] = labels["stamp_image"]
     return event
 
 
@@ -429,10 +430,11 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
                                   (who["customer_id"],)).fetchall()
             recovery = db().execute("SELECT expires_at FROM recovery WHERE customer_id=? AND expires_at>?",
                                     (who["customer_id"], int(time.time()))).fetchone()
-            registered = db().execute("SELECT 1 FROM customer_profiles WHERE customer_id=?",
-                                      (who["customer_id"],)).fetchone()
+            profile = db().execute("SELECT display_name FROM customer_profiles WHERE customer_id=?",
+                                   (who["customer_id"],)).fetchone()
             result.update(csrf=who["csrf"], customer={
-                "registered": bool(registered),
+                "registered": profile is not None,
+                "display_name": profile["display_name"] if profile is not None else None,
                 "stamps": {s["product_id"]: s["collected_at"] for s in stamps},
                 "count": len(stamps), "status": "redeemed" if customer["redeemed_at"] else
                     ("complete" if len(stamps) == 10 else "collecting"),

@@ -39,7 +39,7 @@ h1 { margin:6px 0; font:normal clamp(30px,8.7vw,38px)/1.12 var(--serif); letter-
 .collection { background:var(--card); border:1px solid var(--mint-line); border-radius:100px 100px 10px 10px/30px 30px 10px 10px; padding:19px 16px 14px; box-shadow:0 9px 28px #324b3610; }
 .collection-topline { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font-size:7px; letter-spacing:1.2px; }
 .board-heading { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:13px 0 10px; }
-.board-heading h2 { font-size:17px; font-weight:600; }
+.board-heading h2 { min-width:0; overflow-wrap:anywhere; font-size:17px; font-weight:600; }
 .count { display:flex; align-items:baseline; gap:4px; flex-shrink:0; line-height:1; color:var(--red); }
 .count strong { font:normal 30px/.95 var(--serif); }
 .count>span { font-size:11px; }
@@ -70,15 +70,17 @@ progress::-moz-progress-bar { background:var(--red); }
 .stamp-seal:before { content:''; position:absolute; top:-5px; left:calc(50% - 6px); width:12px; height:5px; background:var(--mint); border-radius:2px 2px 0 0; }
 .stamp-seal:after { content:''; position:absolute; top:-10px; left:calc(50% - 3px); width:6px; height:6px; border:1px solid var(--mint); border-radius:50%; }
 /* Artwork box stays identical in both states. Future drawings cannot resize the ornament. */
-.stamp-art { display:grid; place-items:center; width:calc(var(--ornament-size) * .52); height:calc(var(--ornament-size) * .52); overflow:hidden; transform:translateY(-2px); opacity:.48; }
+.stamp-art { display:grid; place-items:center; width:calc(var(--ornament-size) * .52); height:calc(var(--ornament-size) * .52); overflow:hidden; transform:translateY(-2px); }
 .stamp-art>svg { display:block; width:100%; height:100%; fill:none; color:inherit; }
+.stamp-item:not(.collected) .stamp-art>svg { opacity:.48; }
+.stamp-art>img { display:block; width:100%; height:100%; object-fit:contain; }
 .stamp-number { position:absolute; bottom:2px; left:0; width:100%; color:inherit; opacity:.9; font:8px/1 var(--serif); letter-spacing:.4px; }
 .stamp-name { display:block; font-size:10px; line-height:1.3; overflow-wrap:anywhere; }
 .stamp-status { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .stamp-item.collected .stamp-seal { background:var(--red); border:1px solid var(--red); color:var(--card); box-shadow:0 2px 0 #8F1016; transform:rotate(-4deg); }
 .stamp-item.collected .stamp-seal:before { background:var(--red); }
 .stamp-item.collected .stamp-seal:after { border-color:var(--red); }
-.stamp-item.collected .stamp-art { opacity:1; }
+.stamp-item.collected .stamp-art>img { filter:brightness(0) invert(1); }
 .stamp-item.collected .stamp-number { opacity:1; font-weight:700; }
 .stamp-impression { position:absolute; inset:3px; border:1px solid #FFFDF7C7; border-radius:50%; pointer-events:none; }
 .stamp-item.collected .stamp-name { color:var(--red-dark); font-weight:600; }

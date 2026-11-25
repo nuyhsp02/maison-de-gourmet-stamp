@@ -47,7 +47,7 @@ def test_confirmation_assets_bypass_legacy_cache_and_are_not_stored(app):
     client = app.test_client()
     page = client.get("/", base_url=BASE)
     assert page.headers["Cache-Control"] == "no-store"
-    for filename, version in (("app.js", "catalog-1"), ("style.css", "catalog-1"),
+    for filename, version in (("app.js", "stamp-ui-1"), ("style.css", "stamp-ui-1"),
                               ("collection-core.js", "confirm-1")):
         path = "/static/" + filename
         assert f'"{path}"' not in page.text

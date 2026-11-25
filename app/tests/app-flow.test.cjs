@@ -579,6 +579,32 @@ test('approved stamps use the short label and the QR dialog identifies the same 
   assert.equal(app.posts('/api/collect').length, 0);
 });
 
+test('approved products keep their own illustrations when reordered', async () => {
+  const catalog = require('../demo-product-catalog.json').products;
+  const products = require('../event.json').products.map(p => ({ ...p, ...catalog[p.id] })).reverse();
+  const app = await openApp({ products });
+  for (const [index, item] of app.element('stamp-tree').children.entries()) {
+    const art = item.children[0].children.find(child => child.className === 'stamp-art');
+    assert.equal(art.attributes['aria-hidden'], 'true');
+    assert.equal(art.children[0].alt, '');
+    assert.equal(art.children[0].src, '/static/stamps/' + catalog[products[index].id].stamp_image);
+  }
+});
+
+test('card heading displays the owner as text and keeps legacy titles for nameless cards', async () => {
+  const name = '<가상 & 고객>' + '김'.repeat(71);
+  for (const [count, status, fallback] of [
+    [0, 'collecting', '나의 겨울 트리'], [10, 'complete', '겨울 트리가 완성됐어요!'], [10, 'redeemed', '선물까지 받은 겨울']
+  ]) {
+    for (const display_name of [name, null]) {
+      const customer = { display_name, stamps: {}, count, status };
+      const app = await openApp({ server: { customer, phase: 'demo', reward_open: true } });
+      assert.equal(app.element('board-title').textContent, display_name ? name + '님의 스탬프' : fallback);
+      assert.equal(app.element('board-title').children.length, 0);
+    }
+  }
+});
+
 test('V1.3 collected items alone receive ink ring and check; all items retain artwork geometry', async () => {
   const products = require('../event.json').products;
   const collectedId = products[0].id;

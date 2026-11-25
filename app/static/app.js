@@ -160,6 +160,13 @@
   function renderStampArt(p) {
     const frame = text('span', '', 'stamp-art');
     frame.setAttribute('aria-hidden', 'true');
+    if (p.stamp_image) {
+      const image = document.createElement('img');
+      image.alt = '';
+      image.src = '/static/stamps/' + encodeURIComponent(p.stamp_image);
+      frame.append(image);
+      return frame;
+    }
     const symbol = STAMP_ART[p.id];
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 48 48');
@@ -210,7 +217,11 @@
     $('collection-panel').hidden = !c;
     $('collection-actions').hidden = !c;
     if (!c) renderIdentity();
-    $('board-title').textContent = c?.status === 'redeemed' ? '선물까지 받은 겨울' : count === 10 ? '겨울 트리가 완성됐어요!' : '나의 겨울 트리';
+    let boardTitle = '나의 겨울 트리';
+    if (c?.display_name) boardTitle = c.display_name + '님의 스탬프';
+    else if (c?.status === 'redeemed') boardTitle = '선물까지 받은 겨울';
+    else if (count === 10) boardTitle = '겨울 트리가 완성됐어요!';
+    $('board-title').textContent = boardTitle;
     $('stamp-count').textContent = count;
     $('progress').value = count;
     $('progress-caption').textContent = count === 10 ? '열 가지 겨울이 모여, 트리가 완성됐어요.' : `선물까지 남은 겨울의 맛, ${10 - count}가지.`;

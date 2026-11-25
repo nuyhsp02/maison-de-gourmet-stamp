@@ -174,9 +174,8 @@ def test_rate_limits_apply_to_normalized_phone_across_registration_and_find(tmp_
 
 
 @pytest.mark.skipif(os.environ.get("MAISON_HTTP_TESTS") != "1", reason="Explicit loopback HTTP test opt-in")
-def test_registration_and_recovery_keep_pii_out_of_http_responses_and_logs(app, caplog):
-    # Capture real HTTP access lines as well as Flask's logger. Only synthetic
-    # JSON request bodies contain profile data.
+def test_registration_and_recovery_only_show_name_in_own_card_and_never_log_pii(app, caplog):
+    # Capture real HTTP access lines as well as Flask's logger.
     caplog.set_level(logging.INFO)
     host = urlsplit(BASE).netloc
     server = make_server("127.0.0.1", 0, app)
@@ -200,6 +199,8 @@ def test_registration_and_recovery_keep_pii_out_of_http_responses_and_logs(app, 
                 payload = json.load(response)
                 if method == "GET":
                     assert payload["customer"]["registered"] is True
+                    assert response.getheader("Cache-Control") == "no-store"
+                    assert payload["customer"].pop("display_name") == NAME
                 if response.getheader("Set-Cookie"):
                     cookie = response.getheader("Set-Cookie").split(";", 1)[0]
                 assert response.getheader("Location") is None
@@ -214,6 +215,22 @@ def test_registration_and_recovery_keep_pii_out_of_http_responses_and_logs(app, 
         assert path + " HTTP" in caplog.text
     for value in (NAME, NUMBER, PHONE, "Mismatched Visitor"):
         assert value not in caplog.text
+
+
+def test_display_name_follows_the_authenticated_card(app):
+    owner = Visitor(app, start=False)
+    assert owner.post("/api/register", REGISTER).status_code == 200
+    assert owner.read()["customer"]["display_name"] == NAME
+
+    other = Visitor(app, start=False)
+    assert other.read()["customer"] is None
+    assert other.post("/api/register", {**REGISTER, "name": "별도 합성", "phone": "01000000082"}).status_code == 200
+    assert other.read()["customer"]["display_name"] == "별도 합성"
+    assert NAME not in json.dumps(other.state)
+
+    recovered = Visitor(app, start=False)
+    assert recovered.post("/api/find", PROFILE).status_code == 200
+    assert recovered.read()["customer"]["display_name"] == NAME
 
 
 def test_additive_migration_preserves_all_legacy_rows_and_is_idempotent(tmp_path):
@@ -243,6 +260,7 @@ def test_additive_migration_preserves_all_legacy_rows_and_is_idempotent(tmp_path
     for _ in range(2):
         app = create_app(database=database, public_url=BASE, dev=True, testing=True)
         old = Visitor(app, cookie="c" * 43).read()["customer"]
+        assert old["display_name"] is None
         assert old["registered"] is False and old["status"] == "redeemed" and old["count"] == 10
         with closing(connect_db(database)) as db:
             for table, expected in old_rows.items():
