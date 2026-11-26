@@ -1,8 +1,9 @@
 """Linux entry point for an independently prepared production event."""
 import argparse
-from contextlib import closing
+from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache, partial
+import hashlib
 import hmac
 import json
 import logging
@@ -17,6 +18,8 @@ import sys
 import tempfile
 import time
 from urllib.parse import urlsplit
+
+from flask import Response, abort
 
 APP_DIR = Path(__file__).resolve().parents[2] / "app"
 sys.path.insert(0, str(APP_DIR))
@@ -97,9 +100,11 @@ def load_prod_event(config):
             raise ProdError("Incomplete production event")
         for product in event["products"]:
             if (set(product) != {"id", "name", "short_name", "category", "description", "qr_product_id", "image"}
-                    or product["qr_product_id"] != product["id"] or product["image"] is not None
-                    or not all(isinstance(product[k], str) and product[k].strip()
-                               for k in ("name", "short_name", "description"))):
+                    or product["qr_product_id"] != product["id"]
+                    or (product["image"] is not None and not re.fullmatch(
+                        rf"/product-photos/[0-9a-f]{{64}}/{re.escape(product['id'])}\.(?:png|jpg|jpeg)", product["image"]))
+                    or not all(isinstance(product[k], str) and product[k].strip() for k in ("name", "short_name"))
+                    or not isinstance(product["description"], str) or product["description"].isspace()):
                 raise ProdError("Each product needs approved text, explicit QR mapping and image selection")
         dates = [datetime.fromisoformat(event[k].replace("Z", "+00:00")) for k in
                  ("starts_at", "ends_at", "reward_until", "access_until")]
@@ -110,6 +115,50 @@ def load_prod_event(config):
         return event
     except (KeyError, TypeError, ValueError, OverflowError):
         raise ProdError("Invalid production event, catalogue or schedule") from None
+
+
+def read_product_photo(directory, digest, filename):
+    """Read bytes from a listed digest directory, without following symlinks or serving linked files."""
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    root = os.open(directory, directory_flags)
+    try:
+        revision = os.open(digest, directory_flags, dir_fd=root)
+        try:
+            fd = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=revision)
+        finally:
+            os.close(revision)
+    finally:
+        os.close(root)
+    with os.fdopen(fd, "rb") as photo:
+        info = os.fstat(photo.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise ProdError("Invalid private catalogue file")
+        data = photo.read()
+    signature = b"\x89PNG\r\n\x1a\n" if filename.endswith(".png") else b"\xff\xd8\xff"
+    if not data.startswith(signature) or hashlib.sha256(data).hexdigest() != digest:
+        raise ProdError("Product photo format or digest mismatch")
+    return data
+
+
+def verify_product_photos(config, event):
+    for product in event["products"]:
+        if product["image"] is not None:
+            _, _, digest, filename = product["image"].split("/")
+            read_product_photo(config.parent / "product-photos", digest, filename)
+
+
+def install_product_photos(app, config, event):
+    listed = {p["image"] for p in event["products"] if p["image"] is not None}
+
+    @app.get("/product-photos/<digest>/<filename>")
+    def product_photo(digest, filename):
+        if f"/product-photos/{digest}/{filename}" not in listed:
+            abort(404)
+        try:
+            data = read_product_photo(config.parent / "product-photos", digest, filename)
+        except (OSError, ProdError):
+            abort(404)
+        return Response(data, mimetype="image/png" if filename.endswith(".png") else "image/jpeg")
 
 
 def create_schema(db):
@@ -202,6 +251,7 @@ def prepare(state_dir, config, origin, recipient):
     require_origin(event, origin)
     if not isinstance(recipient, contact.ProductionEnrollment) or event["id"] != recipient.event_id:
         raise ProdError("Wrong production contact recipient")
+    verify_product_photos(Path(config), event)
     state = private(state_dir, directory=True)
     separate_destination(state)
     directory_fd = os.open(state, os.O_RDONLY | os.O_DIRECTORY)
@@ -338,6 +388,8 @@ def check(state_dir, config, origin, recipient, *, authority=None):
         raise ProdError("Verified local retention policy and custody checks required")
     database = database_path(state_dir)
     validate_database(database, event, recipient, credentials=not status.closed)
+    if not status.closed:
+        verify_product_photos(Path(config), event)
     if status.closed:
         from prod_purge import CUSTOMER_TABLES, has_local_purge
         with closing(application.connect_db(database, mode="ro")) as db:
@@ -358,10 +410,74 @@ def prod_app(state_dir, config, origin, recipient, *, authority=None):
         run_purge(state_dir, event, recipient, access)
     elif not status.ready:
         raise ProdError("Verified local retention policy and custody checks required")
-    return application.create_app(config, database_path(state_dir), origin, production_event=event,
-                                  production_enrollment=recipient, privacy_access=access.access,
-                                  validate_existing=partial(validate_database, recipient=recipient,
-                                                            credentials=not status.closed))
+    app = application.create_app(config, database_path(state_dir), origin, production_event=event,
+                                 production_enrollment=recipient, privacy_access=access.access,
+                                 validate_existing=partial(validate_database, recipient=recipient,
+                                                           credentials=not status.closed))
+    install_product_photos(app, Path(config), event)
+    from prod_stamp_art import install_stamp_art
+    install_stamp_art(app, event)
+    return app
+
+
+@contextmanager
+def catalogue_lock(database, *, serving=False):
+    """Coordinate serving and catalogue changes on the stable per-instance key inode."""
+    import fcntl
+    with private(application.default_profile_key_path(database)).open("rb") as handle:
+        mode = fcntl.LOCK_SH if serving else fcntl.LOCK_EX
+        fcntl.flock(handle.fileno(), mode | fcntl.LOCK_NB)
+        yield
+
+
+def fixed_catalogue_fields(event):
+    return {**event, "products": [
+        {k: v for k, v in p.items() if k not in ("image", "description")} for p in event["products"]
+    ]}
+
+
+def update_catalog(state_dir, config, next_config, origin, recipient, *, authority=None):
+    """While offline, authorize only a transition between two checked catalogue revisions."""
+    import fcntl
+    old = load_prod_event(config)
+    new = load_prod_event(next_config)
+    require_origin(old, origin)
+    if fixed_catalogue_fields(old) != fixed_catalogue_fields(new):
+        raise ProdError("Only product photos and descriptions may change")
+    if Path(config).parent != Path(next_config).parent:
+        raise ProdError("Stage both catalogue revisions beside the private photo directory")
+    verify_product_photos(Path(next_config), new)
+    state = active_root(state_dir) if authority is None else private(state_dir, directory=True)
+    database = database_path(state)
+    check_files(database)
+    key_path = application.default_profile_key_path(database)
+    # Exclude backup/erasure on the state root and a running server holding its per-instance lock.
+    state_fd = os.open(state, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        fcntl.flock(state_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with catalogue_lock(database), closing(application.connect_db(database, mode="rw")) as db, db:
+            db.execute("PRAGMA synchronous=FULL")
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                key = validate_rows(db, old, key_path, recipient)
+                current = old
+            except ProdError:
+                # A retry after commit must validate the entire new inventory. Never repair a bad tag.
+                key = validate_rows(db, new, key_path, recipient)
+                current = new
+            access = PrivacyAccess(state, current, recipient, authority)
+            if access.access() != "open":
+                raise ProdError("Catalogue maintenance requires an open production instance")
+            if current is new:
+                return
+            instance = staff_admin.prod_instance(db)
+            tag = inventory(db, new, key, recipient.key_id, instance)
+            db.execute("UPDATE metadata SET value=? WHERE key='prod_inventory_v1'", (tag,))
+            validate_rows(db, new, key_path, recipient)
+            if access.access() != "open":
+                raise ProdError("Catalogue maintenance crossed the access deadline")
+    finally:
+        os.close(state_fd)
 
 
 def export_qr(state_dir, config, origin, recipient, output):
@@ -424,12 +540,14 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description="Linux PROD event operations")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("prepare", "check", "serve", "qr-export", "purge"):
+    for name in ("prepare", "check", "serve", "qr-export", "purge", "update-catalog"):
         command = commands.add_parser(name)
         command.add_argument("--state-dir", type=Path, required=True)
         command.add_argument("--config", type=Path, required=True)
         command.add_argument("--origin", required=True)
         command.add_argument("--recipient", type=Path, required=True)
+        if name == "update-catalog":
+            command.add_argument("--next-config", type=Path, required=True)
         if name == "purge":
             command.add_argument("--event-id", required=True)
         if name == "serve":
@@ -450,12 +568,15 @@ def main():
             if args.event_id != event["id"]:
                 raise ProdError("Wrong event for erasure")
             run_purge(args.state_dir, event, recipient, PrivacyAccess(args.state_dir, event, recipient))
+        elif args.command == "update-catalog":
+            update_catalog(args.state_dir, args.config, args.next_config, args.origin, recipient)
         elif args.command == "check":
             check(args.state_dir, args.config, args.origin, recipient)
         elif args.command == "qr-export":
             export_qr(args.state_dir, args.config, args.origin, recipient, args.out)
         else:
-            serve_app(prod_app(args.state_dir, args.config, args.origin, recipient), args.port)
+            with catalogue_lock(database_path(args.state_dir), serving=True):
+                serve_app(prod_app(args.state_dir, args.config, args.origin, recipient), args.port)
     except (OSError, ValueError, sqlite3.Error, TypeError):
         parser.exit(1, "PROD operation failed. Check the isolated state, event, recipients and credentials.\n")
     print("PROD operation completed.")

@@ -8,15 +8,15 @@
   <meta name="description" content="{{ event.description if production else 'Maison de Gourmet · 열 가지 맛으로 완성하는 크리스마스트리 스탬프 컬렉션' }}">
   <title>{% if production %}{{ event.title }} · {{ event.cafe_name }}{% else %}Winter Collection · Maison de Gourmet{% endif %}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/style.css?v=stamp-ui-1">
+  <link rel="stylesheet" href="/static/style.css?v={{ 'catalog-photos-1' if production else 'stamp-ui-1' }}">
   {% if production %}<script src="/static/privacy-screen.js" data-remaining-ms="{{ privacy_remaining_ms }}" defer></script>{% endif %}
   <script src="/static/vendor/jsQR.js" defer></script>
   <script src="/static/collection-core.js?v=confirm-1" defer></script>
   {% if not production %}<script src="/static/stamp-art.js" defer></script>{% endif %}
   <script src="/static/phone-input.js?v=contact-1" defer></script>
-  <script src="/static/app.js?v={{ 'prod-privacy-2' if production else 'contact-1' }}" defer></script>
+  <script src="/static/app.js?v={{ 'prod-catalog-1' if production else 'contact-1' }}" defer></script>
 </head>
-<body{% if production %} hidden data-environment="production"{% endif %}>
+<body{% if production %} hidden data-environment="production"{% if prod_stamp_art %} data-stamp-art="approved"{% endif %}{% endif %}>
   <svg class="svg-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <symbol id="cup" viewBox="0 0 48 48"><path d="M10 17h25v12c0 8-5 11-12 11s-13-3-13-11V17Zm25 3h3a6 6 0 0 1 0 12h-4M8 42h30M18 6v5m8-7v7"/></symbol>
@@ -53,7 +53,7 @@
           <h1 id="event-title">Winter Collection</h1>
           <p id="event-description" class="intro-copy">열 가지 겨울의 맛을 모아, 나만의 트리를 완성해 보세요.</p>
           <div class="event-meta"><p id="event-period"></p></div>
-          <div class="paper-note"><svg aria-hidden="true"><use href="#winter-star"/></svg><p>당신의 겨울에, 작은 선물 하나.<br>취향을 모을수록 트리가 빛나요.</p></div>
+          <div class="paper-note"><svg aria-hidden="true"><use href="#winter-star"/></svg><p>{% if production %}{{ event.reward }}{% else %}당신의 겨울에, 작은 선물 하나.<br>취향을 모을수록 트리가 빛나요.{% endif %}</p></div>
           <div class="how-it-works">
             <p class="small-heading">작은 겨울을 모으는 방법</p>
             <ol><li><span>01</span>이름과 전화번호로 스탬프판 등록</li><li><span>02</span>상품 구매 후 매장의 QR로 적립</li><li><span>03</span>10종 완성 후 직원에게 화면 보여주기</li></ol>
@@ -140,10 +140,11 @@
           <ul id="product-list" class="product-list" role="list">
             {% for product in catalog %}
             <li data-product-id="{{ product.id }}">
-              <div class="product-photo" aria-hidden="true"></div>
+              <div class="product-photo" aria-hidden="true">{% if production and product.image %}<img src="{{ product.image }}" alt="" width="72" height="72" loading="lazy" decoding="async">{% endif %}</div>
               <div>
                 <h3 class="product-name">{{ product.name }}</h3>
-                {% if production %}<p class="product-description">{{ product.description }}</p>{% else %}<p class="product-description" aria-hidden="true"></p>{% endif %}
+                {% if not production %}<p class="product-description" aria-hidden="true"></p>
+                {% elif product.description %}<p class="product-description">{{ product.description }}</p>{% endif %}
               </div>
             </li>
             {% endfor %}

@@ -177,11 +177,12 @@
   function renderStampArt(p) {
     const frame = text('span', '', 'stamp-art');
     frame.setAttribute('aria-hidden', 'true');
-    if (production) return frame;
-    if (p.stamp_image) {
+    if (production && document.body.dataset.stampArt !== 'approved') return frame;
+    if (production || p.stamp_image) {
       const image = document.createElement('img');
       image.alt = '';
-      image.src = '/static/stamps/' + encodeURIComponent(p.stamp_image);
+      image.src = production ? '/stamp-illustrations/' + encodeURIComponent(p.id) + '.png' :
+        '/static/stamps/' + encodeURIComponent(p.stamp_image);
       frame.append(image);
       return frame;
     }

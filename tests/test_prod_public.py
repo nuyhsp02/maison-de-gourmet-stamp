@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import build_prod_package
 import contact_mac
 import prod_contact_ssh as operator
+from prod_stamp_art import install_stamp_art
 from staff_admin import read_credentials, staff_key_path, write_staff_password
 
 pytestmark = pytest.mark.usefixtures("before_privacy_cutoff")
@@ -33,6 +34,35 @@ pytestmark = pytest.mark.usefixtures("before_privacy_cutoff")
 DEPLOY = ROOT / "deploy/linux"
 HOST = "gourmetstamp.kr"
 ORIGIN = f"https://{HOST}"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="PROD Linux stamp pack file protections")
+def test_separate_stamp_pack_requires_opt_in_and_ten_matching_originals(tmp_path, monkeypatch):
+    from flask import Flask, render_template_string
+    catalogue = json.loads((ROOT / "app/demo-product-catalog.json").read_text())["products"]
+    event = {"id": "prod-synthetic-fixture", "products": [{"id": pid} for pid in catalogue]}
+    app = Flask(__name__)
+    monkeypatch.delenv("MAISON_PROD_APPROVED_STAMP_DIR", raising=False)
+    install_stamp_art(app, event)
+    assert app.test_client().get("/stamp-illustrations/season-01.png").status_code == 404
+
+    folder = tmp_path / event["id"]
+    folder.mkdir()
+    for pid, p in catalogue.items():
+        shutil.copyfile(ROOT / "app/static/stamps" / p["stamp_image"], folder / f"{pid}.png")
+    monkeypatch.setenv("MAISON_PROD_APPROVED_STAMP_DIR", str(folder))
+    approved = Flask(__name__)
+    install_stamp_art(approved, event)
+    with approved.test_request_context():
+        assert render_template_string("{{ prod_stamp_art }}") == "True"
+    client = approved.test_client()
+    for pid in catalogue:
+        response = client.get(f"/stamp-illustrations/{pid}.png")
+        assert response.mimetype == "image/png" and response.data == (folder / f"{pid}.png").read_bytes()
+    assert client.get("/stamp-illustrations/unlisted.png").status_code == 404
+    (folder / "season-01.png").write_bytes((folder / "select-01.png").read_bytes())
+    with pytest.raises(ValueError, match="fingerprint"):
+        install_stamp_art(Flask(__name__), event)
 
 
 def test_prod_package_has_only_runtime_assets_and_matches_static_routes(tmp_path):

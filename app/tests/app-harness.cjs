@@ -56,7 +56,7 @@ async function openApp(options = {}) {
   let clockMs = Date.now();
   const document = {
     body: { dataset: { autoCollect: options.eligible === false ? 'manual' : 'eligible',
-      environment: options.production ? 'production' : 'synthetic' } },
+      environment: options.production ? 'production' : 'synthetic', stampArt: options.stampArt } },
     visibilityState: options.hidden ? 'hidden' : 'visible', hidden: !!options.hidden,
     prerendering: !!options.prerender,
     hasFocus: () => options.focused !== false,

@@ -623,6 +623,15 @@ test('approved products keep their own illustrations when reordered', async () =
   }
 });
 
+test('PROD uses the optional private illustrations by product ID and keeps photo URLs off the board', async () => {
+  const products = [{ id: 'season-01', name: 'Fixture product', image: '/product-photos/example/season-01.jpg' }];
+  const app = await openApp({ production: true, stampArt: 'approved', products, customer: false });
+  const item = app.element('stamp-tree').children[0];
+  const image = item.children[0].children.find(child => child.className === 'stamp-art').children[0];
+  assert.equal(image.src, '/stamp-illustrations/season-01.png');
+  assert.equal(image.alt, '');
+});
+
 test('card heading displays the owner as text and keeps legacy titles for nameless cards', async () => {
   const name = '<가상 & 고객>' + '김'.repeat(71);
   for (const [count, status, fallback] of [

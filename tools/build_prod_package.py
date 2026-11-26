@@ -20,7 +20,7 @@ MEMBERS = (
     "app/static/admin.css", "app/static/admin.js", "app/static/app.js", "app/static/collection-core.js",
     "app/static/privacy-screen.js", "app/static/favicon.svg", "app/static/phone-input.js", "app/static/style.css",
     "app/static/vendor/jsQR.js", "app/static/vendor/jsQR.LICENSE",
-    "deploy/linux/prod.py", "deploy/linux/prod_backup.py", "deploy/linux/prod_contact_ssh.py",
+    "deploy/linux/prod.py", "deploy/linux/prod_stamp_art.py", "deploy/linux/prod_backup.py", "deploy/linux/prod_contact_ssh.py",
     "deploy/linux/prod_custody.py", "deploy/linux/prod_purge.py", "deploy/linux/prod_backup_custody.py",
     "deploy/linux/prod_local_lifecycle.py", "deploy/linux/prod_restore_approval.py",
     "deploy/linux/prod_backup_source.py", "deploy/linux/maison-prod-backup-source.socket",

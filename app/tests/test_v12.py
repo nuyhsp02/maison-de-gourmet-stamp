@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 import pytest
+from flask import render_template
 
 from app import ROOT, create_app, event_signature, load_event, timestamp
 from conftest import BASE
@@ -104,6 +105,30 @@ def test_unrelated_events_keep_configured_product_names(app):
     client = app.test_client()
     assert client.get('/api/state', base_url=BASE).json["event"]["products"] == event["products"]
     assert 'id="product-catalog"' not in client.get('/', base_url=BASE).text
+
+
+def test_production_catalog_renders_only_configured_photos_with_reserved_space(app):
+    photo = "/product-photos/" + "a" * 64 + "/season-01.png"
+    products = [
+        dict(id="season-01", name="First & second", image=photo, description=""),
+        dict(id="season-02", name="Another item", image=None, description="A <test> description."),
+    ]
+    with app.test_request_context("/"):
+        event = {**app.event, "reward": "Collect all ten for a surprise gift."}
+        page = render_template("index.html", production=True, event=event, catalog=products)
+    intro = page.split('<section class="intro"', 1)[1].split("</section>", 1)[0]
+    assert event["reward"] in intro
+    catalog = page.split('id="product-catalog"', 1)[1].split("</section>", 1)[0]
+    images = re.findall(r"<img\b([^>]*)>", catalog)
+    assert len(images) == 1
+    assert dict(re.findall(r'(\w+)="([^"]*)"', images[0])) == {
+        "src": photo, "alt": "", "width": "72", "height": "72", "loading": "lazy", "decoding": "async",
+    }
+    assert "First &amp; second" in catalog
+    assert 'product-description' not in catalog.split('</li>', 1)[0]
+    assert catalog.count('class="product-description"') == 1
+    assert 'A &lt;test&gt; description.' in catalog
+    assert catalog.count('class="product-photo" aria-hidden="true"></div>') == 1
 
 
 def test_mobile_preparation_preserves_source_products_and_never_creates_database(tmp_path):
