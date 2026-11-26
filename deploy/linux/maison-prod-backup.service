@@ -1,0 +1,21 @@
+[Unit]
+Description=Deliver encrypted PROD backups and verify object expiry
+After=network-online.target time-sync.target
+Wants=network-online.target time-sync.target
+
+[Service]
+Type=oneshot
+User=maison-prod
+Group=maison-prod
+WorkingDirectory=/opt/maison-prod
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=/etc/maison-prod/prod.env
+EnvironmentFile=/etc/maison-prod/backup.env
+ExecStart=/opt/maison-prod/.venv/bin/python /opt/maison-prod/deploy/linux/prod_object_backup.py run
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/maison-prod /var/lib/maison-prod-lifecycle /var/lib/maison-prod-backup

@@ -17,7 +17,7 @@ import zipfile
 
 import pytest
 
-from lifecycle_fixtures import authority_for, before_privacy_cutoff
+from lifecycle_fixtures import authority_for, before_privacy_cutoff, provision_local_controls
 from nacl.public import PrivateKey
 from prod_fixtures import ROOT, make_config, prod
 from test_linux_proxy import listen, request, unused_ports
@@ -46,11 +46,18 @@ def test_prod_package_has_only_runtime_assets_and_matches_static_routes(tmp_path
         assert static == set(prod.application.PROD_STATIC_FILES) | {"vendor/jsQR.LICENSE"}
         assert len(list((ROOT / "app/static/stamps").glob("*.png"))) == 10
         assert not any("demo" in n or n.endswith((".png", ".key", ".sqlite", ".cms")) for n in names)
-        assert "tools/contact_mac.py" not in names
+        required = {"prod_local_lifecycle.py", "prod_custody.py", "prod_restore_approval.py",
+                    "prod_object_backup.py", "prod_s3.py", "maison-prod.service",
+                    "maison-prod-backup.service", "maison-prod-backup.timer",
+                    "maison-prod-purge.service", "maison-prod-purge.timer"}
+        assert {"deploy/linux/" + name for name in required} <= names
+        assert {"tools/contact_mac.py", "deploy/linux/prod_authority.py"}.isdisjoint(names)
         archive.extractall(tmp_path)
     # Every server command must import and parse its parameters from the package alone.
     for script in ("deploy/linux/prod.py", "deploy/linux/prod_backup.py",
-                   "deploy/linux/prod_contact_ssh.py", "app/manage.py"):
+                   "deploy/linux/prod_contact_ssh.py", "deploy/linux/prod_local_lifecycle.py",
+                   "deploy/linux/prod_object_backup.py", "deploy/linux/prod_backup_custody.py",
+                   "app/manage.py"):
         result = subprocess.run([sys.executable, "-B", script, "--help"], cwd=tmp_path, capture_output=True)
         assert result.returncode == 0, (script, result.stderr)
 
@@ -210,10 +217,9 @@ def test_public_tls_without_gate_and_closed_enrollment(instance, monkeypatch):
         return result
     post = {"Origin": ORIGIN, "Content-Type":"application/json", "X-Stamp-Client":"1"}
     with ExitStack() as servers:
-        from authority_tls import tls_authority
-        binding = authority_for(state, config).binding
-        descriptor_path = servers.enter_context(tls_authority(tmp, *binding))
-        monkeypatch.setenv("MAISON_PROD_AUTHORITY", str(descriptor_path))
+        # Launch the real PROD command with local approval and state only. The custodian and
+        # operator Mac have no running process or network descriptor in this integration.
+        provision_local_controls(tmp, state, config, monkeypatch)
         servers.enter_context(listen(serve, ports[2], tmp / "app.log"))
         servers.enter_context(listen(nginx, ports[1], tmp / "nginx.log"))
         code, headers, _ = request(ports[3], "/", headers={"Host":HOST})

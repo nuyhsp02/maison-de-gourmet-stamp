@@ -193,9 +193,9 @@ def expire(plan, ledger, event_id, instance, cutoff, proof_dir):
 
 
 def main():
-    import prod_authority as authority
+    from prod_local_lifecycle import local_ledger
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--ledger', type=Path, required=True, help='Independent custodian ledger')
+    parser.add_argument('--ledger', type=Path, help='Explicit local lifecycle path (must match service configuration)')
     parser.add_argument('--config', type=Path, required=True)
     parser.add_argument('--instance', required=True)
     parser.add_argument('--receipts', type=Path, required=True)
@@ -203,7 +203,10 @@ def main():
     try:
         event = prod.load_prod_event(args.config)
         plan = Roots.from_env(event['id'], args.instance)
-        result = expire(plan, authority.CustodyLedger(args.ledger), event['id'], args.instance,
+        ledger = local_ledger()
+        if args.ledger is not None and args.ledger != ledger.path:
+            raise ValueError("Unbound inventory ledger")
+        result = expire(plan, ledger, event['id'], args.instance,
                         prod.application.timestamp(event['access_until']), args.receipts)
     except (OSError, ValueError, KeyError, RuntimeError):
         parser.exit(1, 'Custody expiry incomplete. Check the ledger, inventory and volume evidence.\n')

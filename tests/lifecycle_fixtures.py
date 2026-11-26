@@ -1,10 +1,15 @@
 """Mutable independent clock/status used only by isolated PROD route tests."""
 from contextlib import closing
+import hashlib
+import json
+import os
 from types import SimpleNamespace
 
 import pytest
 
 from prod_fixtures import prod
+import prod_custody as custody
+import prod_local_lifecycle as local
 
 
 class MutableAuthority:
@@ -47,6 +52,29 @@ def authority_for(state, config):
     return MutableAuthority(event["id"], key, prod.application.timestamp(event["access_until"]))
 
 
+def provision_local_controls(folder, state, config, monkeypatch, policy=None):
+    monkeypatch.setattr(local, "APPROVAL_OWNER_UID", os.geteuid())
+    decision_dir = folder / "approval-records"
+    decision_dir.mkdir(mode=0o700)
+    control = folder / "custody"
+    control.mkdir(mode=0o700)
+    bound = authority_for(state, config).binding
+    if policy is None:
+        policy = {**dict.fromkeys(custody.APPROVALS, "a" * 64), "retention_days": 14}
+    document = decision_dir / "decision.json"
+    document.write_text(json.dumps({"format": "prod-lifecycle-approval-v1", "event_id": bound[0],
+                                    "instance_id": bound[1], "access_until": bound[2], "policy": policy}))
+    digest = hashlib.sha256(document.read_bytes()).hexdigest()
+    monkeypatch.setenv("MAISON_PROD_LIFECYCLE_APPROVAL", str(document))
+    monkeypatch.setenv("MAISON_PROD_LIFECYCLE_APPROVAL_SHA256", digest)
+    ledger = control / "state.sqlite"
+    custody.CustodyLedger.create(ledger, *bound, policy)
+    monkeypatch.setenv("MAISON_PROD_LIFECYCLE", str(ledger))
+    monkeypatch.setenv("MAISON_PROD_LIVE_STATE", str(state))
+    monkeypatch.delenv("MAISON_PROD_AUTHORITY", raising=False)
+    return bound, ledger, document
+
+
 # Freeze only the entry point clock. App routes may vary their own time in existing tests.
 @pytest.fixture
 def before_privacy_cutoff(monkeypatch):
@@ -60,4 +88,6 @@ def fixture_epoch():
 if __name__ == "__main__":
     # Launch the real CLI with a private synthetic clock in the HTTPS subprocess.
     prod.time = SimpleNamespace(time=fixture_epoch)
+    local.synchronized_time = fixture_epoch
+    local.APPROVAL_OWNER_UID = os.geteuid()
     prod.main()

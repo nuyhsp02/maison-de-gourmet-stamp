@@ -42,7 +42,7 @@ def instance(tmp_path, monkeypatch):
     prod.prepare(state, config, ORIGIN, recipient)
     for directory in ("prod-vault", "offline"):
         (root / directory).mkdir(mode=0o700)
-    from prod_authority import APPROVALS, Authority, CUTOFF, CustodyLedger
+    from prod_authority import APPROVALS, CUTOFF, CustodyLedger
     import prod_backup as backup
     import prod_backup_custody as custody
     from types import SimpleNamespace
@@ -52,14 +52,17 @@ def instance(tmp_path, monkeypatch):
         instance_id = db.execute("SELECT value FROM metadata WHERE key='prod_instance_id'").fetchone()[0]
     custodian = root / "synthetic-independent-custodian"
     custodian.mkdir(mode=0o700)
-    clock = [CUTOFF - 8 * 86400]
+    clock = [CUTOFF - 16 * 86400]
     ledger = CustodyLedger.create(custodian / "ledger.sqlite", event["id"], instance_id, CUTOFF,
-                                  {**dict.fromkeys(APPROVALS, "c" * 64), "retention_days": 3},
+                                  {**dict.fromkeys(APPROVALS, "c" * 64), "retention_days": 14},
                                   clock=lambda: clock[0])
-    monkeypatch.setattr(Authority, "from_env", classmethod(lambda cls: ledger))
+    monkeypatch.setattr(backup, "local_ledger", lambda: ledger)
+    monkeypatch.setattr(backup, "recovery_inventory", lambda: ledger)
     test_time = SimpleNamespace(time=lambda: clock[0])
     for module in (backup, prod_purge, prod):
         monkeypatch.setattr(module, "time", test_time)
+    from prod_restore_approval import initialize_workstation_identity
+    ledger.fixture_register_id = initialize_workstation_identity(ledger)
     ledger.fixture_time = clock
     volumes = []
     for label, folder, kinds in (("1", state, ["temporary"]),
@@ -80,7 +83,74 @@ def instance(tmp_path, monkeypatch):
     return root, config, descriptor, state, recipient
 
 
-def test_online_restore_keeps_cards_qr_and_three_audits_retires_both_roles(instance, recipient_cert):
+@pytest.fixture
+def signed_decision(instance, monkeypatch):
+    """A synthetic, offline custodian explicitly authorizes a particular drill."""
+    from nacl.signing import SigningKey
+    import prod_backup as backup
+    import prod_restore_approval as permits
+    from prod_custody import APPROVALS, CUTOFF
+
+    root, config, _, _, _ = instance
+    signer = SigningKey.generate()
+    private = root / "separate-approval-records"
+    private.mkdir(mode=0o700)
+    anchor = private / "approver.der"
+    anchor.write_bytes(permits.ED25519_SPKI_PREFIX + bytes(signer.verify_key))
+    anchor.chmod(0o444)
+    alias = root / "mac-etc-alias"
+    alias.symlink_to(private.parent, target_is_directory=True)
+    monkeypatch.setattr(permits, "APPROVER_KEY", alias/private.name/anchor.name)
+    monkeypatch.setattr(permits, "TRUST_OWNER", os.geteuid())
+    register = backup.local_ledger()
+    event = "prod-synthetic-fixture"
+    identifier = register.status(event, None, CUTOFF).instance_id
+    roots = backup.custody.Roots.from_env(event, identifier)
+
+    def sign(archive, digest, pin, target, *, overrides=None, lifecycle_overrides=None):
+        now = register.fixture_time[0]
+        archive_id = roots.ident(archive, "archive")
+        created = next(item["created_at"] for item in register.objects(event, identifier, CUTOFF)
+                       if item["object_id"] == archive_id)
+        batch = private / secrets.token_hex(12)
+        batch.mkdir(mode=0o700)
+        files = permits.ApprovalFiles(*(batch / name for name in ("decision", "sig", "receipt", "lifecycle", "policy")))
+        receipt = dict(format="prod-object-receipt-v1", event_id=event, instance_id=identifier, created_at=created,
+                       archive_sha256=digest, size=archive.stat().st_size, object_key="copies/" + archive.name,
+                       version_id="synthetic-version")
+        policy = dict(format="prod-lifecycle-approval-v1", event_id=event, instance_id=identifier,
+                      access_until=CUTOFF, policy={**dict.fromkeys(APPROVALS, "c" * 64), "retention_days": 14})
+        files.policy.write_text(json.dumps(policy))
+        disposition = dict(format="prod-erasure-evidence-v1", event_id=event, instance_id=identifier,
+                           cutoff=CUTOFF, observed_at=now, closure=now >= CUTOFF, local_db_purge_verified_at=None,
+                           backups_expired=False, inventory_outstanding=1, inventory_unresolved=0,
+                           approval_sha256=permits.sha(files.policy.read_bytes()))
+        disposition.update(lifecycle_overrides or {})
+        files.receipt.write_text(json.dumps(receipt))
+        files.lifecycle.write_text(json.dumps(disposition))
+        record = dict(format="prod-restore-decision-v1", event_id=event, instance_id=identifier, access_until=CUTOFF,
+                      receipt_sha256=permits.sha(files.receipt.read_bytes()), lifecycle_sha256=permits.sha(files.lifecycle.read_bytes()),
+                      copy_status="available", disposition="closed" if now >= CUTOFF else "open",
+                      register_id=register.fixture_register_id, request_id=secrets.token_hex(16), event_sha256=permits.sha(config.read_bytes()), cert_sha256=pin,
+                      destination_id=roots.ident(target, "restore"), issued_at=now, valid_until=now+1800)
+        record.update(overrides or {})
+        files.decision.write_text(json.dumps(record))
+        files.signature.write_bytes(signer.sign(files.decision.read_bytes()).signature)
+        return files
+    return sign
+
+
+@pytest.fixture
+def approved_restore(signed_decision):
+    import prod_backup as backup
+
+    def restore(archive, digest, config, descriptor, cert, pin, identity, target):
+        decision = signed_decision(archive, digest, pin, target)
+        return backup.restore(archive, digest, config, descriptor, cert, pin, identity, target, approval=decision)
+    return restore
+
+
+def test_online_restore_keeps_cards_qr_and_three_audits_retires_both_roles(instance, recipient_cert, approved_restore):
     import prod
     import prod_backup as backup
     from prod_fixtures import ORIGIN
@@ -126,7 +196,7 @@ def test_online_restore_keeps_cards_qr_and_three_audits_retires_both_roles(insta
         assert set(payload.namelist()) == {prod.DATABASE_NAME, backup.PROFILE_KEY, backup.MANIFEST}
         assert json.loads(payload.read(backup.MANIFEST)) == receipt["evidence"]
     target = root / "offline" / "candidate"
-    assert backup.restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, target) == receipt
+    assert approved_restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, target) == receipt
     staged = prod.database_path(target)
     assert {p.name for p in staged.parent.iterdir()} == {prod.DATABASE_NAME, backup.PROFILE_KEY}
     assert prod.application.default_profile_key_path(staged).read_bytes() == profile
@@ -143,11 +213,11 @@ def test_online_restore_keeps_cards_qr_and_three_audits_retires_both_roles(insta
         verifier.write_bytes(old_verifiers[role])
         verifier.chmod(0o600)
     with pytest.raises(ValueError):
-        prod.prod_app(target, config, ORIGIN, recipient)
+        prod.prod_app(target, config, ORIGIN, recipient, authority=backup.local_ledger())
     fresh = {role: secrets.token_urlsafe(24) for role in ("staff", "admin")}
     for role in fresh:
         write_staff_password(staged, role, fresh[role], role=role, production=True)
-    client = prod.prod_app(target, config, ORIGIN, recipient).test_client()
+    client = prod.prod_app(target, config, ORIGIN, recipient, authority=backup.local_ledger()).test_client()
     for role, route in (("staff", "login"), ("admin", "manager-login")):
         def attempt(password):
             return client.post("/api/admin/" + route, base_url=ORIGIN, json={"password": password},
@@ -156,7 +226,7 @@ def test_online_restore_keeps_cards_qr_and_three_audits_retires_both_roles(insta
         assert attempt(fresh[role]).json["role"] == role
 
 
-def test_reject_existing_paths_wrong_cert_corrupt_archive_and_aliased_directory(instance, recipient_cert):
+def test_reject_existing_paths_wrong_cert_corrupt_archive_and_aliased_directory(instance, recipient_cert, approved_restore):
     import prod_backup as backup
     root, config, descriptor, state, recipient = instance
     cert, pin, identity = recipient_cert
@@ -169,9 +239,9 @@ def test_reject_existing_paths_wrong_cert_corrupt_archive_and_aliased_directory(
     with pytest.raises(ValueError):
         backup.create(state, config, descriptor, cert, pin, archive)
     with pytest.raises((ValueError, FileExistsError)):
-        backup.restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, state)
+        approved_restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, state)
     with pytest.raises(ValueError):
-        backup.restore(archive, "0"*64, config, descriptor, cert, pin, identity, target)
+        approved_restore(archive, "0"*64, config, descriptor, cert, pin, identity, target)
     assert not target.exists()
     alias = root / "alias"
     alias.symlink_to(vault, target_is_directory=True)
@@ -183,11 +253,11 @@ def test_reject_existing_paths_wrong_cert_corrupt_archive_and_aliased_directory(
     damaged = archive.read_bytes()[:-80]
     archive.write_bytes(damaged)
     with pytest.raises(subprocess.CalledProcessError):
-        backup.restore(archive, hashlib.sha256(damaged).hexdigest(), config, descriptor, cert, pin, identity, target)
+        approved_restore(archive, hashlib.sha256(damaged).hexdigest(), config, descriptor, cert, pin, identity, target)
     assert not target.exists()
 
 
-def test_rejects_wrong_contact_key_and_prod_manifest_changes(instance, recipient_cert):
+def test_rejects_wrong_contact_key_and_prod_manifest_changes(instance, recipient_cert, approved_restore):
     import prod_backup as backup
     from nacl.public import PrivateKey
 
@@ -200,7 +270,7 @@ def test_rejects_wrong_contact_key_and_prod_manifest_changes(instance, recipient
     other = root / "wrong-recipient.json"
     other.write_text(json.dumps(wrong))
     with pytest.raises(ValueError):
-        backup.restore(archive, receipt["archive_sha256"], config, other, cert, pin, identity, target)
+        approved_restore(archive, receipt["archive_sha256"], config, other, cert, pin, identity, target)
     assert not target.exists()
     # Even a decryptable, authenticated package must pass its embedded evidence and state checks.
     clear = subprocess.check_output(["openssl", "cms", "-decrypt", "-binary", "-inform", "DER",
@@ -221,7 +291,7 @@ def test_rejects_wrong_contact_key_and_prod_manifest_changes(instance, recipient
                                "-aes-256-gcm", "-recip", cert], input=stream.getvalue(), capture_output=True, check=True).stdout
         archive.write_bytes(data)
         with pytest.raises(ValueError):
-            backup.restore(archive, hashlib.sha256(data).hexdigest(), config, descriptor, cert, pin, identity, target)
+            approved_restore(archive, hashlib.sha256(data).hexdigest(), config, descriptor, cert, pin, identity, target)
         assert not target.exists() and not (root / "fixture").exists()
 
 
@@ -281,14 +351,14 @@ def test_only_ciphertext_is_written_to_the_vault(instance, recipient_cert, monke
     assert list(state.iterdir()) == [state / "instance"]
 
 
-def test_closed_restore_erases_quarantined_records_without_reporting_live_purge(instance, recipient_cert):
+def test_closed_restore_erases_quarantined_records_without_reporting_live_purge(instance, recipient_cert, approved_restore):
     import prod
     import prod_backup as backup
     from prod_authority import CUTOFF
 
     root, config, descriptor, state, _ = instance
     cert, pin, identity = recipient_cert
-    ledger = backup.prod_authority.Authority.from_env()
+    ledger = backup.local_ledger()
     ctx = ("prod-synthetic-fixture", ledger.status("prod-synthetic-fixture", None, CUTOFF).instance_id, CUTOFF)
     with closing(sqlite3.connect(prod.database_path(state))) as db, db:
         db.execute("INSERT INTO customers VALUES ('synthetic-closure-card',1,NULL)")
@@ -299,7 +369,7 @@ def test_closed_restore_erases_quarantined_records_without_reporting_live_purge(
     ledger.fixture_time[0] = CUTOFF
     with pytest.raises(ValueError):
         backup.create(state, config, descriptor, cert, pin, root / "prod-vault" / "late.cms")
-    saved = backup.restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, target)
+    saved = approved_restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, target)
     assert saved == {"archive_sha256": receipt["archive_sha256"], "sanitized": True}
     with closing(sqlite3.connect(prod.database_path(target))) as db:
         assert backup.prod_purge.has_local_purge(db)
@@ -310,16 +380,16 @@ def test_closed_restore_erases_quarantined_records_without_reporting_live_purge(
         assert db.execute('SELECT count(*) FROM customers').fetchone() == (1,)
 
 
-def test_disconnected_receipt_prevents_decryption(instance, recipient_cert, monkeypatch):
+def test_disconnected_receipt_prevents_decryption(instance, recipient_cert, monkeypatch, approved_restore):
     import prod_backup as backup
     root, config, descriptor, state, _ = instance
     cert, pin, identity = recipient_cert
     archive, target = root / "prod-vault" / "old.cms", root / "offline" / "unavailable"
     receipt = backup.create(state, config, descriptor, cert, pin, archive)
-    ledger = backup.prod_authority.Authority.from_env()
+    ledger = backup.local_ledger()
 
     def unavailable(*args):
-        raise ValueError("independent record offline")
+        raise ValueError("offline restore inventory unavailable")
 
     monkeypatch.setattr(ledger, "status", unavailable)
     run = subprocess.run
@@ -330,11 +400,11 @@ def test_disconnected_receipt_prevents_decryption(instance, recipient_cert, monk
 
     monkeypatch.setattr(subprocess, "run", reject_decryption)
     with pytest.raises(ValueError, match="offline"):
-        backup.restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, target)
+        approved_restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, target)
     assert not target.exists()
 
 
-def test_cutoff_during_restore_sanitizes_before_return(instance, recipient_cert, monkeypatch):
+def test_cutoff_during_restore_sanitizes_before_return(instance, recipient_cert, monkeypatch, approved_restore):
     import prod_backup as backup
     import prod
     from prod_authority import CUTOFF
@@ -342,39 +412,40 @@ def test_cutoff_during_restore_sanitizes_before_return(instance, recipient_cert,
     cert, pin, identity = recipient_cert
     with closing(sqlite3.connect(prod.database_path(state))) as db, db:
         db.execute("INSERT INTO customers VALUES ('fixture-before-cutoff',1,NULL)")
+    backup.local_ledger().fixture_time[0] = CUTOFF - 1
     archive, target = root / "prod-vault" / "before.cms", root / "offline" / "cutover"
     receipt = backup.create(state, config, descriptor, cert, pin, archive)
-    ledger = backup.prod_authority.Authority.from_env()
+    ledger = backup.local_ledger()
     original = ledger.check_archive
     times = []
 
     def check(*args):
         times.append(1)
-        if len(times) == 3:
+        if len(times) == 4:
             ledger.fixture_time[0] = CUTOFF
         return original(*args)
     monkeypatch.setattr(ledger, "check_archive", check)
-    result = backup.restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, target)
-    assert result.get("sanitized") and len(times) == 3
+    result = approved_restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, target)
+    assert result.get("sanitized") and len(times) == 4
     with closing(sqlite3.connect(prod.database_path(target))) as db:
         assert db.execute("SELECT count(*) FROM customers").fetchone() == (0,)
 
 
-def test_expiry_requires_all_registered_volumes_and_receipts_and_flags_reappearance(instance, recipient_cert):
+def test_expiry_requires_all_registered_volumes_and_receipts_and_flags_reappearance(instance, recipient_cert, approved_restore):
     import prod_backup as backup
     from prod_authority import CUTOFF
     from prod_backup_custody import Roots, expire, MARKER
     root, config, descriptor, state, _ = instance
     cert, pin, identity = recipient_cert
     archive, candidate = root / "prod-vault" / "known.cms", root / "offline" / "candidate"
-    ledger = backup.prod_authority.Authority.from_env()
+    ledger = backup.local_ledger()
     event = "prod-synthetic-fixture"
     binding = (event, ledger.status(event, None, CUTOFF).instance_id, CUTOFF)
     plan = Roots.from_env(event, binding[1])
     proofs = root / "independent-receipts"
     proofs.mkdir(mode=0o700)
     receipt = backup.create(state, config, descriptor, cert, pin, archive)
-    backup.restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, candidate)
+    approved_restore(archive, receipt["archive_sha256"], config, descriptor, cert, pin, identity, candidate)
     unknown = root / "offline" / "unregistered-snapshot"
     unknown.write_text("synthetic-disposable")
     unknown.chmod(0o600)
@@ -406,13 +477,13 @@ def test_expiry_requires_all_registered_volumes_and_receipts_and_flags_reappeara
     assert not ledger.status(*binding).backups_expired
 
 
-def test_daily_retention_expiry_before_event_cutoff(instance, recipient_cert):
+def test_daily_retention_expiry_before_event_cutoff(instance, recipient_cert, approved_restore):
     import prod_backup as backup
     from prod_authority import CUTOFF
     from prod_backup_custody import Roots, expire
     root, config, descriptor, state, _ = instance
     cert, pin, identity = recipient_cert
-    ledger = backup.prod_authority.Authority.from_env()
+    ledger = backup.local_ledger()
     event = "prod-synthetic-fixture"
     binding = (event, ledger.status(event, None, CUTOFF).instance_id, CUTOFF)
     archive = root / "prod-vault" / "daily.cms"
@@ -420,11 +491,11 @@ def test_daily_retention_expiry_before_event_cutoff(instance, recipient_cert):
     proofs = root / "receipts"
     proofs.mkdir(mode=0o700)
     plan = Roots.from_env(event, binding[1])
-    ledger.fixture_time[0] += 3 * 86400 - 1
+    ledger.fixture_time[0] += 14 * 86400 - 1
     assert expire(plan, ledger, *binding, proofs)["verified_absent"] == 0 and archive.exists()
     ledger.fixture_time[0] += 1
     with pytest.raises(ValueError):
-        backup.restore(archive, record["archive_sha256"], config, descriptor, cert, pin, identity,
+        approved_restore(archive, record["archive_sha256"], config, descriptor, cert, pin, identity,
                        root / "offline" / "expired")
     result = expire(plan, ledger, *binding, proofs)
     assert result == {"verified_absent": 3, "reconciled": []} and not archive.exists()
@@ -449,7 +520,7 @@ def test_posix_absence_cannot_attest_provider_snapshot_on_archive_volume(instanc
 
     root, _, _, _, _ = instance
     event = "prod-synthetic-fixture"
-    ledger = backup.prod_authority.Authority.from_env()
+    ledger = backup.local_ledger()
     binding = (event, ledger.status(event, None, CUTOFF).instance_id, CUTOFF)
     plan = Roots.from_env(event, binding[1])
     archive_volume = plan.volumes[root / "prod-vault"]["volume_id"]
@@ -465,11 +536,12 @@ def test_posix_absence_cannot_attest_provider_snapshot_on_archive_volume(instanc
 
 
 def test_fixed_cutoff_disposes_existing_copy_without_daily_retention_approval(instance):
-    from prod_authority import APPROVALS, CUTOFF, Authority, CustodyLedger
+    from prod_authority import APPROVALS, CUTOFF, CustodyLedger
+    from prod_backup import local_ledger
     from prod_backup_custody import Roots, expire
     root, _, _, _, _ = instance
     event = "prod-synthetic-fixture"
-    binding = (event, Authority.from_env().status(event, None, CUTOFF).instance_id, CUTOFF)
+    binding = (event, local_ledger().status(event, None, CUTOFF).instance_id, CUTOFF)
     policy = {**dict.fromkeys(APPROVALS, "e" * 64), "retention_approval": None, "retention_days": None}
     clock = [CUTOFF - 1]
     directory = root / "distinct-custodian"
@@ -494,3 +566,145 @@ def test_fixed_cutoff_disposes_existing_copy_without_daily_retention_approval(in
     assert result["verified_absent"] == 1 and not copy.exists()
     assert ledger.objects(*binding)[0]["deleted_at"] == CUTOFF
     assert not ledger.status(*binding).backup_ready
+
+
+def test_missing_changed_self_signed_or_stale_approval_stops_before_decryption(
+        instance, recipient_cert, signed_decision, monkeypatch):
+    from nacl.signing import SigningKey
+    import prod_backup as backup
+    from prod_custody import CUTOFF
+
+    root, config, descriptor, state, _ = instance
+    cert, pin, identity = recipient_cert
+    archive, target = root/"prod-vault"/"fixture.cms", root/"offline"/"candidate"
+    record = backup.create(state, config, descriptor, cert, pin, archive)
+    checksum = record["archive_sha256"]
+    args = (archive, checksum, config, descriptor, cert, pin, identity, target)
+    now = backup.local_ledger().fixture_time[0]
+    original = subprocess.run
+
+    def no_decryption(command, **kwargs):
+        assert command[:3] != ["openssl", "cms", "-decrypt"]
+        return original(command, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", no_decryption)
+    cases = [
+        None,
+        signed_decision(archive, checksum, pin, target, overrides={"instance_id": "0"*64}),
+        signed_decision(archive, checksum, pin, target, overrides={"event_sha256": "0"*64}),
+        signed_decision(archive, checksum, pin, target, overrides={"destination_id": "0"*64}),
+        signed_decision(archive, checksum, pin, target, overrides={"issued_at": now-1801, "valid_until": now}),
+        signed_decision(archive, checksum, pin, target, overrides={"copy_status": "retired"}),
+        signed_decision(archive, checksum, pin, target, lifecycle_overrides={"backups_expired": True}),
+    ]
+    altered = signed_decision(archive, checksum, pin, target)
+    altered.receipt.write_bytes(altered.receipt.read_bytes() + b"\n")
+    cases.append(altered)
+    foreign = signed_decision(archive, checksum, pin, target)
+    foreign.signature.write_bytes(SigningKey.generate().sign(foreign.decision.read_bytes()).signature)
+    cases.append(foreign)
+    missing = signed_decision(archive, checksum, pin, target)
+    missing.lifecycle.unlink()
+    cases.append(missing)
+    for decision in cases:
+        with pytest.raises((ValueError, FileNotFoundError)):
+            backup.restore(*args, approval=decision)
+        assert not target.exists()
+
+    backup.local_ledger().fixture_time[0] = CUTOFF
+    for overrides, evidence in [
+        ({"disposition": "purged"}, {}),  # No actual local purge receipt timestamp
+        ({}, {"local_db_purge_verified_at": CUTOFF + 1}),
+        ({"disposition": "open"}, {"closure": False}),
+        ({}, {"observed_at": CUTOFF-1}),
+        ({}, {"inventory_unresolved": 1}),
+    ]:
+        decision = signed_decision(archive, checksum, pin, target, overrides=overrides, lifecycle_overrides=evidence)
+        with pytest.raises(ValueError):
+            backup.restore(*args, approval=decision)
+        assert not target.exists()
+
+
+def test_consumed_approval_cannot_be_replayed_after_failed_decryption(
+        instance, recipient_cert, signed_decision, monkeypatch):
+    import prod_backup as backup
+    root, config, descriptor, state, _ = instance
+    cert, pin, identity = recipient_cert
+    archive, target = root/"prod-vault"/"fixture.cms", root/"offline"/"candidate"
+    checksum = backup.create(state, config, descriptor, cert, pin, archive)["archive_sha256"]
+    args = (archive, checksum, config, descriptor, cert, pin, identity, target)
+    decision = signed_decision(archive, checksum, pin, target)
+    original = subprocess.run
+    decrypts = []
+
+    def interrupt(command, **kwargs):
+        if command[:3] == ["openssl", "cms", "-decrypt"]:
+            decrypts.append(True)
+            raise subprocess.CalledProcessError(1, command)
+        return original(command, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", interrupt)
+    with pytest.raises(subprocess.CalledProcessError):
+        backup.restore(*args, approval=decision)
+    assert not target.exists()
+    with pytest.raises(ValueError, match="already been used"):
+        backup.restore(*args, approval=decision)
+    assert len(decrypts) == 1 and not target.exists()
+
+
+def test_independent_offline_recovery_with_empty_workstation_inventory(
+        instance, recipient_cert, signed_decision, monkeypatch):
+    import prod_backup as backup
+    import prod_restore_approval as permits
+    from prod_custody import CustodyLedger
+
+    root, config, descriptor, state, _ = instance
+    cert, pin, identity = recipient_cert
+    archive, target = root/"prod-vault"/"fixture.cms", root/"offline"/"candidate"
+    checksum = backup.create(state, config, descriptor, cert, pin, archive)["archive_sha256"]
+    original_creation = backup.local_ledger().fixture_time[0]
+    backup.local_ledger().fixture_time[0] += 7*86400
+    decision = signed_decision(archive, checksum, pin, target)
+    policy = json.loads(decision.policy.read_bytes())
+    binding = (policy["event_id"], policy["instance_id"], policy["access_until"])
+    register_dir = root/"isolated-custody"
+    register_dir.mkdir(mode=0o700)
+    inventory_path = register_dir/"inventory.sqlite"
+    with pytest.raises(ValueError):
+        permits.init_register(inventory_path, decision.policy, "0"*64)
+    assert not inventory_path.exists()
+    register_id = permits.init_register(inventory_path, decision.policy, permits.sha(decision.policy.read_bytes()))
+    with pytest.raises(FileExistsError):
+        permits.init_register(inventory_path, decision.policy, permits.sha(decision.policy.read_bytes()))
+    now = backup.local_ledger().fixture_time
+    register = CustodyLedger(inventory_path, clock=lambda: now[0])
+    monkeypatch.setattr(permits, "CustodyLedger", lambda path: CustodyLedger(path, clock=lambda: now[0]))
+    assert not register.objects(*binding)
+    monkeypatch.setenv("MAISON_PROD_RESTORE_REGISTER", str(register.path))
+    monkeypatch.setattr(backup, "recovery_inventory", permits.recovery_inventory)
+    with pytest.raises(ValueError, match="another workstation"):
+        backup.restore(archive, checksum, config, descriptor, cert, pin, identity, target, approval=decision)
+    decision = signed_decision(archive, checksum, pin, target, overrides={"register_id": register_id})
+    def unavailable():
+        raise AssertionError("restore attempted to access the lost service host")
+    monkeypatch.setattr(backup, "local_ledger", unavailable)
+    result = backup.restore(archive, checksum, config, descriptor, cert, pin, identity, target, approval=decision)
+    assert result["archive_sha256"] == checksum
+    copies = register.objects(*binding)
+    assert {row["kind"] for row in copies} == {"archive", "restore"}
+    assert all(row["created_at"] == original_creation for row in copies)
+    roots_path = Path(os.environ["MAISON_PROD_BACKUP_ROOTS"])
+    mac_plan = json.loads(roots_path.read_bytes())
+    mac_plan["volumes"] = [row for row in mac_plan["volumes"] if not row["service"]]
+    plan_file = register_dir/"mac-volumes.json"
+    plan_file.write_text(json.dumps(mac_plan))
+    monkeypatch.setenv("MAISON_PROD_BACKUP_ROOTS", str(plan_file))
+    monkeypatch.setenv("MAISON_PROD_BACKUP_ROOTS_SHA256", permits.sha(plan_file.read_bytes()))
+    proofs = root/"recovery-expiry-receipts"
+    proofs.mkdir(mode=0o700)
+    monkeypatch.setattr("sys.argv", ["prod_restore_approval.py", "expire-register", "--config", str(config),
+                                      "--instance", binding[1], "--receipts", str(proofs)])
+    now[0] = original_creation + 14*86400
+    permits.main()
+    assert not archive.exists() and not target.exists() and len(list(proofs.iterdir())) == 2
+    assert (state/"instance"/"prod.sqlite").is_file()

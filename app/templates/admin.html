@@ -8,10 +8,11 @@
   <link rel="icon" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/admin.css?v=correction-1">
+  {% if config.PROD_PRIVACY %}<script src="/static/privacy-screen.js" data-remaining-ms="{{ privacy_remaining_ms }}" defer></script>{% endif %}
   <script src="/static/phone-input.js?v=contact-1" defer></script>
   <script src="/static/admin.js?v={{ 'prod-privacy-2' if config.PROD_PRIVACY else 'correction-2' }}" defer></script>
 </head>
-<body class="admin">
+<body class="admin"{% if config.PROD_PRIVACY %} hidden{% endif %}>
   <header class="site-header">
     <span class="brand"><span>Maison de Gourmet</span></span>
     <button type="button" id="logout" class="quiet" hidden>로그아웃</button>

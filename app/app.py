@@ -31,7 +31,7 @@ TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 NOTICE_VERSION = contact.NOTICE
 DEMO_CATALOG_EVENT = "demo-gourmetstamp-20261125-rehearsal"
 PROD_STATIC_FILES = frozenset({"admin.css", "admin.js", "app.js", "collection-core.js", "favicon.svg",
-                               "phone-input.js", "style.css", "vendor/jsQR.js"})
+                               "phone-input.js", "privacy-screen.js", "style.css", "vendor/jsQR.js"})
 
 
 def digest(value):
@@ -274,6 +274,12 @@ def create_app(event_path=None, database=None, public_url="http://127.0.0.1:8765
     app = Flask(__name__)
     app.config.update(TESTING=testing, PROD_PRIVACY=production, MAX_CONTENT_LENGTH=4096,
                       DATABASE=str(database or ROOT / "data" / "collection.sqlite"))
+    if production:
+        @app.context_processor
+        def privacy_screen_deadline():
+            # A resumed browser can withhold stale data; the API always makes its own decision.
+            return {"privacy_remaining_ms": max(0, int(1000 * (timestamp(event["access_until"]) - time.time())))}
+
     app.event = event
     app.production = production
     app.public_url = origin

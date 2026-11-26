@@ -37,6 +37,18 @@ def site(tmp_path, monkeypatch):
     return state, config, recipient, event, authority, clock, app, client, cid
 
 
+def test_open_customer_and_staff_screens_use_the_same_server_deadline(site):
+    _, _, _, _, authority, clock, _, client, _ = site
+    for route in ("/", "/admin"):
+        page = client.get(route, base_url=ORIGIN)
+        assert page.status_code == 200
+        assert 'src="/static/privacy-screen.js" data-remaining-ms="1000"' in page.text
+    clock[0] = authority.binding[2]
+    for route in ("/", "/admin"):
+        ended = client.get(route, base_url=ORIGIN)
+        assert "privacy-screen.js" not in ended.text and "<form" not in ended.text
+
+
 def test_all_personal_routes_close_at_exact_kst_with_existing_sessions(site):
     state, config, _, _, authority, clock, app, customer, _ = site
     cutoff = authority.binding[2]

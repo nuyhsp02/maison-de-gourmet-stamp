@@ -95,7 +95,7 @@ def purge(state_dir, event, recipient, authority):
             db.execute("PRAGMA temp_store=MEMORY")
             if db.execute("PRAGMA secure_delete=ON").fetchone()[0] != 1:
                 raise prod.ProdError("SQLite secure deletion is required")
-            # Acquire a writer lock before identity, external authorization, and eligibility checks.
+            # Acquire a writer lock before identity, disposition approval, and eligibility checks.
             # In WAL mode the final TRUNCATE must also drain any pre-cutoff reader's old snapshot.
             with db:
                 db.execute("BEGIN IMMEDIATE")

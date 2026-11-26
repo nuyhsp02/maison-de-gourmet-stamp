@@ -240,21 +240,29 @@ def prepare(state_dir, config, origin, recipient):
     return database_path(state)
 
 
+def active_root(state_dir):
+    state = private(state_dir, directory=True)
+    if state != Path(os.environ.get("MAISON_PROD_LIVE_STATE", "/var/lib/maison-prod")):
+        raise ProdError("Live operations require the configured active service root")
+    return state
+
+
 class PrivacyAccess:
-    """Bind live custody attestations to this exact event and prepared instance."""
+    """Apply the approved schedule, durable local closure and instance-bound policy."""
     def __init__(self, state_dir, event, recipient, authority=None):
-        from prod_authority import Authority
-        state = private(state_dir, directory=True)
+        from prod_local_lifecycle import local_ledger, synchronized_time
+        state = active_root(state_dir) if authority is None else private(state_dir, directory=True)
         database = database_path(state)
         check_files(database)
         with closing(application.connect_db(database, mode="ro")) as db:
-            # Verify the target before writing even a denial latch or notifying the external host.
+            # Verify the target before writing even a denial latch or checking local custody.
             db.execute("BEGIN")
             validate_rows(db, event, application.default_profile_key_path(database), recipient)
             instance = staff_admin.prod_instance(db)
             db_was_erased = db.execute("SELECT 1 FROM metadata WHERE key='prod_privacy_closed_v1'").fetchone()
         self.binding = (event["id"], instance, application.timestamp(event["access_until"]))
-        self.authority = authority if authority is not None else Authority.from_env()
+        self.authority = authority if authority is not None else local_ledger()
+        self.clock = time.time if authority is not None else synchronized_time
         self.latch = state / ".privacy-closed"
         if db_was_erased:
             self.latch_closed()
@@ -276,16 +284,13 @@ class PrivacyAccess:
         locally_closed = self.latch.is_symlink() or self.latch.exists()
         if locally_closed:
             self.verify_latch()
-        if time.time() >= cutoff and not locally_closed:
-            self.latch_closed()
-            locally_closed = True
         status = self.authority.status(*self.binding)
         if status.instance_id != self.binding[1]:
             raise ProdError("Custody identity mismatch")
         if status.closed:
             if not locally_closed:
                 self.latch_closed()
-        elif locally_closed or time.time() >= cutoff:
+        elif locally_closed or self.clock() >= cutoff:
             self.latch_closed()
             self.authority.close(*self.binding)
             status = self.authority.status(*self.binding)
@@ -299,7 +304,7 @@ class PrivacyAccess:
             status = self.status()
             if status.closed:
                 return "closed"
-            if status.ready and time.time() < self.binding[2]:
+            if status.ready and self.clock() < self.binding[2]:
                 return "open"
         except (ValueError, OSError, RuntimeError, sqlite3.Error):
             pass
@@ -309,9 +314,7 @@ class PrivacyAccess:
 def run_purge(state_dir, event, recipient, access):
     import fcntl
     from prod_purge import purge
-    live_root = private(os.environ.get("MAISON_PROD_LIVE_STATE", "/var/lib/maison-prod"), directory=True)
-    if private(state_dir, directory=True) != live_root:
-        raise ProdError("Live erasure receipt requires the configured active service root")
+    live_root = active_root(state_dir)
     if not access.status().closed:
         raise ProdError("Privacy deadline has not been reached")
     fd = os.open(live_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -332,7 +335,7 @@ def check(state_dir, config, origin, recipient, *, authority=None):
     require_origin(event, origin)
     status = PrivacyAccess(state_dir, event, recipient, authority).status()
     if not status.ready and not status.closed:
-        raise ProdError("Independent retention policy and custody checks required")
+        raise ProdError("Verified local retention policy and custody checks required")
     database = database_path(state_dir)
     validate_database(database, event, recipient, credentials=not status.closed)
     if status.closed:
@@ -354,7 +357,7 @@ def prod_app(state_dir, config, origin, recipient, *, authority=None):
         # Booting an older DB, even after a recorded purge, must erase it again first.
         run_purge(state_dir, event, recipient, access)
     elif not status.ready:
-        raise ProdError("Independent retention policy and custody checks required")
+        raise ProdError("Verified local retention policy and custody checks required")
     return application.create_app(config, database_path(state_dir), origin, production_event=event,
                                   production_enrollment=recipient, privacy_access=access.access,
                                   validate_existing=partial(validate_database, recipient=recipient,

@@ -9,13 +9,14 @@
   <title>{% if production %}{{ event.title }} · {{ event.cafe_name }}{% else %}Winter Collection · Maison de Gourmet{% endif %}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/style.css?v=stamp-ui-1">
+  {% if production %}<script src="/static/privacy-screen.js" data-remaining-ms="{{ privacy_remaining_ms }}" defer></script>{% endif %}
   <script src="/static/vendor/jsQR.js" defer></script>
   <script src="/static/collection-core.js?v=confirm-1" defer></script>
   {% if not production %}<script src="/static/stamp-art.js" defer></script>{% endif %}
   <script src="/static/phone-input.js?v=contact-1" defer></script>
   <script src="/static/app.js?v={{ 'prod-privacy-2' if production else 'contact-1' }}" defer></script>
 </head>
-<body{% if production %} data-environment="production"{% endif %}>
+<body{% if production %} hidden data-environment="production"{% endif %}>
   <svg class="svg-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <symbol id="cup" viewBox="0 0 48 48"><path d="M10 17h25v12c0 8-5 11-12 11s-13-3-13-11V17Zm25 3h3a6 6 0 0 1 0 12h-4M8 42h30M18 6v5m8-7v7"/></symbol>

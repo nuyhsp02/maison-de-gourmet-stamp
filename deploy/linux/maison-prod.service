@@ -1,8 +1,8 @@
 [Unit]
 Description=Maison de Gourmet production stamp service
-Wants=network-online.target
-After=network-online.target
-RequiresMountsFor=/var/lib/maison-prod
+Wants=time-sync.target
+After=time-sync.target
+RequiresMountsFor=/var/lib/maison-prod /var/lib/maison-prod-lifecycle
 StartLimitIntervalSec=0
 
 [Service]
@@ -21,7 +21,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/maison-prod
+ReadWritePaths=/var/lib/maison-prod /var/lib/maison-prod-lifecycle
 CapabilityBoundingSet=
 
 [Install]
