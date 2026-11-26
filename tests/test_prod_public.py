@@ -19,7 +19,7 @@ import pytest
 
 from lifecycle_fixtures import authority_for, before_privacy_cutoff
 from nacl.public import PrivateKey
-from prod_fixtures import ORIGIN, ROOT, make_config, prod
+from prod_fixtures import ROOT, make_config, prod
 from test_linux_proxy import listen, request, unused_ports
 
 sys.path.insert(0, str(ROOT / "tools"))
@@ -31,7 +31,8 @@ from staff_admin import read_credentials, staff_key_path, write_staff_password
 pytestmark = pytest.mark.usefixtures("before_privacy_cutoff")
 
 DEPLOY = ROOT / "deploy/linux"
-HOST = "store.example.invalid"
+HOST = "gourmetstamp.kr"
+ORIGIN = f"https://{HOST}"
 
 
 def test_prod_package_has_only_runtime_assets_and_matches_static_routes(tmp_path):
@@ -88,7 +89,7 @@ def instance(tmp_path):
         pytest.skip("Linux private filesystem contract")
     folder = tmp_path.resolve()
     key = PrivateKey.generate()
-    config, descriptor = make_config(folder, key.public_key)
+    config, descriptor = make_config(folder, key.public_key, origin=ORIGIN)
     event = prod.load_prod_event(config)
     recipient = prod.contact.ProductionEnrollment.read(descriptor, event["id"])
     state = folder / "state"
@@ -157,14 +158,18 @@ def prod_proxy(tmp, ports):
     for external, local in [(80, http_port), (443, https_port)]:
         site = re.sub(rf"listen {external}(?=[ ;])", f"listen 127.0.0.1:{local}", site)
     for installed, actual in [("127.0.0.1:8876", f"127.0.0.1:{upstream}"),
-                              ("/etc/maison-prod/tls/fullchain.pem", str(tmp / "tls.crt")),
-                              ("/etc/maison-prod/tls/privkey.pem", str(tmp / "tls.key")),
+                              (f"/etc/letsencrypt/live/{HOST}/fullchain.pem", str(tmp / "tls.crt")),
+                              (f"/etc/letsencrypt/live/{HOST}/privkey.pem", str(tmp / "tls.key")),
                               ("/var/log/nginx/maison-prod-access.log", str(tmp / "access.log"))]:
         site = site.replace(installed, actual)
     # A parent challenge would apply to the public site if it inherited this setting.
     top = f'pid "{tmp}/nginx.pid"; master_process off; daemon off; events {{}} http {{\n'
     (tmp / "parent-users").touch(mode=0o600)
     top += f'access_log off; auth_basic "inherited-test"; auth_basic_user_file "{tmp}/parent-users";\n'
+    # The existing shared server owns both default listeners.
+    top += f'server {{ listen 127.0.0.1:{http_port} default_server; return 404; }}\n'
+    top += (f'server {{ listen 127.0.0.1:{https_port} ssl default_server; '
+            'ssl_reject_handshake on; return 421; }\n')
     # Same parent and upstream. This control server must challenge a guest.
     top += (f'server {{ listen 127.0.0.1:{inherited_port}; '
             f'location / {{ proxy_pass http://127.0.0.1:{upstream}; }} }}\n')
@@ -192,7 +197,7 @@ def test_public_tls_without_gate_and_closed_enrollment(instance, monkeypatch):
         qr = db.execute("SELECT qr_key FROM products LIMIT 1").fetchone()[0]
     cert = tmp / "tls.crt"
     subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
-                    "-subj", f"/CN={HOST}", "-addext", f"subjectAltName=DNS:{HOST}",
+                    "-subj", f"/CN={HOST}", "-addext", f"subjectAltName=DNS:{HOST},DNS:www.{HOST}",
                     "-out", str(cert), "-keyout", str(tmp / "tls.key")], capture_output=True, check=True)
     tls = ssl.create_default_context(cafile=str(cert))
     ports = unused_ports(4)
@@ -215,6 +220,12 @@ def test_public_tls_without_gate_and_closed_enrollment(instance, monkeypatch):
         assert code == 401 and headers["WWW-Authenticate"].startswith("Basic ")
         code, headers, _ = request(ports[0], "/q/" + qr, headers={"Host":HOST})
         assert code == 308 and headers["Location"] == ORIGIN + "/q/" + qr and "WWW-Authenticate" not in headers
+        path = "/q/" + qr + "?source=fixture"
+        for port, context in ((ports[0], None), (ports[1], tls)):
+            code, headers, _ = request(port, path, tls=context, sni="www." + HOST,
+                                       headers={"Host": "www." + HOST})
+            assert code == 308 and headers["Location"] == ORIGIN + path
+            assert "WWW-Authenticate" not in headers
         foreign = ssl.create_default_context(cafile=str(cert))
         foreign.check_hostname = False
         with pytest.raises(ssl.SSLError):

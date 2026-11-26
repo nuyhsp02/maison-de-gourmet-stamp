@@ -13,9 +13,9 @@ import prod
 ORIGIN = "https://store.example.invalid"
 
 
-def make_config(directory, public_key=None):
+def make_config(directory, public_key=None, *, origin=ORIGIN):
     event = dict(environment="production", id="prod-synthetic-fixture", draft=False,
-                 public_origin=ORIGIN, cafe_name="Synthetic café", title="Fixture event",
+                 public_origin=origin, cafe_name="Synthetic café", title="Fixture event",
                  description="Synthetic event description", reward="Synthetic reward",
                  starts_at="2026-12-01T00:00:00+09:00", ends_at="2027-02-01T00:00:00+09:00",
                  reward_until="2027-03-01T00:00:00+09:00", access_until="2027-03-31T00:00:00+09:00",

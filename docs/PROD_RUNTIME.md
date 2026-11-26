@@ -1,6 +1,6 @@
 # PROD 실행·가입·복원 인수 절차
 
-로컬에서 구현한 Linux 운영 절차다. 예제에 실제 도메인·고객·계정·정책 승인값은 없다. 모든 경로와 장치는 DEMO와 별도로 지정한다. 정책이 승인되기 전에도 공개 고객 화면, 카드 찾기, 직원 로그인은 개별적으로 검증할 수 있다. [설계 결정](decisions/ADR-011-prod-environment-and-enrollment.md)
+기존 DEMO Lightsail에 PROD를 추가할 때 사용하는 Linux 운영 절차다. 대표 주소는 `https://gourmetstamp.kr`로 확정했다. Nginx와 공인 IP를 공유하고 서비스 계정·앱·DB·키·백업은 환경별로 분리한다. 고객 화면 공개와 가입 정책 승인은 별도로 인수한다. [설계 결정](decisions/ADR-011-prod-environment-and-enrollment.md)
 
 ## 실행 호스트와 행사
 
@@ -24,9 +24,23 @@
 2. Linux의 전용 서비스 계정으로 빈 상태 디렉터리를 준비한다. `python deploy/linux/prod.py prepare`에 `--state-dir`, `--config`, `--origin`, `--recipient`를 지정한다. 성공하면 검증된 `instance`가 한 번만 배치된다. 다시 실행해 장애를 복구하는 절차는 없다.
 3. `python app/manage.py --database <절대 PROD DB> prod-staff-password --actor <직원 ID>`와 `prod-manager-password --actor <지정 관리자 ID>`에서 각 비밀번호를 터미널로 입력한다. 계정과 비밀번호를 나누며 관리자 한 명이 자기 자격만 사용한다.
 4. 아래 절차로 독립 보관 원장과 일상 백업 정책, 감사 처분 및 복원 검증 근거를 준비한다. 같은 네 인자로 `prod.py check`를 수행한 뒤 `serve`한다. [systemd 유닛](../deploy/linux/maison-prod.service)은 초기화를 실행하지 않고, 검증 후 Waitress 단일 프로세스를 loopback 8876에 바인딩한다. 배포 시 실제 SQLite가 수정된 WAL 런타임인지 선행 검사한다. 의존성은 저장소의 잠금 파일을 사용한다. [의존성 잠금](../requirements-windows.lock)
-5. [PROD Nginx 예제](../deploy/linux/nginx-prod.conf)의 예약 예시 호스트를 승인 도메인으로 교체하고 전용 TLS 인증서를 연결한다. 전용 가상 호스트를 한 번만 설치하고 `nginx -t`로 검사한다. HTTP는 고정된 HTTPS 원본으로 308 이동한다. 고객 사이트에는 입장 계정·비밀번호 파일이 없다. `auth_basic off`는 상위 인증 상속을 취소한다. 고객 URL·헤더·쿠키·요청 본문은 접근 로그에 포함하지 않는다. 앱의 자체 직원·관리자 인증은 유지한다. DEMO 프록시는 기존 입장 인증을 계속 사용한다.
+5. 행사 JSON의 `public_origin`, `prod.env`의 `PUBLIC_URL`, 실행기와 QR 내보내기의 `--origin`에 모두 `https://gourmetstamp.kr`를 사용한다. 아래 순서로 공유 Nginx에 PROD를 연결한다.
 
-예정 인프라 구매, 방화벽 설정, DNS·인증서 연동, systemd 재부팅은 실제 운영 인수에서 확인해야 한다. 공개 루트와 제품 QR은 공용 비밀번호 없이 열리고, 익명 요청의 관리자 API 401은 Basic 챌린지 헤더를 보내지 않아야 한다.
+## 공유 Nginx와 DNS 전환
+
+| 호스트 | 일반 HTTP·HTTPS 요청 | 앱과 인증 |
+|---|---|---|
+| `gourmetstamp.kr` | HTTP는 같은 경로·쿼리의 대표 HTTPS로 308, HTTPS는 고객 서비스 | `127.0.0.1:8876`. PROD에서 상위 Basic Auth 상속을 해제한다. 직원·관리자 기능은 앱이 권한을 검증한다. |
+| `www.gourmetstamp.kr` | HTTP·HTTPS 모두 같은 경로·쿼리의 `https://gourmetstamp.kr`로 308 | 별칭은 리다이렉트만 담당한다. |
+| `demo.gourmetstamp.kr` | 기존 DEMO HTTP·HTTPS 블록과 인증서 유지 | `127.0.0.1:8875`. 기존 입장 Basic Auth 유지. |
+
+2026-11-26 사전 점검 기준으로 루트와 `www`의 A 레코드는 기존 주소를 가리키며, PROD용 DNS 전환과 인증서 발급은 아직 이루어지지 않았다. 다음은 별도 배포 승인 후의 절차다. [PROD Nginx 설정](../deploy/linux/nginx-prod.conf)
+
+1. 기존 80·443의 IPv4·IPv6 기본 서버를 그대로 두고, 두 PROD 이름에 대한 명시적 가상 호스트만 추가한다. DNS 전환 전에 양쪽 호스트를 격리 환경에서 함께 검사한다. `nginx -t` 결과와 이름 충돌 경고, DEMO의 401 Basic 챌린지, PROD의 익명 접근과 직원 API의 앱 인증을 확인한다. 개인정보가 들어갈 수 있는 URI·헤더·쿠키·요청 본문은 접근 로그에 기록하지 않는다.
+2. 최초 발급 때는 PROD용 HTTP 블록을 먼저 준비한다. 두 이름 모두 `/.well-known/acme-challenge/`의 검증 파일을 전용 webroot `/var/lib/maison-prod-acme`에서 제공해야 한다. 인증서가 준비되기 전에는 PROD TLS 블록을 활성화하지 않는다. DNS 전환에 앞서 기존 두 A의 값과 TTL, 설정 사본을 기록하고 서비스 전환 시간을 정한다.
+3. ITEASY에서 기존 루트 A와 `www` A의 대상만 기존 Lightsail 고정 IPv4로 변경한다. `demo` A와 MX·TXT·CAA·NS 등 다른 레코드는 그대로 둔다. 두 이름의 DNS 응답과 HTTP-01 경로를 확인한 뒤 두 이름을 SAN에 포함하는 별도 PROD 인증서를 발급한다. DNS가 새 IP를 반환하기 시작하면 PROD 인증서를 설치할 때까지 해당 고객의 HTTPS 연결은 거부된다. `www`의 308도 HTTPS 연결이 성립한 뒤에 전달되므로 이 구간을 점검 시간에 포함한다.
+4. PROD 인증서의 `/etc/letsencrypt/live/gourmetstamp.kr/fullchain.pem`과 같은 디렉터리의 `privkey.pem`에 연결한 뒤 통합 설정을 검사하고 승인된 시간에 Nginx를 다시 읽힌다. DEMO의 인증서와 갱신 후크는 보존하고 PROD 인증서의 갱신·재적용을 별도로 검증한다. 외부에서 두 PROD 이름의 체인·리다이렉트·가입 잠금과 DEMO의 인증·내부 포트 분리를 확인한다.
+5. 전환에 실패하면 변경 전 기록에 따라 두 A를 복귀시키고 추가한 PROD 가상 호스트만 되돌린다. DNS 캐시에 남아 있는 새 주소의 응답도 확인한다. 공유 서버 재부팅 시험은 DEMO 이용자에게도 영향을 주므로 별도 시간에 승인받는다.
 
 ## 사이트 공개와 가입 승인
 
