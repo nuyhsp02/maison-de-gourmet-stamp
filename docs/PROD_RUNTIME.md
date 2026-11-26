@@ -18,12 +18,12 @@
 
 ## 준비, 확인, 기동
 
-다음은 추후 운영 승인 시의 순서다. 이번 구현에서 이 운영 경로로 명령을 실행한 기록은 없다.
+다음은 추후 운영 승인 시의 순서다. 이전 단계에서 설치한 서버 버전은 `444b828`이며 서비스는 정지·비활성으로 인수했다. 이번 단일 서버 설계 변경은 로컬 후보에만 적용했다.
 
 1. 지정 Mac에서 키를 준비한다. 연락처 도구의 `keygen-prod --key <새 암호화 파일> --public-config <새 공개 파일> --event <PROD 행사 ID>`는 대화형 숨김 입력을 사용한다. 기존 DEMO `keygen`은 합성용이다. `rewrap`으로 별도 보호 사본을 만들고 복원한 키의 일치를 확인한다. PROD 키 생성과 암호화 키 사본 출력은 저장소 밖의 소유자 전용 디렉터리(0700)에서만 허용한다. 서버로는 공개 파일만 전달한다.
 2. Linux의 전용 서비스 계정으로 빈 상태 디렉터리를 준비한다. `python deploy/linux/prod.py prepare`에 `--state-dir`, `--config`, `--origin`, `--recipient`를 지정한다. 성공하면 검증된 `instance`가 한 번만 배치된다. 다시 실행해 장애를 복구하는 절차는 없다.
 3. `python app/manage.py --database <절대 PROD DB> prod-staff-password --actor <직원 ID>`와 `prod-manager-password --actor <지정 관리자 ID>`에서 각 비밀번호를 터미널로 입력한다. 계정과 비밀번호를 나누며 관리자 한 명이 자기 자격만 사용한다.
-4. 아래 절차로 독립 보관 원장과 일상 백업 정책, 감사 처분 및 복원 검증 근거를 준비한다. 같은 네 인자로 `prod.py check`를 수행한 뒤 `serve`한다. [systemd 유닛](../deploy/linux/maison-prod.service)은 초기화를 실행하지 않고, 검증 후 Waitress 단일 프로세스를 loopback 8876에 바인딩한다. 배포 시 실제 SQLite가 수정된 WAL 런타임인지 선행 검사한다. 의존성은 저장소의 잠금 파일을 사용한다. [의존성 잠금](../requirements-windows.lock)
+4. 아래 절차로 로컬 마감 기록과 분리 보관한 승인 자료, 일상 백업 정책·감사 처분·복원 연습 근거를 준비한다. 같은 네 인자로 `prod.py check`를 수행한 뒤 `serve`한다. [systemd 유닛](../deploy/linux/maison-prod.service)은 초기화를 실행하지 않고, 검증 후 Waitress 단일 프로세스를 loopback 8876에 바인딩한다. 배포 시 실제 SQLite가 수정된 WAL 런타임인지 선행 검사한다. 의존성은 저장소의 잠금 파일을 사용한다. [의존성 잠금](../requirements-windows.lock)
 5. 행사 JSON의 `public_origin`, `prod.env`의 `PUBLIC_URL`, 실행기와 QR 내보내기의 `--origin`에 모두 `https://gourmetstamp.kr`를 사용한다. 아래 순서로 공유 Nginx에 PROD를 연결한다.
 
 ## 공유 Nginx와 DNS 전환
@@ -44,22 +44,26 @@
 
 ## 사이트 공개와 가입 승인
 
-원장·보관 정책이 확인되어 서비스가 기동한 뒤에도 기본 유닛에는 가입 정책 경로나 승인 지문이 없다. 접근 종료 전 이 상태에서 가입은 `403 registration_closed`, 기존 카드 찾기는 이름·전화번호가 일치할 때만 세션을 발급한다. 승인본 확보 후 별도 승인된 설정에서만 `serve --policy <승인 문서> --approved-policy-sha256 <별도 기록한 SHA-256>`를 사용한다. 승인된 안내의 형식과 항목은 [ProductionEnrollment](../app/contact_privacy.py)에 정의한다. 지문은 승인 시점에 독립적으로 기록한다. 현재 파일의 지문을 기동 스크립트가 자동으로 계산해 채우면 승인 절차가 사라진다. 승인본 삭제·내용 변경은 새 가입을 닫는다. 정책 교체는 새 승인과 재시작이 필요하다.
+로컬 마감·보관 정책이 확인되어 서비스가 기동한 뒤에도 기본 유닛에는 가입 정책 경로나 승인 지문이 없다. 접근 종료 전 이 상태에서 가입은 `403 registration_closed`, 기존 카드 찾기는 이름·전화번호가 일치할 때만 세션을 발급한다. 승인본 확보 후 별도 승인된 설정에서만 `serve --policy <승인 문서> --approved-policy-sha256 <별도 기록한 SHA-256>`를 사용한다. 승인된 안내의 형식과 항목은 [ProductionEnrollment](../app/contact_privacy.py)에 정의한다. 지문은 승인 시점에 독립적으로 기록한다. 현재 파일의 지문을 기동 스크립트가 자동으로 계산해 채우면 승인 절차가 사라진다. 승인본 삭제·내용 변경은 새 가입을 닫는다. 정책 교체는 새 승인과 재시작이 필요하다.
 
 ## 운영자 조회, QR, 백업
 
 - 직원은 전체 번호로 한 건을 검색하고 마스킹 결과만 본다. 지정 운영자의 별도 SSH 키는 `restrict`와 고정 명령으로만 허용한다. 서버 명령은 `prod_contact_ssh.py --state-dir ... --config ... --recipient ... --actor <고정 운영자 ID>`다. 파일은 서비스 소유 0700/0600이므로 고정 명령만 서비스 계정 권한으로 실행되도록 설정한다. 일반 셸·포트 전달·직원 비밀번호를 통한 실행 권한을 주지 않는다. Mac의 `contact_mac.py show`에서 카드 한 건과 목적을 입력한다. 서버는 감사 저장 성공 뒤 암호문을 내보낸다. 터미널 화면 촬영과 운영자의 목적 외 사용은 기술만으로 막을 수 없다.
 - `prod.py qr-export`는 같은 네 인자와 별도 비공개 디렉터리의 새 `--out`을 요구한다. 기존 DB를 읽어 일반 입장 SVG 1개와 상품 SVG 10개, 상품 ID 대응 manifest를 쓴다. 실제 QR URL·출력물은 Git과 공개 보고서 밖에서 관리한다.
 - [PROD 백업 도구](../deploy/linux/prod_backup.py)의 `create`에 `--state-dir --config --recipient --recipient-cert --cert-sha256 --output`을 제공한다. 복원 담당자가 별도 확인한 **백업 인증서 DER 지문**을 사용한다. 서비스 소유 디렉터리에서만 평문 스냅샷과 프로필 키를 준비하고, 외부 보관소에는 암호문만 게시한다. 회차별 **암호문 SHA-256**과 익명 검증 요약을 독립된 기록에 남긴다. 연락처 수신키와 백업 수신키는 용도가 다르다.
-- 보관 장치의 `restore`에 `--archive --sha256 --config --recipient --recipient-cert --cert-sha256 --identity --destination`을 지정한다. 기존 서비스 디렉터리를 덮어쓰지 않고 새 격리 후보만 생성한다. DB·프로필 키, 행사·상품·QR, 카드·세션·스탬프·보상·정정·연락처 접근 감사 건수와 지문을 대조한다. 직원과 관리자 자격은 복원 후보에서 폐기하므로 두 역할 모두 재발급하고 이전 쿠키가 거부되는지 확인한다. 종료 전 인계에서는 최신 원본과 후보를 인벤토리에 등록하고 분리한다. 종료 후에는 과거 사본을 재파기한 후보만 검증할 수 있다.
+- 보관 장치의 `restore`에 암호문·수신자·키·후보 경로와 `--approval --signature --receipt --lifecycle-evidence --lifecycle-policy`를 지정한다. 서버 밖 승인자의 한시적 서명과 실제 수신·처분 증거가 필요하다. 기존 서비스 디렉터리를 덮어쓰지 않고 새 격리 후보만 생성한다. DB·프로필 키, 행사·상품·QR, 카드·세션·스탬프·보상·정정·연락처 접근 감사 건수와 지문을 대조한다. 직원과 관리자 자격은 복원 후보에서 폐기하므로 두 역할 모두 재발급하고 이전 쿠키가 거부되는지 확인한다. 종료 전 인계에서는 최신 원본과 후보를 인벤토리에 등록하고 분리한다. 종료 후에는 과거 사본을 재파기한 후보만 검증할 수 있다.
 - 승인된 보관처별 암호문·복원 후보·임시 파일·이전 버전과 제공자 스냅샷의 만료·대조 방법은 [백업 만료 인수 절차](PROD_BACKUP_EXPIRY.md)에 있다. 외부 장치 연결·정상 전송, 전체 출처 열거 및 실기기 인수는 운영 책임자가 확인해야 한다.
 
+## 단일 서버의 시각·종료 상태와 3월 마감
 
-## 종료 원장 준비와 3월 마감
+1. 새로 준비한 행사 ID와 DB의 `metadata.prod_instance_id`를 확인한다. 별도의 데이터 경로 `/var/lib/maison-prod-lifecycle`은 서비스 소유 0700으로 두고 DB 스냅샷·복원 대상에서 제외한다. Linux 호스트에서 시간 동기화를 활성화하고 실제 커널 동기 상태와 재부팅 후 동기화까지의 대기 시간을 시험한다. 커널 질의 실패나 동기화 상실 시 서비스가 개인 정보를 제공할 수 없다.
+2. root 소유이며 일반 계정이 쓸 수 없는 디렉터리와 승인 파일을 사용한다. root가 관리하는 환경에 `MAISON_PROD_LIFECYCLE_APPROVAL`과 독립적으로 확인한 `MAISON_PROD_LIFECYCLE_APPROVAL_SHA256`을 지정한다. 승인 JSON은 `format=prod-lifecycle-approval-v1`, `event_id`, `instance_id`, `access_until`(고정 2027-03-31 00:00 KST의 정수 epoch), `policy`를 가진다. 정책에는 `retention_days=14`와 `retention_approval`, `inventory_approval`, `audit_deletion_approval`, `restore_drill`의 근거 SHA-256을 사용한다. 미확정 근거를 시험값으로 채우지 않는다. 초기 훈련용과 실제 승인 시점의 문서·지문은 별도 보관한다.
+3. 빈 전용 경로에서 [로컬 통제 도구](../deploy/linux/prod_local_lifecycle.py)의 `init`을 한 번 실행한다. 기본 `MAISON_PROD_LIFECYCLE` 경로는 `/var/lib/maison-prod-lifecycle/lifecycle.sqlite`이다. 누락한 승인을 채울 때는 운영 책임자가 원본과 지문을 다시 확인하고 `approve`를 실행한다. 기동 실패를 해결하려고 기록을 초기화하지 않는다. 웹과 운영자 SSH 고정 명령은 같은 root 관리 환경에서 이 로컬 기록, 승인 지문과 활성 루트(`MAISON_PROD_LIVE_STATE`, 기본 `/var/lib/maison-prod`)를 사용한다. SSH 호출자의 환경으로 경로를 교체할 수 없게 한다.
+4. 실제 파기 유닛을 준비할 때 `PROD_EVENT_ID`를 설정한다. [지속 타이머](../deploy/linux/maison-prod-purge.timer)와 [서비스](../deploy/linux/maison-prod-purge.service)는 마감에 웹 프로세스를 중지하고 로컬 파기를 수행한다. 재부팅·다음 앱 기동도 마감을 검사한다. 장기 WAL 읽기, 미분류 파일, 미승인 감사 처분 때문에 실패하면 접근을 닫은 채 원인 제거 후 재시도한다. `evidence` 출력의 원본 파기 시각과 전체 사본 완료 여부를 따로 읽고 별도 보관한다.
+5. 전체 호스트 복원 때는 서비스 자동 시작과 고객 인입을 먼저 격리한다. 신뢰할 수 있는 현재 시각, 고정된 코드 버전·컷오프, 인스턴스·키, 외부 수신·복원 승인·파기 증거를 대조한 뒤에만 인계한다. 서버 이미지가 로컬 이력과 시계까지 되돌리면 앱 단독으로 이를 증명할 수 없다. [현재 설계와 이전 보호 차이](decisions/ADR-013-single-server-privacy.md)
 
-1. 활성 데이터와 독립된 보관 호스트·관리 계정·저장장치와 시각 동기화를 준비한다. 원장, 과거 버전 덮어쓰기 방지, 접근 통제와 별도 감사자료 보관은 운영자 책임이다. DB·키 또는 서버 스냅샷 복원 경로에 원장을 포함하지 않는다. 서비스가 준비한 DB의 `metadata.prod_instance_id`와 승인한 행사 ID를 인계한다. 기본 가입은 계속 잠근다.
-2. 독립 호스트에서 [원장 도구](../deploy/linux/prod_authority.py)의 `--ledger <새 보호 파일> create --event <행사> --instance <인스턴스> --policy <승인 참조 JSON>`으로 새 행사 한 건을 등록한다. 부모 디렉터리는 0700이다. 일상 보유 일수와 `retention_approval`, 보관처 목록의 `inventory_approval`, 감사처분 `audit_deletion_approval`, 실제 복원 연습 자료의 `restore_drill`은 별도 근거다. 미확정 값은 null로 두며 승인된 값은 `approve`로 채운다. 최초 복원 연습에는 보유기간·인벤토리 승인이 필요하다. 시험용 일수·해시를 운영에 사용하지 않는다.
-3. 독립 호스트에서 `serve`에 전용 TLS 인증서·키, 허용한 클라이언트 CA, **활성 원본 서비스 인증서 DER SHA-256**을 `--live-peer-sha256`으로 지정한다. 서비스와 복원 장치는 서로 다른 클라이언트 자격을 사용한다. 각각의 보호된 `MAISON_PROD_AUTHORITY` JSON은 `url`, `ca`, `cert`, `key`를 가지며 파일 경로는 절대 경로다. 복원 장치·백업에는 활성 원본의 TLS 개인키를 두지 않는다. 보관 호스트와 연결이 끊기면 가입 정책이 승인되어 있어도 고객 데이터를 제공할 수 없다. 기동 지연·원장 지연·인증서 교체를 운영자가 모니터링한다.
-4. 서비스 유닛의 환경에 `PROD_EVENT_ID`를 지정한다. 활성 상태 루트는 기본 `/var/lib/maison-prod`이고 전용 경로를 쓰는 인수 환경에서만 `MAISON_PROD_LIVE_STATE`를 명시한다. [원본 DB 타이머](../deploy/linux/maison-prod-purge.timer)와 [파기 서비스](../deploy/linux/maison-prod-purge.service)는 마감 때 웹 프로세스를 내려 메모리의 세션 관련 값과 요청 제한 캐시를 해제하고, 같은 대상에 `prod.py purge`를 실행한다. 명령에는 `--state-dir --config --recipient --origin --event-id`가 필요하다. 파기 성공 뒤 웹 서비스를 다시 시작해 공개 종료 안내를 제공한다. 종료 시점에 서비스가 꺼져 있으면 지속 타이머와 다음 기동의 검사가 같은 마감을 적용한다. 파기 명령은 승인이 없거나 진행 중인 백업·오래된 WAL 읽기 연결·미분류 파일이 있으면 완료를 기록하지 않는다. DB 파기 서비스는 실패 시 5분 뒤 재시도한다.
-5. 마감 직후에는 외부 원장의 `closed`, 실제 원본 정리 보고인 `purged`, 모든 출처의 만료 대조인 `backups_expired`를 따로 확인한다. `prod.py check`는 마감 후 원본·전체 사본 증거와 로컬 행·종료 표지를 요구한다. 웹은 원본을 정리하면 외부 보관처 조사가 남아 있어도 공개 종료 안내를 제공할 수 있다. 상태가 유실되면 원장 검증 전 고객 API·복원 후보 기동을 중단한다. 과거 원장 재초기화, 서버 시계 되돌리기 또는 타이머 해제로 업무를 재개하지 않는다.
-6. 장애나 독립 호스트 정지로 물리적 삭제가 늦으면 지연 시간, 마지막 성공 상태, 남은 복사본과 재시도 결과를 기록한다. 원장 연결이 불가능한 상황에서 미삭제 자료가 없다고 간주할 수 없다. 사진·캡처·이미 열려 있는 단말과 운영자가 별도로 내보낸 자료는 별도 관리한다. [합성 검증 기록](devlog/DEV-020-prod-privacy-erasure.md)
+## 기존 Lightsail의 정지 런타임 교체 조건
+
+코드 리뷰와 별도 커밋·배포 승인을 받은 뒤 `python tools/build_prod_package.py --commit <승인한 전체 SHA> --output <저장소 밖의 새 ZIP>`으로 해당 SHA의 패키지를 만든다. 이전 패키지로 이번 변경을 재현할 수 없다. 기존 `444b828` 패키지와 유닛의 지문, DEMO 복구 영수증과 서비스를 먼저 대조한다. PROD가 정지한 상태에서 새 후보 경로의 manifest·의존성·고정 SQLite와 systemd 유닛을 검증한다. PROD 코드와 유닛만 교체하고 DEMO 서비스나 공유 Nginx를 재시작하지 않는다. 현재 설치 단계에서는 PROD DB가 없다. 나중에 DB가 생기면 코드 롤백과 DB 복원을 분리하고 과거 백업으로 운영 상태를 덮어쓰지 않는다.
+
+시각 장애·재부팅·객체 저장소 장애, 외부 수신과 삭제 증거, 수동 복원을 실제 승인 자원에서 다시 인수한다. DNS·인증서 전환, 가입 정책 승인·직원 자격 발급·실제 개방은 각각 별도 단계다. [객체 보관과 알림](PROD_BACKUP_EXPIRY.md)
