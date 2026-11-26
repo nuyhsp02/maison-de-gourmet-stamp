@@ -40,5 +40,6 @@
 | [DEV-019 · PROD 전용 환경과 고객 가입](DEV-019-production-runtime.md) | `2371c00` 위 로컬 변경 | 공개 HTTPS, 가입 승인, 신규 DB·자격 분리와 격리 복원 |
 | [DEV-020 · PROD 개인정보 종료와 파기](DEV-020-prod-privacy-erasure.md) | `2371c00` 위 로컬 변경 | 3월 말 접근 차단, 감사·세션 제거, 독립 원장과 백업 재노출 방지 |
 | [DEV-021 · 단일 서버 개인정보 종료와 무인 백업](DEV-021-single-server-privacy.md) | `444b828` 위 로컬 변경 | 로컬 시간 경계·오프라인 복원·객체 버전 만료 및 장애 검증 |
+| [DEV-022 · 무인 백업 인증과 UID 분리](DEV-022-backup-workload-identity.md) | `13daf86` 위 런타임 변경 | 암호문만 전달하는 소켓, 인증서 폐기와 세션 회수, AWS 인수 범위 |
 
 각 로그 끝에는 소유자가 합성 환경에서 직접 재현하고 자기 말로 설명한 뒤 채울 칸이 있습니다. [단계별 검증 근거](../evidence/portfolio-milestones-20261125.md)

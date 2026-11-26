@@ -240,6 +240,7 @@ AI를 활용한 설계·구현·검수 프로젝트입니다. 확인된 코드/�
 
 - [ADR 색인 · V1.4.0의 여섯 결정과 후속 결정](docs/decisions/README.md)
 - [개발 로그 · 문제와 검증 근거](docs/devlog/README.md)
+- PROD 무인 백업의 [AWS 인증·복원 권한 결정](docs/decisions/ADR-014-backup-workload-identity.md)과 [Linux 격리·인증 검증 기록](docs/devlog/DEV-022-backup-workload-identity.md)
 - [포트폴리오 기록 원칙](docs/PORTFOLIO_RECORDS.md) · [새 로그 템플릿](docs/devlog/TEMPLATE.md)
 
 Windows 노트북과 공개 CI에서 출발해 Ubuntu 비공개 DEMO를 배포한 과정, 이후 로컬 UI·연락처 개선과 PROD 출시 준비 조사를 [단계별 근거표](docs/evidence/portfolio-milestones-20261125.md)에서 추적할 수 있습니다. 2026-11-25 기준 마지막 DEMO 배포 기록은 `ce0b22b`, 개인정보 기능의 당시 로컬 검토 기준은 `aaccb50`입니다. 배포 당시 SHA와 두 차례 정비 후 SHA는 [DEV-015 대응표](docs/devlog/DEV-015-public-history-and-asset-permission.md)에서 대조할 수 있습니다. 후속 사용자 결정과 아직 구현할 항목은 [연락처 보호](docs/decisions/ADR-007-contact-privacy.md)와 [행사·개인정보 종료](docs/decisions/ADR-008-event-lifecycle.md)에 기록했습니다. PROD 공개는 대기 중입니다.

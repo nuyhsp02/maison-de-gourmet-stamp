@@ -6,7 +6,7 @@
 
 | 위치 | 소유자와 용도 | 인수할 증거 |
 |---|---|---|
-| Lightsail | PROD 상태 디렉터리, 로컬 마감 기록과 전송 기록, 임시 작업 공간. 백업 공개 인증서만 배치한다. | 대상 인스턴스·승인 지문, 시간 동기화, 용량, 생성·재시도·만료 및 재부팅 |
+| Lightsail | PROD 상태 디렉터리, 로컬 마감 기록과 전송 기록, 임시 작업 공간. CMS 암호화에는 수신 공개 인증서를 사용한다. AWS 서명용 클라이언트 키는 백업 전송 계정만 읽을 수 있는 별도 경로에 둔다. | 대상 인스턴스·승인 지문, 시간 동기화, 용량, 생성·재시도·만료 및 재부팅 |
 | 외부 데이터 버킷 | 비공개 버전 관리 S3에 행사·인스턴스별 CMS 암호문 저장 | 소유 계정, 버전 ID, SHA-256, 크기, 삭제 후 전 버전 재조회 |
 | 외부 증거 버킷 | 암호문과 분리한 수신·만료 영수증, 승인 원본과 익명 파기 상태. 백업 작업에는 증거 삭제 권한을 부여하지 않는다. | 서버 밖 책임자가 보관한 정책 지문, 객체 버전, 삭제·복원 검토 기록 |
 | 지정 Mac | 암호화된 복호화 키 및 별도 복구 사본, 필요할 때만 복원 후보 검증·운영자 조회 | FileVault, 키 복구 훈련, 승인 서명 검증, 수동 복원 사본 목록과 폐기 영수증 |
@@ -14,10 +14,12 @@
 
 ### 서버 설정
 
-1. 운영자가 서버 밖 승인 원본과 지문을 보관한다. 서비스용 `prod.env`에는 로컬 생명주기 승인과 인스턴스의 연결을 설정한다. 객체 저장소 설정은 타이머 전용 `backup.env`에 둔다. 웹 프로세스에는 AWS 자격을 전달하지 않는다. 두 유닛이 같은 Linux UID로 작업하므로 호스트나 서비스 계정 침해를 두 권한 간의 강한 격리로 간주하지 않는다. 발급 주체·회전, 최소 권한 및 증거 버킷의 삭제 거부를 함께 검토한다. [웹·시계 설정](PROD_RUNTIME.md) · [백업 유닛](../deploy/linux/maison-prod-backup.service)
-2. `MAISON_PROD_BACKUP_JOB`에는 보호된 JSON 경로, `MAISON_PROD_BACKUP_JOB_SHA256`에는 따로 승인한 파일 지문을 설정한다. 필드는 `state_dir`, `event`, `recipient`, `certificate`, `cert_sha256`, `instance_id`, `spool`, `work`, `posix_receipts`, `data_bucket`, `evidence_bucket`, `aws_account`, `region`, `lightsail_instance`다. 백업 수신 공개 인증서의 DER 지문과 연락처 공개키는 별도로 검증한다. 서비스 소유 0700의 서로 다른 디렉터리를 사용한다. 예를 들어 `/var/lib/maison-prod-backup` 아래에 `spool`, `work`, `receipts`를 둘 수 있다. 전송 기록과 영수증을 CMS 사본을 지우는 볼륨에 넣지 않는다.
+1. 웹과 원본 DB는 `maison-prod`, AWS 전송은 `maison-backup`으로 실행한다. 두 계정 모두 로그인 셸·sudo가 필요 없다. DEMO와 그룹을 공유하지 않는다. 데이터 소유자의 원본 작업은 systemd가 여는 전용 소켓에서 요청을 받아 일관된 SQLite 스냅샷을 CMS로 암호화하고 로컬 보관 기록을 갱신한다. 전송 계정에는 읽기 전용 암호문 파일 디스크립터만 넘긴다. 원본 작업에는 외부 네트워크와 AWS 자격이 필요 없다. 서버 root는 양쪽 권한을 가진다. [원본 작업](../deploy/linux/prod_backup_source.py) · [소켓](../deploy/linux/maison-prod-backup-source.socket) · [전송 유닛](../deploy/linux/maison-prod-backup.service)
+2. `/etc/maison-backup-job/job.env`는 root:root 0600으로 두고 systemd가 원본·전송 유닛에 읽어 준다. 두 유닛에 같은 `MAISON_PROD_BACKUP_JOB`, `MAISON_PROD_BACKUP_JOB_SHA256`, `MAISON_PROD_LIFECYCLE_APPROVAL_SHA256`을 제공한다. `job.json`과 그 부모는 root 소유로 두며 두 계정에 설정 읽기만 허용한다. JSON 필드는 `state_dir`, `event`, `event_id`, `recipient`, `certificate`, `cert_sha256`, `instance_id`, `spool`, `work`, `posix_receipts`, `data_bucket`, `evidence_bucket`, `aws_account`, `region`, `lightsail_instance`다. 승인한 행사 ID·인스턴스 ID 및 설정 원본 SHA-256을 대조한다. 기존 `prod.env`의 원본 보관·생명주기 설정은 원본 유닛에만 추가한다. `spool`·`posix_receipts`는 `maison-prod` 소유의 분리된 0700 디렉터리, `work`는 `/var/lib/maison-backup/work`에 `maison-backup` 소유 0700으로 둔다. 전송 기록은 암호문 파기 볼륨 밖에 둔다. 가동 이력이 있다면 기존 전송 SQLite와 보관 원장을 짝지어 검증하고 수신 증거를 대조한 뒤 이관한다. 기존 기록 소실 시 빈 전송 기록으로 가동하지 않는다.
 3. `MAISON_PROD_BACKUP_ROOTS`와 `MAISON_PROD_BACKUP_ROOTS_SHA256`은 호스트별 승인 목록과 독립 보관한 지문이다. JSON은 `format: prod-backup-roots-v1`, `event_id`, `instance_id`, `volumes`, `manual_kinds`를 갖는다. 볼륨마다 절대 `path`, 중복 없는 32자리 소문자 16진 `volume_id`, `kinds`, 불리언 `service`를 둔다. 서비스 볼륨은 `temporary`만, 암호문 스풀은 `archive`와 `temporary`, Mac 복원 볼륨은 `restore`와 `quarantine`을 취급한다. 서비스 볼륨은 실제 DB 인스턴스와 대조한다. 다른 볼륨은 소유자 전용 `.maison-custody-volume`에서 ID를 확인한다. 서버 계획에는 상시 장착한 볼륨만 넣는다. 서버 밖의 `external`, `snapshot` 및 장치에서 따로 확인할 종류는 `manual_kinds`로 지정한다. 누락·오인 마운트, 미등록 파일, 삭제한 사본의 재출현은 수동 조사 대상이다. [보관처 검사](../deploy/linux/prod_backup_custody.py)
-4. 지원되는 AWS CLI v2와 두 개의 서로 다른 비공개 버전 관리 버킷, 객체 소유 계정 확인을 준비한다. 작업 자격에는 해당 접두사의 버전 열거·검증·조건부 쓰기, **데이터 버전** 삭제, 진행 중인 멀티파트 목록 확인, 지정 리전의 Lightsail 인스턴스·스냅샷 읽기, 해당 CloudWatch 지표 쓰기만 허용한다. 증거 변경·삭제 권한과 공유 서버 스냅샷 삭제 권한을 분리한다. 다른 리전·계정·AWS Backup 등 별도 보관처의 조사·삭제는 지정 책임자의 몫이다. [클라우드 어댑터](../deploy/linux/prod_s3.py)
+4. 전송 계정의 AWS CLI v2는 별도 프로필의 `credential_process`로 IAM Roles Anywhere 서명 도우미를 실행한다. 자체 CA 개인키와 CMS 복호화 키는 서버 밖에서 용도별로 관리한다. 클라이언트 키와 프로필은 `/etc/maison-backup`에 root:maison-backup 0440으로 보관하고 부모는 0750으로 제한한다. 도우미 출력을 표시하거나 임시 자격을 저장하지 않는다. [AWS 서명 도우미](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/credential-helper.html)
+
+   지원되는 AWS CLI v2와 두 개의 서로 다른 비공개 버전 관리 버킷, 객체 소유 계정 확인을 준비한다. 작업 자격에는 해당 접두사의 버전 열거·검증·조건부 쓰기, **데이터 버전** 삭제, 진행 중인 멀티파트 목록 확인, 지정 리전의 Lightsail 인스턴스·스냅샷 읽기, 해당 CloudWatch 지표 쓰기만 허용한다. 증거 변경·삭제 권한과 공유 서버 스냅샷 삭제 권한을 분리한다. 다른 리전·계정·AWS Backup 등 별도 보관처의 조사·삭제는 지정 책임자의 몫이다. [클라우드 어댑터](../deploy/linux/prod_s3.py)
 5. 공급자 보조 수명 주기 정책은 현재·과거 버전과 삭제 마커를 포함하도록 별도로 검토한다. 일자 단위 지연이 가능한 공급자 정책만으로 생성 시각 기준 14일이나 행사 정각 삭제를 확인할 수 없다. 애플리케이션의 복원 차단, 타이머의 버전별 삭제와 재열거, 행사 후 별도 전수 확인을 각각 인수한다.
 
 ### 정기 실행과 경보
