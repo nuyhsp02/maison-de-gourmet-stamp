@@ -51,7 +51,7 @@ python tools/contact_mac.py show --ssh-config "$MAC_SSH_CONFIG" --host "$OPERATO
 python app/manage.py --database "$SYNTH_DB" admin-password --actor "$STAFF_ID"
 ~~~
 
-첫 줄은 **서버 강제 명령**의 형태다. Mac에서는 전용 SSH 신원과 사전에 대조한 known_hosts를 설정한다. 담당자와 복구 사본 보관자 접근을 분리한다. 허용 용도는 상품 준비·수령(pickup), 보상(reward), 고객 문의(inquiry)다. 대상 고객 ID로 한 건씩 열어 본다. 새 직원 비밀번호는 터미널 숨김 입력으로 두 번 받아 15~256자, 흔한 표현·반복·연속 패턴을 검사한다. 기존 검증 파일의 원자적 교체로 이전 직원 세션이 무효화된다.
+첫 줄은 **서버 강제 명령**의 형태다. Mac에서는 전용 SSH 신원과 사전에 대조한 known_hosts를 설정한다. 담당자와 복구 사본 보관자 접근을 분리한다. 허용 용도는 상품 준비·수령(pickup), 보상(reward), 고객 문의(inquiry)다. 대상 고객 ID로 한 건씩 열어 본다. 위 일반 발급 명령의 비밀번호 범위는 15~256자다. PROD 전용 직원·관리자 발급 명령은 4~256자를 허용한다. 두 경우 모두 터미널에서 숨김 입력을 두 번 받고 흔한 표현·반복·연속 패턴을 검사한다. 기존 검증 파일의 원자적 교체로 이전 직원 세션이 무효화된다.
 
 운영 조회 결과는 unavailable(미보관), released(암호문 전달 승인), displayed(Mac 표시 통지 수신), decrypt_failed(복호화 실패 통지 수신)로 구분한다. 통신이 끊겨 released로 남은 기록만으로 실제 열람을 단정할 수 없다. 감사 INSERT 또는 커밋 실패 시 암호문을 송신하지 않는다. 조회용 Mac은 화면 녹화, 터미널 세션 기록, 화면 공유를 끈 대화형 콘솔을 사용한다. 화면 캡처나 단말 자체의 기록은 프로그램이 통제할 수 없다.
 

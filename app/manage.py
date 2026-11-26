@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from app import ROOT, connect_db, create_app, init_db, load_event
-from staff_admin import is_prod_database, revoke_manager, write_staff_password
+from staff_admin import is_prod_database, minimum_password_length, revoke_manager, write_staff_password
 
 
 def main():
@@ -53,6 +53,8 @@ def main():
     if args.command in ("admin-password", "manager-password", "prod-staff-password", "prod-manager-password"):
         role = "admin" if args.command.endswith("manager-password") else "staff"
         title = "관리자" if role == "admin" else "직원"
+        production = args.command.startswith("prod-")
+        minimum = minimum_password_length(production=production)
         # getpass would fall back to echoed stdin on some redirected terminals.
         import sys
         if not sys.stdin.isatty():
@@ -60,7 +62,7 @@ def main():
         with warnings.catch_warnings():
             warnings.simplefilter("error", getpass.GetPassWarning)
             try:
-                password = getpass.getpass(f"새 {title} 비밀번호 (15~256자): ")
+                password = getpass.getpass(f"새 {title} 비밀번호 ({minimum}~256자): ")
                 repeated = getpass.getpass("비밀번호 재입력: ")
             except (EOFError, getpass.GetPassWarning):
                 parser.error("숨김 입력을 사용할 수 없습니다.")
@@ -68,7 +70,7 @@ def main():
             parser.error("두 비밀번호가 일치하지 않습니다.")
         try:
             write_staff_password(args.database, args.actor, password, role=role,
-                                 production=args.command.startswith("prod-"))
+                                 production=production)
         except ValueError as exc:
             parser.error(str(exc))
         except OSError:

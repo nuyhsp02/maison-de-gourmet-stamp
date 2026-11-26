@@ -43,7 +43,7 @@
 
 1. 지정 Mac에서 키를 준비한다. 연락처 도구의 `keygen-prod --key <새 암호화 파일> --public-config <새 공개 파일> --event <PROD 행사 ID>`는 대화형 숨김 입력을 사용한다. 기존 DEMO `keygen`은 합성용이다. 기존 키가 있으면 재사용한다. 2026-11-26 사용자는 암호화 연락처 개인키를 지정 FileVault Mac 한 대에만 보관한 상태에서 고객이 없는 빈 DB를 초기화하도록 승인했다. 별도 외장·클라우드 사본은 만들지 않는다. Mac 고장·분실이나 키 암호 분실 시 저장된 연락처의 전체 번호를 복호화할 수 없다. 실제 고객 가입 개방 전 이 위험의 수용 여부를 별도로 확인하고 기록한다. 이 결정은 백업 복호화 키·CA 키의 복구 정책과 독립적이다. 키는 저장소 밖의 소유자 전용 디렉터리(0700)에 보관하며 서버에는 연락처 공개 설정만 전달한다.
 2. Linux의 전용 서비스 계정으로 빈 상태 디렉터리를 준비한다. `python deploy/linux/prod.py prepare`에 `--state-dir`, `--config`, `--origin`, `--recipient`를 지정한다. 성공하면 검증된 `instance`가 한 번만 배치된다. 다시 실행해 장애를 복구하는 절차는 없다.
-3. `python app/manage.py --database <절대 PROD DB> prod-staff-password --actor <직원 ID>`와 `prod-manager-password --actor <지정 관리자 ID>`에서 각 비밀번호를 터미널로 입력한다. 계정과 비밀번호를 나누며 관리자 한 명이 자기 자격만 사용한다.
+3. `python app/manage.py --database <절대 PROD DB> prod-staff-password --actor <직원 ID>`와 `prod-manager-password --actor <지정 관리자 ID>`에서 각 비밀번호를 터미널로 입력한다. 두 역할 모두 표시 가능한 4~256자를 입력할 수 있으며 기존의 흔한 암호·반복·연속 패턴 검사를 적용한다. 짧은 암호는 추측하기 쉬우므로 긴 암호도 사용할 수 있다. 직원과 관리자는 서로 다른 비밀번호를 쓰고, 지정 관리자 한 명만 관리자 자격을 사용한다.
 4. 아래 절차로 로컬 마감 기록과 분리 보관한 승인 자료, 일상 백업 정책·감사 처분·복원 연습 근거를 준비한다. 같은 네 인자로 `prod.py check`를 수행한 뒤 `serve`한다. [systemd 유닛](../deploy/linux/maison-prod.service)은 초기화를 실행하지 않고, 검증 후 Waitress 단일 프로세스를 loopback 8876에 바인딩한다. 배포 시 실제 SQLite가 수정된 WAL 런타임인지 선행 검사한다. 의존성은 저장소의 잠금 파일을 사용한다. [의존성 잠금](../requirements-windows.lock)
 5. 행사 JSON의 `public_origin`, `prod.env`의 `PUBLIC_URL`, 실행기와 QR 내보내기의 `--origin`에 모두 `https://gourmetstamp.kr`를 사용한다. 아래 순서로 공유 Nginx에 PROD를 연결한다.
 

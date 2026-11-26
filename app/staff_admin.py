@@ -137,12 +137,17 @@ def revoke_manager(database):
         manager_key_path(database).unlink(missing_ok=True)
 
 
+def minimum_password_length(*, production):
+    return 4 if production else 15
+
+
 def write_staff_password(database, actor, password, *, role="staff", production=False):
     """Provision a staff verifier or rotate the manager's file and DB binding."""
     if not ACTOR.fullmatch(actor):
         raise ValueError("계정 ID는 영문·숫자·마침표·밑줄·하이픈 1~64자로 지정하세요.")
-    if not 15 <= len(password) <= 256 or not password.isprintable():
-        raise ValueError("비밀번호는 표시 가능한 문자 15~256자로 지정하세요.")
+    minimum = minimum_password_length(production=production)
+    if not minimum <= len(password) <= 256 or not password.isprintable():
+        raise ValueError(f"비밀번호는 표시 가능한 문자 {minimum}~256자로 지정하세요.")
     normalized = re.sub(r"[^\w]", "", password.casefold()).replace("_", "")
     stems = ("password", "qwerty", "letmein", "administrator", "maisondegourmet",
              "gourmetstamp", "iloveyou", "비밀번호", re.sub(r"\W", "", actor.casefold()))

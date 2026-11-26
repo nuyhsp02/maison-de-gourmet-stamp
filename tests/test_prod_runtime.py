@@ -159,6 +159,43 @@ def test_serve_check_export_require_existing_storage_and_credentials(inputs):
     assert not out.exists()
 
 
+@pytest.mark.parametrize("role,actor,login,peer_role,peer_actor", [
+    ("staff", "store-staff", "login", "admin", "store-manager"),
+    ("admin", "store-manager", "manager-login", "staff", "store-staff"),
+])
+def test_prod_four_character_password_and_rejected_replacements(
+        inputs, role, actor, login, peer_role, peer_actor):
+    state, config, recipient = inputs
+    database = prod.prepare(state, config, ORIGIN, recipient)
+    peer_password = secrets.token_urlsafe(24)
+    prod.staff_admin.write_staff_password(database, peer_actor, peer_password, role=peer_role, production=True)
+
+    # The disjoint digit groups always yield four distinct, non-sequential digits.
+    password = "".join(secrets.choice(group) for group in ("02", "57", "13", "68"))
+    def provision(candidate):
+        prod.staff_admin.write_staff_password(database, actor, candidate, role=role, production=True)
+
+    provision(password)
+    app = prod.prod_app(state, config, ORIGIN, recipient, authority=authority_for(state, config))
+    client = app.test_client()
+    response = client.post("/api/admin/" + login, base_url=ORIGIN, json={"password": password},
+                           headers={"Origin": ORIGIN, "X-Stamp-Client": "1"})
+    assert response.status_code == 200
+    assert (response.json["actor"], response.json["role"]) == (actor, role)
+
+    # Check why three digits fail: the unchanged diversity rule would also reject them.
+    with pytest.raises(ValueError, match="4~256"):
+        provision(password[:3])
+    for rejected in ("1234", password[0] * 4, peer_password):
+        with pytest.raises(ValueError):
+            provision(rejected)
+    # A rejected rotation must preserve the original verifier, DB binding and session.
+    session = client.get("/api/admin/session", base_url=ORIGIN)
+    assert session.status_code == 200
+    assert (session.json["actor"], session.json["role"]) == (actor, role)
+    prod.validate_database(database, prod.load_prod_event(config), recipient, credentials=True)
+
+
 @pytest.mark.parametrize("fault", ["wrong-recipient", "profile", "event", "qr", "schema", "journal",
                                    "marker", "chmod", "hardlink", "symlink-directory"])
 def test_storage_checks_detect_independent_failures(inputs, fault):
