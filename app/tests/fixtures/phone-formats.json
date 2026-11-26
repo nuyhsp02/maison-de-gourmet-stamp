@@ -1,0 +1,99 @@
+{
+  "accepted": [
+    [
+      "010DDDDDDDD",
+      "0108"
+    ],
+    [
+      " 010-DDDD-DDDD ",
+      "0108"
+    ],
+    [
+      "010 DDDD DDDD",
+      "0108"
+    ],
+    [
+      "010 - DDDD - DDDD",
+      "0108"
+    ],
+    [
+      "(010) DDDD-DDDD",
+      "0108"
+    ],
+    [
+      "+82 10-DDDD-DDDD",
+      "0108"
+    ],
+    [
+      "+82-10DDDDDDDD",
+      "0108"
+    ],
+    [
+      "+82 (11) DDD-DDDD",
+      "0117"
+    ],
+    [
+      "011-DDD-DDDD",
+      "0117"
+    ],
+    [
+      "011-DDDD-DDDD",
+      "0118"
+    ],
+    [
+      "016-DDD-DDDD",
+      "0167"
+    ],
+    [
+      "016-DDDD-DDDD",
+      "0168"
+    ],
+    [
+      "017-DDD-DDDD",
+      "0177"
+    ],
+    [
+      "017-DDDD-DDDD",
+      "0178"
+    ],
+    [
+      "018-DDD-DDDD",
+      "0187"
+    ],
+    [
+      "018-DDDD-DDDD",
+      "0188"
+    ],
+    [
+      "019-DDD-DDDD",
+      "0197"
+    ],
+    [
+      "019-DDDD-DDDD",
+      "0198"
+    ]
+  ],
+  "rejected": [
+    "",
+    "010DDD-DDDD",
+    "010DDDDD-DDDD",
+    "010--DDDD-DDDD",
+    "010-DD-DDDDDD",
+    "010-DDDD--DDDD",
+    "01-0DDDDDDDD",
+    "(010-DDDD-DDDD",
+    "010)-DDDD-DDDD",
+    "+82 010-DDDD-DDDD",
+    "+82--10 DDDD DDDD",
+    "+81 10 DDDD DDDD",
+    "010.DDDD.DDDD",
+    "010-DDDD-DDDX",
+    "０１０-DDDD-DDDD",
+    "010\tDDDD DDDD",
+    "010 DDDD DDDD\n",
+    "010DDDDDDDDD",
+    "012DDDDDDDD",
+    "010 DDDD DDDD",
+    "                                                            010DDDDDDDD"
+  ]
+}

@@ -21,6 +21,7 @@ import threading
 import tempfile
 import time
 import uuid
+from itertools import count
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
@@ -155,6 +156,11 @@ class Server:
 
     def start(self):
         module = ops.load_source(self.root / 'app')
+        import contact_fixture
+        policy = self.root / 'config/synthetic-contacts.json'
+        if not policy.exists():
+            contact_fixture.prepare(module, self.root/'config/event.json', self.root/'data/collection.sqlite', policy,
+                                    [('현장 테스트', f'010{i:08d}') for i in range(1, 3001)])
         original = module.create_app
         def capture(*args, **kwargs):
             self.app = original(*args, **kwargs)
@@ -186,6 +192,8 @@ class Server:
 
 
 class Client:
+    visitor_numbers = count(1)
+
     def __init__(self, server, observations, cookie=None, group='normal'):
         self.server, self.observations = server, observations
         self.group = group
@@ -229,7 +237,8 @@ class Client:
         return state
 
     def start(self):
-        self.request('/api/session', {})
+        self.request('/api/register', {'name': '현장 테스트', 'phone': f'010{next(self.visitor_numbers):08d}',
+                                       'notice_acknowledged': True, 'notice_version': 'synthetic-contact-v1'})
         require(self.read()['customer']['count'] == 0, 'new_card_failed')
         return self
 
@@ -243,7 +252,8 @@ def logical_state(root, path=None):
     """Private in-memory comparison, never serialized or logged."""
     with closing(ops.readonly(path or root / 'data/collection.sqlite')) as db:
         return {name: sorted(map(tuple,db.execute('SELECT * FROM '+name))) for name in
-                ('metadata','products','customers','sessions','stamps','recovery','reward_audit')}
+                ('metadata','products','customers','customer_profiles','sessions','stamps','recovery','reward_audit',
+                 'admin_sessions','stamp_cancel_audit')}
 
 
 def audit(root):

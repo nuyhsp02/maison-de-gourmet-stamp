@@ -56,7 +56,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24'
-      - run: node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs
+      - run: node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs app/tests/admin-flow.test.cjs
       - name: Existing legacy-engine customer, cookie, recovery and fixed QR preservation
         shell: powershell
         run: |

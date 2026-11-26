@@ -47,6 +47,12 @@ jobs:
       - name: Fixed SQLite required for Windows operating target
         if: matrix.os == 'windows-latest' && matrix.python == '3.15.2'
         run: python tools/check_sqlite_runtime.py --require-fixed
+      - name: Install HTTPS integration test dependencies
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nginx openssl apache2-utils
+          echo "MAISON_HTTPS_TEST=1" >> "$GITHUB_ENV"
       - run: python -m pip check
       - name: Unchanged full suite (bounded diagnostic opt-in only on push)
         if: ${{ !(matrix.os == 'windows-latest' && matrix.python == '3.15.2' && github.event_name == 'push' && contains(github.event.head_commit.message, '[b-probe]')) }}
@@ -89,10 +95,11 @@ jobs:
       - name: Syntax
         run: |
           node --check app/static/app.js
+          node --check app/static/admin.js
           node --check app/static/collection-core.js
           node --check app/static/stamp-art.js
       - name: Browser logic and QR decoding
-        run: node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs
+        run: node --test app/tests/scanner.test.cjs app/tests/app-flow.test.cjs app/tests/admin-flow.test.cjs
 
   powershell:
     name: Windows PowerShell syntax

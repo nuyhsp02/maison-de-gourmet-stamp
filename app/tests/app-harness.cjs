@@ -16,14 +16,18 @@ class Element {
     this.classList = { toggle() {} };
   }
   addEventListener(name, fn) { (this.listeners[name] ||= []).push(fn); }
-  async fire(name) { for (const fn of this.listeners[name] || []) await fn({}); }
+  async fire(name) {
+    const event = { defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+    for (const fn of this.listeners[name] || []) await fn(event);
+    return event;
+  }
   append(...children) { this.children.push(...children); }
   prepend(child) { this.children.unshift(child); }
   replaceChildren(...children) { this.children = children; }
   setAttribute(name, value) { this.attributes[name] = String(value); }
   querySelector() { return this.span ||= new Element('span'); }
   showModal() { this.open = true; }
-  close() { this.open = false; return this.fire('close'); }
+  close() { if (this.open) { this.open = false; return this.fire('close'); } }
   async play() {}
   focus() {}
   select() {}
@@ -34,19 +38,25 @@ async function openApp(options = {}) {
   const products = options.products || Array.from({ length: 10 }, (_, i) => ({
     id: 'p' + i, name: '상품 ' + i, icon: 'cup', category: i < 4 ? 'season' : 'select'
   }));
+  const qrProducts = new Map(products.map((product, i) => [String.fromCharCode(97 + i).repeat(32), product.id]));
   const server = options.server || { customer: options.customer === false ? null :
     { stamps: {}, count: 0, status: 'collecting', redeemed_at: null, recovery_saved: false },
     phase: 'demo', reward_open: true };
   const elements = new Map();
   const element = id => {
+    if (options.production && /^(recovery-|restore-|generate-link|generated-link|copy-link|close-recovery|cancel-restore|switch-confirm|switch-checkbox)/.test(id)) return null;
     if (!elements.has(id)) elements.set(id, new Element(id));
     return elements.get(id);
   };
-  element('switch-confirm').hidden = true;
+  element('identity-form').dataset.noticeVersion = options.production ? 'prod-fixture-v1' : 'synthetic-contact-v1';
+  if (options.production) element('identity-form').dataset.registration = options.registration || 'production';
+  else element('switch-confirm').hidden = true;
   const documentEvents = {}, windowEvents = {}, timers = new Map();
   const requests = [], drawCalls = []; let timerId = 0;
+  let clockMs = Date.now();
   const document = {
-    body: { dataset: { autoCollect: options.eligible === false ? 'manual' : 'eligible' } },
+    body: { dataset: { autoCollect: options.eligible === false ? 'manual' : 'eligible',
+      environment: options.production ? 'production' : 'synthetic', stampArt: options.stampArt } },
     visibilityState: options.hidden ? 'hidden' : 'visible', hidden: !!options.hidden,
     prerendering: !!options.prerender,
     hasFocus: () => options.focused !== false,
@@ -62,6 +72,7 @@ async function openApp(options = {}) {
     addEventListener: (name, fn) => (documentEvents[name] ||= []).push(fn)
   };
   const location = new URL(options.url || URL_A);
+  location.replace = url => { location.href = new URL(url, location.href).href; };
   const history = { state: options.history || null,
     replaceState(value, _title, url) { this.state = value; location.href = new URL(url, location.href).href; } };
   const video = element('camera-video');
@@ -93,18 +104,32 @@ async function openApp(options = {}) {
     addEventListener: (name, fn) => (windowEvents[name] ||= []).push(fn),
     fetch: async (url, init = {}) => {
       const parsed = new URL(url, location.origin), body = init.body ? JSON.parse(init.body) : null;
-      requests.push({ path: parsed.pathname, method: init.method || 'GET', body, headers: init.headers });
+      requests.push({ path: parsed.pathname, url: parsed.href, method: init.method || 'GET', body, headers: init.headers });
       let value, status = 200;
       if (parsed.pathname === '/api/state') {
-        if (options.stateHook) await options.stateHook();
-        value = snapshot(parsed.searchParams.has('qr') ? 'p0' : null);
+        const key = parsed.searchParams.get('qr');
+        if (key && !qrProducts.has(key)) {
+          status = 404; value = { code: 'invalid_qr', error: '사용할 수 없는 QR입니다.' };
+        } else value = snapshot(qrProducts.get(key) || null);
+        if (options.stateHook) await options.stateHook(parsed);
       }
-      else if (parsed.pathname === '/api/session') {
-        server.customer = { stamps: {}, count: 0, status: 'collecting', redeemed_at: null }; value = { ok: true };
+      else if (['/api/register', '/api/find'].includes(parsed.pathname)) {
+        const failure = parsed.pathname === '/api/register' ? options.registerFailure : options.findFailure;
+        if (failure) {
+          status = failure.status; value = { code: failure.code, error: failure.error };
+        } else {
+          if (!options.blockCookie) server.customer = options.foundCard ||
+            { stamps: {}, count: 0, status: 'collecting', redeemed_at: null, registered: true };
+          value = { ok: true };
+          if (parsed.pathname === '/api/register' && options.loseRegisterResponse) throw new Error('network lost after registration');
+        }
+      } else if (parsed.pathname === '/api/recover' && options.linkCard) {
+        server.customer = options.linkCard; value = { ok: true };
       } else if (parsed.pathname === '/api/collect') {
         if (options.collect401) { server.customer = null; status = 401; value = { error: '세션 만료' }; }
         else {
-          const c = server.customer, id = body.qr === 'b'.repeat(32) ? 'p1' : 'p0';
+          const c = server.customer, id = qrProducts.get(body.qr);
+          if (!id) throw new Error('Unexpected test QR');
           const added = !c.stamps[id]; c.stamps[id] = 1; c.count = Object.keys(c.stamps).length;
           c.status = c.count === 10 ? 'complete' : 'collecting';
           value = { ...snapshot(null), product_id: id, added };
@@ -121,14 +146,22 @@ async function openApp(options = {}) {
   };
   context.window = context;
   vm.createContext(context);
-  for (const file of ['collection-core.js', 'stamp-art.js', 'app.js']) {
+  // Advance the scanner's clock with its simulated timers, independent of decoder CPU time.
+  vm.runInContext('Date', context).now = () => clockMs;
+  for (const file of ['collection-core.js', 'stamp-art.js', 'phone-input.js', 'app.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../static', file), 'utf8'), context, { filename: file });
   }
   await pause();
   return {
     element, requests, server, location, history, document, drawCalls,
     posts: name => requests.filter(r => r.method === 'POST' && r.path === name),
+    async submitIdentity() { await element('identity-form').fire('submit'); await pause(); },
     async click(id) { if (!element(id).disabled) await element(id).fire('click'); await pause(); },
+    async escapeDialog(id) {
+      const dialog = element(id);
+      if (dialog.open && !(await dialog.fire('cancel')).defaultPrevented) await dialog.close();
+      await pause();
+    },
     async windowEvent(name, event = {}) { for (const fn of windowEvents[name] || []) await fn(event); await pause(); },
     async visibility(hidden) {
       document.hidden = hidden; document.visibilityState = hidden ? 'hidden' : 'visible';
@@ -140,9 +173,11 @@ async function openApp(options = {}) {
       for (let i = 0; i < count; i++) {
         const entry = [...timers].find(([, value]) => value.ms === 180);
         if (!entry) break;
-        timers.delete(entry[0]); await entry[1].fn(); await pause();
+        timers.delete(entry[0]);
+        clockMs += entry[1].ms;
+        await entry[1].fn(); await pause();
       }
     }
   };
 }
-module.exports = { openApp, URL_A };
+module.exports = { Element, openApp, URL_A };

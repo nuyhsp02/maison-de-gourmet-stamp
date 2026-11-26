@@ -22,6 +22,10 @@ qr-exports/
 .env.*
 !.env.example
 *.pem
+*.env
+*.htpasswd
+.htpasswd
+*.cms
 *.key
 *.pfx
 *.p12
@@ -30,6 +34,9 @@ qr-exports/
 *tunnel-token*
 credentials*.json
 cert.json
+# Private, event-specific customer-facing assets are provisioned outside Git.
+product-photos/
+approved-stamp-art/
 # Python / editor / local experiment artifacts
 .venv/
 .test-venv/

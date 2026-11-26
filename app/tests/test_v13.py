@@ -1,6 +1,7 @@
 import json
 import math
 import re
+import struct
 import xml.etree.ElementTree as ET
 
 from app import ROOT
@@ -51,7 +52,8 @@ def test_artwork_slot_fits_same_ornament_size_in_each_mobile_layout():
     art = re.search(r'\.stamp-art\s*\{([^}]+)\}', css).group(1)
     assert art.count('var(--ornament-size) * .52') == 2
     assert 'overflow:hidden' in art
-    assert 'width:' not in re.search(r'\.stamp-item.collected \.stamp-art\s*\{([^}]+)\}', css).group(1)
+    collected_ink = re.search(r'\.stamp-item.collected \.stamp-art>img\s*\{([^}]+)\}', css).group(1)
+    assert 'width:' not in collected_ink and 'brightness(0) invert(1)' in collected_ink
     for viewport in (320, 375, 390, 412):
         padding = 12 if viewport <= 360 else 16
         content = viewport - 4 * padding - 2
@@ -73,3 +75,17 @@ def test_artwork_registry_loads_before_renderer_and_asset_routes_are_available(a
         assert response.status_code == 200
         assert 'Set-Cookie' not in response.headers
     assert client.get('/api/state', base_url=BASE).json['customer'] is None
+
+
+def test_catalog_illustrations_are_ten_distinct_rgba_pngs_served_at_original_size(app):
+    products = json.loads((ROOT / 'demo-product-catalog.json').read_text())['products']
+    names = {product['stamp_image'] for product in products.values()}
+    assert len(names) == 10
+    assert names == {p.name for p in (ROOT / 'static/stamps').glob('*.png')}
+    client = app.test_client()
+    for name in names:
+        response = client.get('/static/stamps/' + name, base_url=BASE)
+        assert response.status_code == 200 and response.mimetype == 'image/png'
+        assert response.data.startswith(b'\x89PNG\r\n\x1a\n')
+        # PNG IHDR: width, height, bit depth, color type (6 = RGBA).
+        assert struct.unpack('>IIBB', response.data[16:26]) == (117, 117, 8, 6)

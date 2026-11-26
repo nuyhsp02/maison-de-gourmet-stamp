@@ -12,21 +12,21 @@ from conftest import BASE, Visitor
 NAVIGATION = {"Sec-Fetch-User": "?1", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "document"}
 
 
-@pytest.mark.parametrize("headers,eligible", [
-    (NAVIGATION, True), ({}, False),
-    ({**NAVIGATION, "Purpose": "prefetch"}, False),
-    ({**NAVIGATION, "Sec-Purpose": "prefetch;prerender"}, False),
-    ({**NAVIGATION, "X-Purpose": "preview"}, False),
-    ({**NAVIGATION, "Sec-Fetch-User": ""}, False),
-    ({**NAVIGATION, "Sec-Fetch-Mode": "cors"}, False),
-    ({**NAVIGATION, "Sec-Fetch-Dest": "iframe"}, False),
+@pytest.mark.parametrize("headers", [
+    NAVIGATION, {},
+    {**NAVIGATION, "Purpose": "prefetch"},
+    {**NAVIGATION, "Sec-Purpose": "prefetch;prerender"},
+    {**NAVIGATION, "X-Purpose": "preview"},
+    {**NAVIGATION, "Sec-Fetch-User": ""},
+    {**NAVIGATION, "Sec-Fetch-Mode": "cors"},
+    {**NAVIGATION, "Sec-Fetch-Dest": "iframe"},
 ])
-def test_navigation_hint_is_read_only_and_prefetch_fails_closed(app, keys, headers, eligible):
+def test_product_navigation_is_read_only_and_never_enables_legacy_auto_collect(app, keys, headers):
     v = Visitor(app)
     before = v.read()["customer"]
     response = v.client.get("/q/" + keys[0], base_url=BASE, headers=headers)
     assert response.status_code == 200
-    assert ('data-auto-collect="eligible"' in response.text) == eligible
+    assert "data-auto-collect" not in response.text
     assert v.read()["customer"] == before
     assert "Set-Cookie" not in response.headers
     assert response.headers["Cache-Control"] == "no-store"
@@ -35,12 +35,28 @@ def test_navigation_hint_is_read_only_and_prefetch_fails_closed(app, keys, heade
         assert db.execute("SELECT COUNT(*) FROM customers").fetchone()[0] == 1
 
 
-def test_new_visitor_get_stays_anonymous_even_if_navigation_eligible(app, keys):
+def test_new_visitor_get_stays_anonymous_on_direct_navigation(app, keys):
     v = Visitor(app, start=False)
     assert v.client.get("/q/" + keys[0], base_url=BASE, headers=NAVIGATION).status_code == 200
     assert v.read()["customer"] is None
     with connect_db(app.config["DATABASE"]) as db:
         assert db.execute("SELECT COUNT(*) FROM customers").fetchone()[0] == 0
+
+
+def test_confirmation_assets_bypass_legacy_cache_and_are_not_stored(app):
+    client = app.test_client()
+    page = client.get("/", base_url=BASE)
+    assert page.headers["Cache-Control"] == "no-store"
+    for filename, version in (("app.js", "contact-1"), ("phone-input.js", "contact-1"), ("style.css", "stamp-ui-1"),
+                              ("collection-core.js", "confirm-1")):
+        path = "/static/" + filename
+        assert f'"{path}"' not in page.text
+        versioned = path + "?v=" + version
+        assert f'"{versioned}"' in page.text
+        asset = client.get(versioned, base_url=BASE)
+        assert asset.status_code == 200
+        assert asset.headers["Cache-Control"] == "no-store"
+        assert asset.data == (ROOT / "static" / filename).read_bytes()
 
 
 def test_v11_single_button_markup_and_core_are_present(app):
@@ -73,10 +89,12 @@ def test_v1_data_cookie_recovery_link_and_fixed_qr_survive_restart(tmp_path):
             db.execute("INSERT INTO stamps VALUES (?, ?, ?)", (customer_id, product_id, now - 50))
         db.execute("INSERT INTO sessions VALUES (?, ?, ?, ?)", (digest(cookie), customer_id, "legacy-csrf", now + 3600))
         db.execute("INSERT INTO recovery VALUES (?, ?, ?)", (customer_id, digest(recovery), now + 3600))
-        before = list(db.iterdump())
+        before = set(db.iterdump())
     app = create_app(database=database, public_url=BASE, dev=True, testing=True)
     with connect_db(database) as db:
-        assert list(db.iterdump()) == before
+        after = set(db.iterdump())
+        assert before <= after
+        assert db.execute("SELECT COUNT(*) FROM customer_profiles").fetchone()[0] == 0
     v = Visitor(app, cookie=cookie)
     assert v.read()["customer"]["count"] == 4
     assert v.csrf == "legacy-csrf"

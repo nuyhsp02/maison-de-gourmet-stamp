@@ -9,17 +9,17 @@
     description: '열 가지 겨울의 맛을 모아, 나만의 트리를 완성해 보세요.' });
   const icons = new Set(['cup', 'cream', 'tea', 'glass', 'bean', 'bread', 'cake', 'cookie', 'bag']);
   let state, pendingId = null, busy = false, toastTimer;
+  let findingCard = false, phoneRegistered = false, reviewingRegistration = false;
   let qrKey = location.pathname.startsWith('/q/') ? location.pathname.slice(3) : null;
-  const isRestore = location.pathname === '/recover';
+  let enteringIdentity = false, stateRead = 0;
+  const recoveryButton = $('recovery-button');
+  const production = document.body.dataset.environment === 'production';
+  const isRestore = recoveryButton && location.pathname === '/recover';
   let recoveryToken = isRestore ? location.hash.slice(1) : '';
   // Fragments never reach the server; remove from browser history before other work.
   if (isRestore) history.replaceState(null, '', '/recover');
   let cameraStream = null, cameraEpoch = 0, frameTimer = null;
-  let scanBusy = false, scanGate = new Core.ScanGate();
-  const navigation = performance.getEntriesByType?.('navigation')?.[0];
-  const initiallyVisible = document.visibilityState === 'visible';
-  const wasPrerendered = document.prerendering === true || (navigation?.activationStart || 0) > 0;
-  let initialAutoConsidered = false, autoCollecting = false, navigationInterrupted = false;
+  let scanning = false, scanGate = new Core.ScanGate();
 
   function icon(id, className) {
     const svg = document.createElementNS(NS, 'svg');
@@ -62,6 +62,13 @@
     try { result = await response.json(); }
     catch (_) { throw new Error('서버 응답을 확인할 수 없어요. 잠시 후 다시 시도해 주세요.'); }
     if (!response.ok) {
+      if (production && ['privacy_closed', 'privacy_unavailable'].includes(result.code)) {
+        state = null;
+        ++stateRead;
+        clearIdentityForm();
+        document.body.hidden = true;
+        location.replace('/');
+      }
       const error = new Error(result.error || '요청을 처리하지 못했어요.');
       error.code = result.code;
       error.status = response.status;
@@ -70,28 +77,115 @@
     return result;
   }
   async function refresh() {
+    const read = ++stateRead;
     const result = await api('/api/state' + (qrKey ? '?qr=' + encodeURIComponent(qrKey) : ''));
+    // A selection may have been closed or replaced while the lookup was in flight.
+    if (read !== stateRead) return;
     state = result;
     pendingId = result.pending;
+    if (state.customer) { enteringIdentity = false; clearIdentityForm(); }
     render();
   }
-  async function ensureSession() {
-    if (state.customer) return;
-    await api('/api/session', {});
-    await refresh();
-    if (!state.customer) throw new Error('쿠키가 차단되어 기록을 저장할 수 없어요. 쿠키를 허용하거나 다른 기본 브라우저에서 열어 주세요.');
+  function clearIdentityForm() {
+    clearRegistrationReview();
+    $('identity-name').value = '';
+    $('identity-phone').value = '';
+    $('notice-acknowledged').checked = false;
+    $('identity-error').textContent = '';
+    findingCard = false;
+    phoneRegistered = false;
+  }
+  function clearRegistrationReview() {
+    reviewingRegistration = false;
+    $('review-name').textContent = '';
+    $('review-phone').textContent = '';
+  }
+  const phoneInput = $('identity-phone');
+  const identityForm = $('identity-form');
+  window.MaisonPhone.bind(phoneInput);
+  function renderIdentity() {
+    const closed = identityForm.dataset.registration === 'closed';
+    if (closed) findingCard = true;
+    if (reviewingRegistration) {
+      $('identity-title').textContent = '등록 정보 확인';
+      $('identity-intro').textContent = '나중에 스탬프판을 다시 찾을 때 사용할 이름과 휴대전화번호가 맞는지 확인해 주세요.';
+    } else if (findingCard) {
+      $('identity-title').textContent = '기존 스탬프 찾기';
+      $('identity-intro').textContent = (closed ? '신규 가입은 닫혀 있습니다. ' : '') + '등록할 때 사용한 이름과 휴대전화번호를 입력하면 기존 스탬프판을 이 브라우저에서 열 수 있어요.';
+    } else {
+      $('identity-title').textContent = '스탬프판 등록';
+      $('identity-intro').textContent = identityForm.dataset.registration === 'production' ?
+        '스탬프판에 사용할 이름과 휴대전화번호를 입력해 주세요.' :
+        '합성 검수 전용입니다. 지정받은 가상 이름과 전화번호를 입력해 주세요.';
+    }
+    $('identity-form').hidden = reviewingRegistration;
+    $('registration-review').hidden = !reviewingRegistration;
+    $('edit-registration').disabled = busy;
+    $('confirm-registration').disabled = busy || !reviewingRegistration || !isActive();
+    $('identity-qr').hidden = !pendingId;
+    if (pendingId) $('identity-qr').textContent = product(pendingId).name + ' QR을 확인했어요. 스탬프판을 연 다음 적립해 주세요.';
+    $('registration-notice').hidden = findingCard;
+    $('identity-name').readOnly = busy;
+    $('identity-phone').readOnly = busy;
+    $('notice-acknowledged').disabled = busy || findingCard;
+    $('identity-submit').textContent = findingCard ? '내 스탬프판 열기' : '입력 정보 확인';
+    $('identity-submit').hidden = phoneRegistered;
+    $('identity-submit').disabled = busy || phoneRegistered || (!findingCard && !isActive());
+    $('identity-switch').textContent = findingCard ? '새 스탬프판 등록으로 돌아가기' : '기존 스탬프 찾기';
+    $('identity-switch').className = 'button ' + (phoneRegistered ? 'primary' : 'secondary');
+    $('identity-switch').hidden = closed;
+    $('identity-switch').disabled = busy || closed;
   }
   function isActive() { return ['demo', 'running'].includes(state.phase); }
   function product(id) { return state.event.products.find(p => p.id === id); }
   function clearPending() {
+    stateRead++;
     pendingId = null;
     qrKey = null;
-    history.replaceState(null, '', '/');
-    render();
+    enteringIdentity = false;
+    $('pending-error').textContent = '';
+    if (location.pathname.startsWith('/q/')) history.replaceState(null, '', '/');
+  }
+  function renderConfirmation() {
+    const dialog = $('scanner-dialog'), panel = $('pending-panel');
+    const show = Boolean(pendingId && !enteringIdentity);
+    const opening = show && (panel.hidden || !dialog.open);
+    panel.hidden = !show;
+    $('scanner-controls').hidden = show;
+    dialog.setAttribute('aria-labelledby', show ? 'pending-title' : 'scanner-title');
+    dialog.setAttribute('aria-describedby', show ? 'pending-help' : 'scanner-instructions');
+    if (!show) {
+      if (dialog.open && !scanning) dialog.close();
+      return;
+    }
+    const customer = state.customer;
+    const already = Boolean(customer?.stamps[pendingId]);
+    $('pending-title').textContent = product(pendingId).name;
+    let message = '이 상품의 스탬프를 적립할까요?';
+    if (customer?.status === 'redeemed') message = '이미 보상을 받은 스탬프판이에요.';
+    else if (already) message = '이미 모은 상품이에요. 한 상품은 한 번만 적립돼요.';
+    else if (!isActive()) message = '지금은 이 상품을 적립할 수 없어요.';
+    else if (!customer) message = '먼저 스탬프판을 등록하거나 찾아야 해요. 그다음 이 상품을 다시 확인해 주세요.';
+    $('pending-help').textContent = message;
+    $('collect-button').disabled = busy || already || !isActive() || customer?.status === 'redeemed';
+    $('dismiss-pending').disabled = busy;
+    if (opening && !document.hidden) {
+      if (!dialog.open) dialog.showModal();
+      $('pending-title').focus();
+    }
   }
   function renderStampArt(p) {
     const frame = text('span', '', 'stamp-art');
     frame.setAttribute('aria-hidden', 'true');
+    if (production && document.body.dataset.stampArt !== 'approved') return frame;
+    if (production || p.stamp_image) {
+      const image = document.createElement('img');
+      image.alt = '';
+      image.src = production ? '/stamp-illustrations/' + encodeURIComponent(p.id) + '.png' :
+        '/static/stamps/' + encodeURIComponent(p.stamp_image);
+      frame.append(image);
+      return frame;
+    }
     const symbol = STAMP_ART[p.id];
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 48 48');
@@ -121,39 +215,38 @@
       const check = text('span', '', 'stamp-check'); check.append(icon('check')); seal.append(check);
       item.title += ' · 적립: ' + dateTime(collected);
     }
-    item.append(seal, text('span', p.name, 'stamp-name'), text('span', collected ? '수집 완료' : '수집 전', 'stamp-status'));
+    item.append(seal, text('span', p.short_name || p.name, 'stamp-name'), text('span', collected ? '수집 완료' : '수집 전', 'stamp-status'));
     return item;
   }
   function render(justAdded) {
     if (!state) return;
     const e = state.event, c = state.customer;
     const count = c?.count || 0;
-    document.title = `${BRAND.title} · ${BRAND.name}`;
-    $('cafe-name').textContent = BRAND.name;
-    $('event-title').textContent = BRAND.title;
-    $('event-description').textContent = BRAND.description;
+    const brand = production ? { name: e.cafe_name, title: e.title, description: e.description } : BRAND;
+    document.title = `${brand.title} · ${brand.name}`;
+    $('cafe-name').textContent = brand.name;
+    $('event-title').textContent = brand.title;
+    $('event-description').textContent = brand.description;
     $('demo-banner').hidden = !e.draft;
     $('event-period').textContent = e.draft ? '겨울 시즌 한정 · 일정 확정 예정' : `${eventDate(e.starts_at)} — ${eventDate(e.ends_at)} (종료 시각 전까지)`;
     if (!e.draft) $('event-period').title = `${e.starts_at} ~ ${e.ends_at} (종료 시각 미포함)`;
     $('browser-warning').hidden = !/KAKAOTALK|Instagram|FBAN|FBAV|Line\/|NAVER|; wv\)/i.test(navigator.userAgent);
     $('period-banner').hidden = !['upcoming', 'ended'].includes(state.phase);
     $('period-banner').textContent = state.phase === 'upcoming' ? '아직 시작 전이에요. 이벤트 시작 후 스탬프를 모을 수 있어요.' : '스탬프 적립이 종료되었어요. 모은 기록은 계속 볼 수 있어요.';
-    $('board-title').textContent = c?.status === 'redeemed' ? '선물까지 받은 겨울' : count === 10 ? '겨울 트리가 완성됐어요!' : '나의 겨울 트리';
+    $('identity-panel').hidden = Boolean(c);
+    $('collection-panel').hidden = !c;
+    $('collection-actions').hidden = !c;
+    if (!c) renderIdentity();
+    let boardTitle = '나의 겨울 트리';
+    if (c?.display_name) boardTitle = c.display_name + '님의 스탬프';
+    else if (c?.status === 'redeemed') boardTitle = '선물까지 받은 겨울';
+    else if (count === 10) boardTitle = '겨울 트리가 완성됐어요!';
+    $('board-title').textContent = boardTitle;
     $('stamp-count').textContent = count;
     $('progress').value = count;
     $('progress-caption').textContent = count === 10 ? '열 가지 겨울이 모여, 트리가 완성됐어요.' : `선물까지 남은 겨울의 맛, ${10 - count}가지.`;
     $('stamp-tree').replaceChildren(...e.products.map((p, i) => renderStamp(p, i, justAdded)));
-    $('pending-panel').hidden = !pendingId;
-    if (pendingId) {
-      const already = Boolean(c?.stamps[pendingId]);
-      $('pending-title').textContent = product(pendingId)?.name || '상품 확인';
-      $('pending-help').textContent = already ? '이미 모은 상품이에요. 한 상품은 한 번만 적립돼요.' :
-        autoCollecting ? '기존 기록을 확인했어요. 이 상품을 적립하고 있어요.' :
-        c ? '구매한 상품이 맞나요? 아래 버튼으로 적립해 주세요.' :
-        '처음 방문하셨나요? 구매한 상품을 확인하고 버튼을 누르면 새 스탬프판을 만들어요.';
-      $('collect-button').disabled = busy || already || !isActive() || c?.status === 'redeemed';
-      $('collect-button').querySelector('span').textContent = already ? '이미 수집한 스탬프' : !isActive() ? '지금은 적립할 수 없어요' : busy ? '처리 중…' : c ? '이 상품 스탬프 받기' : '새 스탬프판 만들고 적립하기';
-    }
+    renderConfirmation();
     $('reward-panel').hidden = count !== 10;
     if (count === 10) {
       const redeemed = c.status === 'redeemed';
@@ -168,12 +261,17 @@
     }
     $('scan-button').hidden = count === 10;
     $('scan-caption').hidden = count === 10;
-    $('scan-button').disabled = busy || !isActive();
-    $('recovery-button').disabled = busy;
-    $('recovery-button').textContent = c?.recovery_saved ? '새 링크 만들기 ↗' : '복구 링크 저장 ↗';
-    $('recovery-status').textContent = c?.recovery_saved ? '발급됨 · 나만 볼 수 있는 곳에 보관하세요.' : '선택 사항 · 개인 복구 링크 저장';
-    $('generate-link').disabled = busy;
-    $('restore-button').disabled = busy || (!$('switch-confirm').hidden && !$('switch-checkbox').checked);
+    $('scan-button').disabled = busy || !c || !isActive();
+    $('cookie-notice').textContent = !recoveryButton || c?.registered ?
+      '이 브라우저에서는 바로 이용할 수 있어요. 쿠키를 지우거나 다른 브라우저를 쓰면 등록한 이름과 전화번호로 스탬프판을 찾아 주세요.' :
+      '이 스탬프판은 이름과 번호를 등록하기 전에 만들었어요. 쿠키를 지우거나 다른 브라우저로 옮기기 전에 개인 복구 링크를 저장해 주세요.';
+    if (recoveryButton) {
+      recoveryButton.disabled = busy || !c;
+      recoveryButton.textContent = c?.recovery_saved ? '새 링크 만들기 ↗' : '복구 링크 저장 ↗';
+      $('recovery-status').textContent = c?.recovery_saved ? '발급됨 · 나만 볼 수 있는 곳에 보관하세요.' : '선택 사항 · 개인 복구 링크 저장';
+      $('generate-link').disabled = busy;
+      $('restore-button').disabled = busy || (!$('switch-confirm').hidden && !$('switch-checkbox').checked);
+    }
   }
   async function action(fn, errorElement) {
     if (busy) return;
@@ -188,41 +286,128 @@
     finally { busy = false; render(); }
   }
 
-  async function collectPending(automatic = false) {
-    if (automatic) {
-      // Automatic flow must NEVER create a customer or recover a stale session.
-      if (!state.customer || !state.csrf || navigationInterrupted || document.visibilityState !== 'visible' || !document.hasFocus()) return;
-    } else await ensureSession();
+  $('identity-switch').addEventListener('click', () => {
+    clearRegistrationReview();
+    findingCard = !findingCard;
+    phoneRegistered = false;
+    $('identity-error').textContent = '';
+    $('notice-acknowledged').checked = false;
+    renderIdentity();
+    $('identity-title').focus();
+  });
+  $('identity-phone').addEventListener('input', () => {
+    if (phoneRegistered) {
+      phoneRegistered = false;
+      $('identity-error').textContent = '';
+      renderIdentity();
+    }
+  });
+  function submitIdentity(path, details) {
+    return action(async () => {
+      $('identity-error').textContent = '';
+      try {
+        await api(path, details);
+      } catch (error) {
+        if (error.code === 'phone_registered') phoneRegistered = true;
+        throw error;
+      } finally {
+        clearRegistrationReview();
+      }
+      await refresh();
+      if (!state.customer) {
+        if (path === '/api/register') phoneRegistered = true;
+        throw new Error('쿠키를 허용한 후 기존 스탬프 찾기로 다시 열어 주세요.');
+      }
+      toast(pendingId ? '스탬프판을 열었어요. 구매한 상품을 확인하고 적립해 주세요.' : '내 스탬프판을 열었어요.');
+    }, 'identity-error');
+  }
+  $('identity-form').addEventListener('submit', event => {
+    event.preventDefault();
+    if (busy || state?.customer || phoneRegistered || reviewingRegistration) return;
+    const number = window.MaisonPhone.digits(phoneInput.value);
+    if (!number) {
+      $('identity-error').textContent = window.MaisonPhone.error;
+      phoneInput.focus();
+      return;
+    }
+    phoneInput.value = window.MaisonPhone.format(number);
+    const details = { name: $('identity-name').value, phone: phoneInput.value };
+    if (findingCard) return submitIdentity('/api/find', details);
+    if (!isActive()) return;
+    if (!$('notice-acknowledged').checked) {
+      $('identity-error').textContent = '개인정보 수집·이용 안내를 확인해 주세요.';
+      return;
+    }
+    $('identity-error').textContent = '';
+    $('review-name').textContent = details.name;
+    $('review-phone').textContent = details.phone;
+    reviewingRegistration = true;
+    renderIdentity();
+    $('identity-title').focus();
+  });
+  $('edit-registration').addEventListener('click', () => {
+    if (busy || !reviewingRegistration) return;
+    clearRegistrationReview();
+    renderIdentity();
+    $('identity-name').focus();
+  });
+  $('confirm-registration').addEventListener('click', () => {
+    if (busy || !reviewingRegistration || !isActive()) return;
+    const name = $('review-name').textContent, phone = $('review-phone').textContent;
+    if (name !== $('identity-name').value || phone !== $('identity-phone').value || !$('notice-acknowledged').checked) {
+      clearRegistrationReview();
+      renderIdentity();
+      $('identity-error').textContent = '변경된 입력 정보와 개인정보 안내를 다시 확인해 주세요.';
+      $('identity-name').focus();
+      return;
+    }
+    return submitIdentity('/api/register', { name, phone, notice_acknowledged: true, notice_version: identityForm.dataset.noticeVersion });
+  });
+
+  async function collectPending() {
+    $('pending-error').textContent = '';
+    const gate = scanning ? scanGate : null;
     const result = await api('/api/collect', { qr: qrKey });
     state = result;
     const id = result.product_id;
+    if (scanning && gate === scanGate) {
+      gate.settle(gate.pending, true);
+      const name = product(id).name;
+      const row = text('li', name);
+      row.append(text('span', result.added ? '적립 완료 ✓' : '이미 수집함'));
+      $('scan-results').prepend(row);
+      if ($('scan-results').children.length > 20) $('scan-results').lastChild.remove();
+      $('scanner-status').textContent = `${name} · 다음 상품의 QR을 비춰주세요.`;
+      if (result.added && navigator.vibrate) navigator.vibrate(50);
+    }
     clearPending(); render(id);
-    toast(result.added ? `${product(id).name} 스탬프를 모았어요.` : '이미 수집한 상품이에요.');
+    if (scanning && state.customer.count === 10) {
+      closeScanner();
+      toast('열 가지 취향을 모두 모았어요! 직원에게 화면을 보여주세요.');
+    } else if (scanning) $('scanner-done').focus();
+    else toast(result.added ? `${product(id).name} 스탬프를 모았어요.` : '이미 수집한 상품이에요.');
   }
-  $('collect-button').addEventListener('click', () => action(() => collectPending()));
-  $('dismiss-pending').addEventListener('click', clearPending);
-
-  async function maybeAutoCollect() {
-    if (!pendingId || !qrKey) return;
-    if (state.customer?.stamps[pendingId]) { toast('이미 수집한 상품이에요.'); return; }
-    if (!Core.canAutoCollect({
-      serverEligible: document.body.dataset.autoCollect === 'eligible',
-      navigationType: navigation?.type, initiallyVisible,
-      visible: document.visibilityState === 'visible', focused: document.hasFocus(),
-      prerendered: wasPrerendered || document.prerendering === true,
-      attempted: navigationInterrupted || history.state?.cafeCollectionAutoAttempted === true,
-      hasSession: Boolean(state.customer && state.csrf), active: isActive(),
-      collected: Boolean(state.customer?.stamps[pendingId]), redeemed: state.customer?.status === 'redeemed'
-    })) return;
-    // Before the POST, mark this history entry. Lost responses, reloads, back,
-    // visibility changes and retry-load do not trigger a second automatic POST.
-    try {
-      history.replaceState({ ...(history.state || {}), cafeCollectionAutoAttempted: true }, '', location.href);
-    } catch (_) { return; }
-    autoCollecting = true;
-    try { await action(() => collectPending(true)); }
-    finally { autoCollecting = false; render(); }
+  $('collect-button').addEventListener('click', () => {
+    if (!pendingId || !$('scanner-dialog').open || $('pending-panel').hidden || $('collect-button').disabled || document.hidden) return;
+    if (!state.customer) {
+      enteringIdentity = true;
+      if (scanning) { scanning = false; stopCamera(); }
+      render();
+      $('identity-title').focus();
+      return;
+    }
+    return action(collectPending, 'pending-error');
+  });
+  function dismissPending() {
+    if (busy || !pendingId) return;
+    if (scanning) {
+      scanGate.settle(scanGate.pending, false);
+      $('scanner-status').textContent = '취소했어요. 다음 QR을 비춰주세요.';
+    }
+    clearPending(); render();
+    if (scanning) $('scanner-done').focus();
   }
+  $('dismiss-pending').addEventListener('click', dismissPending);
 
   // Camera frames are decoded locally; images are never uploaded.
   function stopCamera() {
@@ -231,7 +416,14 @@
     cameraStream?.getTracks().forEach(track => track.stop());
     cameraStream = null;
     $('camera-video').srcObject = null;
-    scanBusy = false;
+  }
+  function closeScanner() {
+    if (!scanning) return;
+    if (scanGate.pending) clearPending();
+    scanning = false;
+    stopCamera();
+    if ($('scanner-dialog').open) $('scanner-dialog').close();
+    renderConfirmation();
   }
   function scannerError(message) {
     stopCamera();
@@ -247,35 +439,20 @@
     return url.pathname.slice(3);
   }
   async function acceptScan(raw, epoch) {
-    if (scanBusy || epoch !== cameraEpoch) return;
-    const gate = scanGate;
-    scanBusy = true;
     try {
-      const key = parseQR(raw);
-      const result = await api('/api/collect', { qr: key });
-      gate.settle(raw, true);
-      if (epoch !== cameraEpoch) { await refresh(); return; }
-      state = result; render(result.product_id);
-      const name = product(result.product_id).name;
-      $('scanner-status').textContent = result.added ? `${name} 적립 완료! 다음 QR을 비춰주세요.` : `${name}은 이미 모았어요. 다른 QR을 비춰주세요.`;
-      const row = text('li', name); row.append(text('span', result.added ? '적립 완료 ✓' : '이미 수집함'));
-      $('scan-results').prepend(row);
-      if ($('scan-results').children.length > 20) $('scan-results').lastChild.remove();
-      if (result.added && navigator.vibrate) navigator.vibrate(50);
-      if (state.customer.count === 10) {
-        stopCamera();
-        $('scanner-dialog').close();
-        toast('열 가지 취향을 모두 모았어요! 직원에게 화면을 보여주세요.');
-      }
+      qrKey = parseQR(raw);
+      await refresh();
     } catch (error) {
-      gate.settle(raw, false);
+      if (epoch !== cameraEpoch) return;
+      clearPending();
+      scanGate.settle(raw, false);
       $('scanner-status').textContent = error.message;
-      // Stop on transport/auth errors so the camera cannot flood a failing server.
       if (!error.status || [401, 403, 409, 429, 503].includes(error.status)) scannerError(error.message);
-    } finally { if (epoch === cameraEpoch) scanBusy = false; }
+    }
   }
   async function startCamera() {
     stopCamera();
+    scanning = true;
     const epoch = cameraEpoch;
     $('scan-results').replaceChildren();
     $('camera-view').hidden = false; $('camera-fallback').hidden = true;
@@ -316,7 +493,7 @@
       $('scanner-status').textContent = 'QR 하나를 중앙 십자에 맞추고 잠시 멈춰주세요.';
       async function frame() {
         if (epoch !== cameraEpoch || !$('scanner-dialog').open) return;
-        if (video.readyState >= 2 && !scanBusy) {
+        if (video.readyState >= 2 && !scanGate.pending) {
           try {
             const crop = geometry();
             const geometryKey = JSON.stringify([video.videoWidth, video.videoHeight, crop]);
@@ -330,7 +507,7 @@
             else {
               if (decoded.status === 'ambiguous') $('scanner-status').textContent = '여러 QR이 보여요. 네모 안에 하나만 남겨주세요.';
               else if (['edge', 'off_center'].includes(decoded.status)) $('scanner-status').textContent = 'QR 전체를 네모 안에 넣고 중심을 십자에 맞춰주세요.';
-              if (scanGate.claim(decoded.raw, Date.now(), geometryKey)) await acceptScan(decoded.raw, epoch);
+              if (scanGate.claim(decoded.raw, Date.now(), geometryKey, decoded.status)) await acceptScan(decoded.raw, epoch);
             }
           } catch (error) {
             scanGate.reset();
@@ -349,55 +526,61 @@
       scannerError(message);
     }
   }
-  $('scan-button').addEventListener('click', () => action(async () => { await ensureSession(); await startCamera(); }));
-  for (const id of ['close-scanner', 'scanner-done']) $(id).addEventListener('click', () => $('scanner-dialog').close());
-  $('scanner-dialog').addEventListener('close', stopCamera);
-  $('scanner-dialog').addEventListener('cancel', stopCamera);
+  $('scan-button').addEventListener('click', () => action(startCamera));
+  for (const id of ['close-scanner', 'scanner-done']) $(id).addEventListener('click', closeScanner);
+  $('scanner-dialog').addEventListener('cancel', event => {
+    event.preventDefault();
+    if (pendingId && !enteringIdentity) dismissPending();
+    else closeScanner();
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      navigationInterrupted = true;
-      if ($('scanner-dialog').open) $('scanner-dialog').close();
-      stopCamera();
+      if (scanning) closeScanner();
     } else if (state && !busy) { refresh().catch(() => {}); }
   });
-  window.addEventListener('pagehide', () => { navigationInterrupted = true; stopCamera(); });
+  window.addEventListener('pagehide', () => {
+    clearIdentityForm();
+    if (state && !state.customer) renderIdentity();
+    if (scanning) closeScanner();
+  });
   window.addEventListener('pageshow', event => { if (event.persisted && state) refresh().catch(() => {}); });
 
-  $('recovery-button').addEventListener('click', () => action(async () => {
-    await ensureSession();
-    $('generated-link').hidden = true; $('generate-link').hidden = false;
-    $('recovery-error').textContent = ''; $('recovery-url').value = '';
-    $('recovery-dialog').showModal();
-  }));
-  $('generate-link').addEventListener('click', () => action(async () => {
-    const result = await api('/api/recovery-link', { confirm_rotation: true });
-    $('recovery-url').value = result.url;
-    $('recovery-expiry').textContent = '유효 기간: ' + dateTime(result.expires_at);
-    $('generated-link').hidden = false; $('generate-link').hidden = true;
-    await refresh();
-  }, 'recovery-error'));
-  $('copy-link').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText($('recovery-url').value); toast('복구 링크를 복사했어요. 나만 볼 수 있는 곳에 저장해 주세요.'); }
-    catch (_) { $('recovery-url').focus(); $('recovery-url').select(); toast('링크를 선택했어요. 길게 눌러 복사해 주세요.'); }
-  });
-  $('close-recovery').addEventListener('click', () => $('recovery-dialog').close());
-  $('recovery-dialog').addEventListener('close', () => { $('recovery-url').value = ''; $('generated-link').hidden = true; });
-  $('restore-button').addEventListener('click', () => action(async () => {
-    $('restore-error').textContent = '';
-    try {
-      await api('/api/recover', { token: recoveryToken, confirm_switch: $('switch-checkbox').checked });
+  if (recoveryButton) {
+    recoveryButton.addEventListener('click', () => action(async () => {
+      $('generated-link').hidden = true; $('generate-link').hidden = false;
+      $('recovery-error').textContent = ''; $('recovery-url').value = '';
+      $('recovery-dialog').showModal();
+    }));
+    $('generate-link').addEventListener('click', () => action(async () => {
+      const result = await api('/api/recovery-link', { confirm_rotation: true });
+      $('recovery-url').value = result.url;
+      $('recovery-expiry').textContent = '유효 기간: ' + dateTime(result.expires_at);
+      $('generated-link').hidden = false; $('generate-link').hidden = true;
       await refresh();
-      if (!state.customer) throw new Error('쿠키가 차단되어 복구를 유지할 수 없어요. 쿠키 허용 후 저장한 링크를 다시 열어 주세요.');
-      recoveryToken = ''; history.replaceState(null, '', '/'); $('restore-dialog').close();
-      toast('기존 컬렉션을 이 브라우저에서 이어갈 수 있어요.');
-    } catch (error) {
-      if (error.code === 'confirm_switch') $('switch-confirm').hidden = false;
-      throw error;
-    }
-  }, 'restore-error'));
-  $('switch-checkbox').addEventListener('change', () => render());
-  $('cancel-restore').addEventListener('click', () => $('restore-dialog').close());
-  $('restore-dialog').addEventListener('close', () => { recoveryToken = ''; history.replaceState(null, '', '/'); });
+    }, 'recovery-error'));
+    $('copy-link').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText($('recovery-url').value); toast('복구 링크를 복사했어요. 나만 볼 수 있는 곳에 저장해 주세요.'); }
+      catch (_) { $('recovery-url').focus(); $('recovery-url').select(); toast('링크를 선택했어요. 길게 눌러 복사해 주세요.'); }
+    });
+    $('close-recovery').addEventListener('click', () => $('recovery-dialog').close());
+    $('recovery-dialog').addEventListener('close', () => { $('recovery-url').value = ''; $('generated-link').hidden = true; });
+    $('restore-button').addEventListener('click', () => action(async () => {
+      $('restore-error').textContent = '';
+      try {
+        await api('/api/recover', { token: recoveryToken, confirm_switch: $('switch-checkbox').checked });
+        await refresh();
+        if (!state.customer) throw new Error('쿠키가 차단되어 복구를 유지할 수 없어요. 쿠키 허용 후 저장한 링크를 다시 열어 주세요.');
+        recoveryToken = ''; history.replaceState(null, '', '/'); $('restore-dialog').close();
+        toast('기존 컬렉션을 이 브라우저에서 이어갈 수 있어요.');
+      } catch (error) {
+        if (error.code === 'confirm_switch') $('switch-confirm').hidden = false;
+        throw error;
+      }
+    }, 'restore-error'));
+    $('switch-checkbox').addEventListener('change', () => render());
+    $('cancel-restore').addEventListener('click', () => $('restore-dialog').close());
+    $('restore-dialog').addEventListener('close', () => { recoveryToken = ''; history.replaceState(null, '', '/'); });
+  }
   $('redeem-button').addEventListener('click', () => action(async () => {
     $('redeem-error').textContent = '';
     const result = await api('/api/redeem', { confirm_received: true });
@@ -406,14 +589,11 @@
   }, 'redeem-error'));
 
   async function init() {
-    const firstLoad = !initialAutoConsidered;
-    initialAutoConsidered = true;
     $('loading').hidden = false; $('load-error').hidden = true;
     try {
       await refresh(); $('app').hidden = false;
       if (isRestore && recoveryToken) $('restore-dialog').showModal();
       else if (isRestore) toast('저장한 개인 복구 링크 전체를 다시 열어 주세요.', true);
-      else if (firstLoad) await maybeAutoCollect();
     } catch (error) { $('load-error-text').textContent = error.message; $('load-error').hidden = false; }
     finally { $('loading').hidden = true; }
   }

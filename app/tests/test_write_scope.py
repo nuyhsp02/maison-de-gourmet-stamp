@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from flask import request
-from conftest import Visitor
+from conftest import Visitor, registration
 
 
 @pytest.mark.parametrize('case', ['session_revoked', 'collect_ended', 'session_ended', 'recovery_rotated'])
@@ -16,7 +16,7 @@ def test_conditions_changed_before_admission(app, keys, monkeypatch, case):
     visitor = Visitor(app)
     link = visitor.post('/api/recovery-link', {'confirm_rotation': True}).json['url'].split('#')[1]
     stale = Visitor(app, cookie=visitor.cookie())
-    endpoint = 'recover' if case == 'recovery_rotated' else ('start' if case == 'session_ended' else 'collect')
+    endpoint = 'recover' if case == 'recovery_rotated' else ('register' if case == 'session_ended' else 'collect')
     ready, resume = threading.Event(), threading.Event()
     native = app.write_lock
     class Paused:
@@ -30,8 +30,8 @@ def test_conditions_changed_before_admission(app, keys, monkeypatch, case):
     monkeypatch.setattr(app, 'write_lock', Paused())
     if case == 'session_ended':
         stale = Visitor(app, start=False)
-    path = '/api/recover' if case == 'recovery_rotated' else ('/api/session' if case == 'session_ended' else '/api/collect')
-    body = {'token': link} if case == 'recovery_rotated' else ({} if case == 'session_ended' else {'qr': keys[0]})
+    path = '/api/recover' if case == 'recovery_rotated' else ('/api/register' if case == 'session_ended' else '/api/collect')
+    body = {'token': link} if case == 'recovery_rotated' else (registration() if case == 'session_ended' else {'qr': keys[0]})
     with ThreadPoolExecutor(max_workers=1, thread_name_prefix='racer') as pool:
         future = pool.submit(stale.post, path, body)
         try:
@@ -88,12 +88,12 @@ def test_transaction_cleanup_faults(app, monkeypatch, fault):
                 Visitor(app)
         else:
             client = Visitor(app, start=False)
-            assert client.post('/api/session', {}).status_code == 503
+            assert client.post('/api/register', registration()).status_code == 503
     assert not app.write_lock.locked()
     for connection in opened:
         connection.close()
     if fault == 'close':
-        assert Visitor(app, start=False).post('/api/session', {}).status_code == 503
+        assert Visitor(app, start=False).post('/api/register', registration()).status_code == 503
     else:
         assert Visitor(app).read()['customer']['count'] == 0
     with original(app.config['DATABASE']) as db:

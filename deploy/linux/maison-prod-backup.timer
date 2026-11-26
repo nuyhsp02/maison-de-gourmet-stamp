@@ -1,0 +1,13 @@
+[Unit]
+Description=Retry PROD delivery and expiry every fifteen minutes, including after boot
+
+[Timer]
+OnCalendar=*-*-* *:00/15:00 Asia/Seoul
+OnBootSec=1min
+Persistent=true
+AccuracySec=1s
+RandomizedDelaySec=0
+Unit=maison-prod-backup.service
+
+[Install]
+WantedBy=timers.target

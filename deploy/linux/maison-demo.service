@@ -1,0 +1,28 @@
+[Unit]
+Description=Maison de Gourmet private demonstration
+After=network.target
+RequiresMountsFor=/var/lib/maison-demo
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=maison-demo
+Group=maison-demo
+WorkingDirectory=/opt/maison-demo
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=/etc/maison-demo/demo.env
+ExecStartPre=/opt/maison-demo/.venv/bin/python /opt/maison-demo/tools/check_sqlite_runtime.py --require-fixed
+ExecStart=/opt/maison-demo/.venv/bin/python /opt/maison-demo/deploy/linux/demo.py serve --state-dir /var/lib/maison-demo --config /etc/maison-demo/event.json --origin ${PUBLIC_URL}
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/maison-demo
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

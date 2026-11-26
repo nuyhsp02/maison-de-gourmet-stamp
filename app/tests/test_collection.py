@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app import ROOT, Limits, connect_db, create_app, digest
-from conftest import BASE, Visitor
+from app import ROOT, Limits, connect_db, create_app, digest, load_event
+from conftest import BASE, Visitor, fixture_app, registration
 
 
 def test_get_head_prefetch_never_create_customer_or_stamp(app, keys):
@@ -70,7 +70,7 @@ def test_completion_redemption_confirmation_and_permanent_collection(app, keys):
     assert v.read()["customer"]["count"] == 10
     assert v.client.post("/api/reset", json={}, base_url=BASE, headers={
         "Origin": BASE, "X-Stamp-Client": "1"}).status_code == 404
-    restarted = create_app(database=app.config["DATABASE"], public_url=BASE, dev=True, testing=True)
+    restarted = fixture_app(database=app.config["DATABASE"], public_url=BASE, dev=True, testing=True)
     assert Visitor(restarted, cookie=v.cookie()).state["customer"]["status"] == "redeemed"
     with connect_db(app.config["DATABASE"]) as db:
         assert db.execute("SELECT COUNT(*) FROM reward_audit").fetchone()[0] == 1
@@ -145,13 +145,13 @@ def real_config(tmp_path, start, end, reward):
 def test_production_secure_cookie_headers_and_period_boundaries(tmp_path, monkeypatch):
     clock = 1800000000
     config = real_config(tmp_path, clock, clock + 30 * 86400, clock + 31 * 86400)
-    app = create_app(config, tmp_path / "prod.sqlite", "https://cafe.example", testing=True)
+    app = fixture_app(config, tmp_path / "prod.sqlite", "https://cafe.example.invalid", testing=True)
     monkeypatch.setattr("app.time.time", lambda: clock - 1)
-    v = Visitor(app, start=False, base="https://cafe.example")
+    v = Visitor(app, start=False, base="https://cafe.example.invalid")
     assert v.read()["phase"] == "upcoming"
-    assert v.post("/api/session", {}).status_code == 409
+    assert v.post("/api/register", registration()).status_code == 409
     monkeypatch.setattr("app.time.time", lambda: clock)
-    response = v.post("/api/session", {})
+    response = v.post("/api/register", registration())
     cookie = response.headers["Set-Cookie"]
     assert "__Host-collection=" in cookie and "Secure" in cookie and "HttpOnly" in cookie
     assert "SameSite=Lax" in cookie and "Domain=" not in cookie
@@ -172,12 +172,28 @@ def test_production_secure_cookie_headers_and_period_boundaries(tmp_path, monkey
     assert v.post("/api/redeem", {"confirm_received": True}).json["already_redeemed"] is True
 
 
+@pytest.mark.parametrize("duration,reward_offset,valid", [
+    (33 * 86400, 0, True), (60 * 86400, 86400, True),
+    (62 * 86400, 0, True), (62 * 86400 + 1, 0, False),
+    (0, 0, False), (-1, 86400, False), (60 * 86400, -1, False),
+])
+def test_event_duration_and_reward_order(tmp_path, duration, reward_offset, valid):
+    start = 1800000000
+    end = start + duration
+    path = real_config(tmp_path, start, end, end + reward_offset)
+    if valid:
+        assert load_event(path)["draft"] is False
+    else:
+        with pytest.raises(ValueError):
+            load_event(path)
+
+
 def test_reward_after_deadline_rejected(tmp_path, monkeypatch):
     clock = 1800000000
     config = real_config(tmp_path, clock, clock + 100, clock + 200)
     monkeypatch.setattr("app.time.time", lambda: clock)
-    app = create_app(config, tmp_path / "prod.sqlite", "https://cafe.example", testing=True)
-    v = Visitor(app, base="https://cafe.example")
+    app = fixture_app(config, tmp_path / "prod.sqlite", "https://cafe.example.invalid", testing=True)
+    v = Visitor(app, base="https://cafe.example.invalid")
     with connect_db(app.config["DATABASE"]) as db:
         keys = [r[0] for r in db.execute("SELECT qr_key FROM products")]
     for key in keys: v.collect(key)
@@ -186,7 +202,7 @@ def test_reward_after_deadline_rejected(tmp_path, monkeypatch):
 
 
 def test_reject_unsafe_startup_and_event_id_change(app, tmp_path):
-    for url, dev in [("http://cafe.example", False), ("https://cafe.example", False),
+    for url, dev in [("http://cafe.example", False), ("https://cafe.example.invalid", False),
                      ("http://192.168.0.2:8765", True), (BASE + "/subpath", True)]:
         with pytest.raises(ValueError): create_app(public_url=url, dev=dev, database=tmp_path / "new.sqlite")
     event = json.loads((ROOT / "event.json").read_text())
@@ -206,7 +222,7 @@ def test_thread_safe_bounded_rate_limiter():
 
 
 def test_rate_limits_active_in_non_test_app(tmp_path):
-    app = create_app(database=tmp_path / "limited.sqlite", public_url=BASE, dev=True)
+    app = fixture_app(database=tmp_path / "limited.sqlite", public_url=BASE, dev=True)
     v = Visitor(app)
     for _ in range(10): assert v.post("/api/recovery-link", {"confirm_rotation": True}).status_code == 200
     response = v.post("/api/recovery-link", {"confirm_rotation": True})

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>직원 관리 · Maison de Gourmet</title>
+  <link rel="icon" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/admin.css?v=correction-1">
+  {% if config.PROD_PRIVACY %}<script src="/static/privacy-screen.js" data-remaining-ms="{{ privacy_remaining_ms }}" defer></script>{% endif %}
+  <script src="/static/phone-input.js?v=contact-1" defer></script>
+  <script src="/static/admin.js?v={{ 'prod-privacy-2' if config.PROD_PRIVACY else 'correction-2' }}" defer></script>
+</head>
+<body class="admin"{% if config.PROD_PRIVACY %} hidden{% endif %}>
+  <header class="site-header">
+    <span class="brand"><span>Maison de Gourmet</span></span>
+    <button type="button" id="logout" class="quiet" hidden>로그아웃</button>
+  </header>
+  <main>
+    <noscript>직원 화면을 사용하려면 자바스크립트를 켜 주세요.</noscript>
+    <section class="login-panel" id="login-panel" hidden aria-labelledby="login-title">
+      <h1 id="login-title">직원·관리자 로그인</h1>
+      <form id="login-form" method="post" autocomplete="off">
+        <label for="login-kind">로그인 계정</label>
+        <select id="login-kind"><option value="staff">일반 직원</option><option value="manager">관리자</option></select>
+        <label for="password">비밀번호</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+        <button class="primary" id="login" type="submit">로그인</button>
+      </form>
+    </section>
+    <div id="workspace" hidden>
+      <div class="page-title">
+        <h1 id="management-title">스탬프 관리</h1>
+        <button type="button" id="refresh" class="quiet">현황 새로고침</button>
+      </div>
+      <section class="overview" aria-label="스탬프 운영 현황">
+        <dl class="metrics">
+          <div><dt>전체 카드</dt><dd id="cards"></dd></div>
+          <div><dt>현재 적립 스탬프</dt><dd id="stamps"></dd></div>
+          <div><dt>보상 수령 완료</dt><dd id="redeemed"></dd></div>
+        </dl>
+        <h2>보유 스탬프별 카드 수</h2>
+        <p class="axis-label">카드 수</p>
+        <ol id="distribution" class="distribution" aria-label="보유 스탬프 0개부터 10개까지의 카드 수"></ol>
+        <p class="axis-caption">보유 스탬프 수 (개)</p>
+      </section>
+      <section class="lookup" aria-labelledby="lookup-title">
+        <h2 id="lookup-title">고객 카드 찾기</h2>
+        <form id="search-form" method="post" autocomplete="off">
+          <label class="field" for="search-type">검색 기준
+            <select id="search-type"><option value="phone">휴대전화번호</option><option value="customer_id">카드 ID</option></select>
+          </label>
+          <div class="field"><label id="query-label" for="query">휴대전화번호 전체</label>
+            <input type="tel" inputmode="numeric" aria-describedby="query-help" id="query" required autocapitalize="off" spellcheck="false" autocomplete="off">
+            <small id="query-help">숫자만 입력해 주세요. 하이픈은 자동으로 입력됩니다.</small>
+          </div>
+          <button type="submit" id="search" class="primary">카드 찾기</button>
+        </form>
+      </section>
+      <section id="detail" class="card-detail" aria-labelledby="card-name" hidden>
+        <div class="detail-heading">
+          <div><h2 id="card-name"></h2>
+          <p id="card-phone"></p><p class="card-id" id="card-id"></p></div>
+          <button type="button" id="dismiss" class="quiet">조회 닫기</button>
+        </div>
+        <p id="card-state" class="card-state"></p>
+        <p id="period-notice"></p>
+        <table><caption>상품별 스탬프</caption>
+          <thead><tr><th scope="col">상품</th><th scope="col">적립 시각</th><th scope="col">관리</th></tr></thead>
+          <tbody id="product-rows"></tbody>
+        </table>
+      </section>
+    </div>
+    <p id="message" role="status" aria-live="polite"></p>
+    <dialog id="confirmation" aria-labelledby="confirm-title" aria-describedby="target">
+      <h2 id="confirm-title">이 스탬프를 취소할까요?</h2>
+      <p id="target"></p>
+      <div class="dialog-actions"><button type="button" id="keep" class="quiet" autofocus>돌아가기</button><button type="button" id="cancel-stamp" class="danger">스탬프 1개 취소</button></div>
+    </dialog>
+    <dialog id="correction" aria-labelledby="correction-title">
+      <h2 id="correction-title">관리자 스탬프 정정</h2>
+      <p id="correction-source"></p>
+      <form id="correction-form" method="dialog">
+        <label for="correction-type">정정 유형</label>
+        <select id="correction-type">
+          <option value="replace">잘못 기록된 상품 변경</option>
+          <option value="remove">잘못 적립된 스탬프 제거</option>
+        </select>
+        <div id="destination-field">
+          <label for="destination">변경할 상품</label>
+          <select id="destination"></select>
+        </div>
+        <label for="reason">정정 사유</label>
+        <input id="reason" type="text" autocomplete="off" spellcheck="false" aria-describedby="reason-help" required>
+        <small id="reason-help">오류와 정정 근거를 10~300자로 적어 주세요. 고객 이름, 전화번호 등 개인정보는 입력하지 마세요.</small>
+        <p id="correction-error" role="alert"></p>
+        <div class="dialog-actions"><button type="button" id="discard" class="quiet">취소</button><button type="submit" class="primary" id="review">정정 내용 확인</button></div>
+      </form>
+      <div id="correction-review" hidden>
+        <p id="changes"></p>
+        <div class="dialog-actions"><button type="button" id="revise" class="quiet">수정하기</button><button type="button" id="apply-correction" class="danger">정정 확정</button></div>
+      </div>
+    </dialog>
+  </main>
+</body>
+</html>

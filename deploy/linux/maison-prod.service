@@ -1,0 +1,30 @@
+[Unit]
+Description=Maison de Gourmet production stamp service
+Wants=time-sync.target
+After=time-sync.target
+RequiresMountsFor=/var/lib/maison-prod /var/lib/maison-prod-lifecycle
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=maison-prod
+Group=maison-prod
+WorkingDirectory=/opt/maison-prod
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=/etc/maison-prod/prod.env
+ExecStartPre=/opt/maison-prod/.venv/bin/python /opt/maison-prod/tools/check_sqlite_runtime.py --require-fixed
+ExecStart=/opt/maison-prod/.venv/bin/python /opt/maison-prod/deploy/linux/prod.py serve --state-dir /var/lib/maison-prod --config /etc/maison-prod/event.json --recipient /etc/maison-prod/recipient.json --origin ${PUBLIC_URL}
+Restart=on-failure
+RestartSec=30s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectProc=invisible
+InaccessiblePaths=-/etc/maison-backup -/etc/maison-backup-job -/var/lib/maison-backup -/var/lib/maison-prod-backup -/run/maison-prod-backup-source.sock
+ReadWritePaths=/var/lib/maison-prod /var/lib/maison-prod-lifecycle
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

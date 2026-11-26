@@ -23,7 +23,7 @@ def main():
     digest = lambda value: hashlib.sha256(value.encode()).hexdigest()
     with tempfile.TemporaryDirectory(prefix='maison-legacy-') as temp:
         database = Path(temp) / 'customer.sqlite'
-        payload = {'database': str(database), 'schema': (repo/'app/schema.sql').read_text(),
+        payload = {'database': str(database), 'schema': (repo/'app/tests/fixtures/v1-schema.sql').read_text(),
                    'signature': signature, 'products': products, 'session': digest(token),
                    'csrf': csrf, 'recovery': digest(recovery)}
         script = '''import sqlite3,json,sys

@@ -3,6 +3,7 @@ import hashlib
 from contextlib import closing
 import importlib.util
 import json
+import secrets
 import shutil
 import sqlite3
 import sys
@@ -41,8 +42,15 @@ def installed(tmp_path):
 
 
 def visitor(root,cookie=None):
-    app=ops.load_source(root/'app').create_app(root/'config/event.json',root/'data/collection.sqlite',
-                                              'https://stamps.example.invalid',testing=True)
+    sys.path.insert(0, str(PACKAGE/'tools'))
+    import contact_fixture
+    module = ops.load_source(root/'app')
+    config = root/'config/event.json'
+    database = root/'data/collection.sqlite'
+    policy = root/'config/synthetic-contacts.json'
+    if not policy.exists():
+        contact_fixture.prepare(module, config, database, policy, [('복원 테스트', '01000000001')])
+    app = module.create_app(config, database, 'https://stamps.example.invalid', testing=True, synthetic_config=policy)
     client=app.test_client()
     if cookie: client.set_cookie(app.cookie_name,cookie,domain='stamps.example.invalid')
     return app,client
@@ -57,9 +65,13 @@ def state(client):
     return client.get('/api/state',base_url='https://stamps.example.invalid').json
 
 
+def register(client):
+    return post(client, '/api/register', {'name': '복원 테스트', 'phone': '01000000001', 'notice_acknowledged': True, 'notice_version': 'synthetic-contact-v1'})
+
+
 def populated(root):
     app,client=visitor(root)
-    assert post(client,'/api/session',{}).status_code==200
+    assert register(client).status_code==200
     csrf=state(client)['csrf']
     with closing(ops.readonly(root/'data/collection.sqlite')) as db:
         keys=[r[0] for r in db.execute('SELECT qr_key FROM products ORDER BY id')]
@@ -220,6 +232,75 @@ def test_import_only_to_missing_database(installed,tmp_path):
     assert source.exists()
 
 
+def test_restore_rejects_mismatched_key_before_copy_or_switch(installed):
+    populated(installed)
+    live = installed / 'data/collection.sqlite'
+    snapshot = ops.backup(installed)['daily']
+    candidate = ops.stage_restore(installed, snapshot)['candidate']
+    key = Path(str(live) + '.profile.key')
+    original = key.read_bytes()
+    key.write_bytes(bytes(byte ^ 0xff for byte in original))
+    before = sha(live)
+    (installed / 'config/maintenance.flag').touch()
+    with pytest.raises(ValueError):
+        ops.stage_restore(installed, snapshot)
+    with pytest.raises(ValueError):
+        ops.activate_restore(installed, candidate, True)
+    assert sha(live) == before and not (installed / 'data/retired').exists()
+    key.write_bytes(original)
+    _, fresh = visitor(installed)
+    assert post(fresh, '/api/find', {'name': '복원 테스트', 'phone': '01000000001'}).status_code == 200
+    assert state(fresh)['customer']['count'] == 1
+
+
+def test_admin_audit_and_customer_survive_restore_without_reviving_logged_out_staff(installed):
+    app, customer, _, _ = populated(installed)
+    database = installed / 'data/collection.sqlite'
+    module, _ = ops.event_for(installed)
+    staff_module = importlib.import_module('.staff_admin', module.__name__)
+    password = secrets.token_urlsafe(24)
+    staff_module.write_staff_password(database, 'demo-staff', password)
+    base = app.public_url
+    staff = app.test_client()
+    login = post(staff, '/api/admin/login', {'password': password})
+    assert login.status_code == 200
+    headers = {'Origin': base, 'X-Stamp-Client': '1', 'X-Admin-CSRF': login.json['csrf']}
+    card = staff.post('/api/admin/search', json={'phone': '01000000001'}, headers=headers, base_url=base).json
+    target = next(p for p in card['stamps'] if p['collected_at'] is not None)
+    assert staff.post('/api/admin/cancel', json={'customer_id': card['customer_id'], 'product_id': target['product_id'],
+                      'revision': target['revision']}, headers=headers, base_url=base).status_code == 200
+    # Snapshot deliberately includes an active staff session and the cancellation.
+    saved = ops.backup(installed)
+    staff_cookie = staff.get_cookie('__Host-stamp-admin', domain='stamps.example.invalid').value
+    customer_cookie = customer.get_cookie(app.cookie_name, domain='stamps.example.invalid').value
+    assert staff.post('/api/admin/logout', json={}, headers=headers, base_url=base).status_code == 200
+    candidate = ops.stage_restore(installed, saved['daily'])
+    (installed / 'config/maintenance.flag').touch()
+    ops.activate_restore(installed, candidate['candidate'], confirmed=True)
+    restarted, old_customer = visitor(installed, customer_cookie)
+    assert state(old_customer)['customer']['count'] == 0
+    old_staff = restarted.test_client()
+    old_staff.set_cookie('__Host-stamp-admin', staff_cookie, domain='stamps.example.invalid')
+    assert old_staff.get('/api/admin/stats', base_url=base).status_code == 401
+    assert post(old_staff, '/api/admin/login', {'password': password}).status_code == 200
+    with closing(ops.readonly(database)) as db:
+        rows = db.execute('SELECT customer_id,product_id,original_collected_at,admin_actor FROM stamp_cancel_audit').fetchall()
+        assert rows == [(card['customer_id'], target['product_id'], target['collected_at'], 'demo-staff')]
+
+
+def test_admin_restore_rejects_a_backup_missing_its_audit_log(installed, tmp_path):
+    database = installed / 'data/collection.sqlite'
+    broken = ops.snapshot(database, tmp_path / 'broken.sqlite', 16)
+    with closing(sqlite3.connect(broken)) as db:
+        db.execute('DROP TABLE stamp_cancel_audit')
+        db.commit()
+    before = sha(database)
+    with pytest.raises(ValueError):
+        ops.stage_restore(installed, broken)
+    assert sha(database) == before
+    assert not list((installed / 'data/recovery-check').glob('*'))
+
+
 def test_package_checksums_and_traversal(tmp_path):
     package=tmp_path/'package';package.mkdir();(package/'ok').write_bytes(b'ok')
     manifest={'format':'maison-windows-v1','version':'1.4','sha256':{'ok':sha(package/'ok')}}
@@ -350,7 +431,7 @@ def test_init_db_closes_connections_on_success_and_event_mismatch(installed, mon
 def test_request_write_coordination_keeps_get_readonly_and_releases_after_error(installed):
     module,_=ops.event_for(installed)
     app,client=visitor(installed)
-    assert post(client,'/api/session',{}).status_code==200
+    assert register(client).status_code==200
     csrf=state(client)['csrf']
     # GET does not acquire the writer slot, even while another writer owns it.
     assert app.write_lock.acquire(timeout=1)
@@ -370,6 +451,45 @@ def test_database_exception_releases_request_writer_slot(installed,monkeypatch):
     original=module.connect_db
     def unavailable(_path):raise sqlite3.OperationalError('synthetic failure')
     monkeypatch.setattr(module,'connect_db',unavailable)
-    assert post(client,'/api/session',{}).status_code==503
+    assert register(client).status_code==503
     monkeypatch.setattr(module,'connect_db',original)
-    assert post(client,'/api/session',{}).status_code==200
+    assert register(client).status_code==200
+
+
+def test_stage_restore_preserves_corrections_and_rejects_weakened_trigger(installed):
+    from importlib import import_module
+
+    module, _ = ops.event_for(installed)
+    schema = import_module(module.__name__ + ".correction_schema")
+    source = installed / "data/collection.sqlite"
+    with closing(module.connect_db(source, mode="rw")) as database, database:
+        database.execute("BEGIN IMMEDIATE")
+        schema.apply_correction_schema(database)
+        database.execute("INSERT INTO customers VALUES ('fixture-card', 1, NULL)")
+        database.execute("INSERT INTO stamp_correction_audit VALUES "
+                         "(1,?,'fixture-card','fixture-manager',3,'remove','erroneous_stamp',"
+                         "'synthetic stamp error','season-01',NULL,2,0,0,0)", ("c" * 32,))
+    daily = Path(ops.backup(installed)["daily"])
+    candidate = ops.stage_restore(installed, daily)["candidate"]
+    with closing(ops.readonly(candidate)) as staged:
+        assert schema.correction_enabled(staged)
+        assert staged.execute("SELECT reason_code FROM stamp_correction_audit").fetchall() == [("erroneous_stamp",)]
+    with closing(sqlite3.connect(daily)) as damaged, damaged:
+        damaged.execute("DROP TRIGGER protect_correction_delete")
+        damaged.execute("CREATE TRIGGER protect_correction_delete BEFORE DELETE ON stamp_correction_audit "
+                        "BEGIN SELECT 1; END")
+    with pytest.raises(ValueError):
+        ops.stage_restore(installed, daily)
+
+
+def test_restore_candidate_requires_new_manager_binding_without_touching_source(installed):
+    database = installed / 'data/collection.sqlite'
+    module, _ = ops.event_for(installed)
+    staff = importlib.import_module('.staff_admin', module.__name__)
+    staff.write_staff_password(database, 'supervisor', secrets.token_urlsafe(24), role='admin')
+    backup = ops.backup(installed)
+    staged = ops.stage_restore(installed, backup['daily'])
+    with closing(ops.readonly(staged['candidate'])) as restored, closing(ops.readonly(database)) as source:
+        query = "SELECT value FROM metadata WHERE key=?"
+        assert restored.execute(query, (staff.MANAGER_BINDING,)).fetchone()[0] == 'revoked'
+        assert source.execute(query, (staff.MANAGER_BINDING,)).fetchone()[0] != 'revoked'

@@ -1,0 +1,12 @@
+[Unit]
+Description=Private socket for the PROD backup transfer job
+StopWhenUnneeded=yes
+
+[Socket]
+ListenSequentialPacket=/run/maison-prod-backup-source.sock
+SocketUser=maison-backup
+SocketGroup=maison-backup
+SocketMode=0600
+Accept=yes
+MaxConnections=1
+RemoveOnStop=yes
