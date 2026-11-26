@@ -2,15 +2,22 @@
 Description=Deliver encrypted PROD backups and verify object expiry
 After=network-online.target time-sync.target
 Wants=network-online.target time-sync.target
+Requires=maison-prod-backup-source.socket
+After=maison-prod-backup-source.socket
 
 [Service]
 Type=oneshot
-User=maison-prod
-Group=maison-prod
+User=maison-backup
+Group=maison-backup
 WorkingDirectory=/opt/maison-prod
 Environment=PYTHONDONTWRITEBYTECODE=1
-EnvironmentFile=/etc/maison-prod/prod.env
-EnvironmentFile=/etc/maison-prod/backup.env
+EnvironmentFile=/etc/maison-backup-job/job.env
+Environment=AWS_PROFILE=maison-prod-backup
+Environment=AWS_CONFIG_FILE=/etc/maison-backup/aws-config
+Environment=AWS_EC2_METADATA_DISABLED=true
+Environment=AWS_SHARED_CREDENTIALS_FILE=/dev/null
+UnsetEnvironment=AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_WEB_IDENTITY_TOKEN_FILE AWS_ROLE_ARN AWS_CONTAINER_CREDENTIALS_FULL_URI AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
+Environment=LD_LIBRARY_PATH=/opt/maison-prod/sqlite-lib
 ExecStart=/opt/maison-prod/.venv/bin/python /opt/maison-prod/deploy/linux/prod_object_backup.py run
 UMask=0077
 NoNewPrivileges=true
@@ -18,4 +25,7 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 CapabilityBoundingSet=
-ReadWritePaths=/var/lib/maison-prod /var/lib/maison-prod-lifecycle /var/lib/maison-prod-backup
+ReadWritePaths=/var/lib/maison-backup
+InaccessiblePaths=-/etc/maison-prod -/var/lib/maison-prod -/var/lib/maison-prod-lifecycle -/var/lib/maison-prod-backup -/var/lib/maison-demo -/etc/maison-demo
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

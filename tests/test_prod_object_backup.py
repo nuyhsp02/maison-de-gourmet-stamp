@@ -1,12 +1,13 @@
 """No cloud calls: exercise encrypted production snapshots against a versioned test store."""
 
-from contextlib import closing
+from contextlib import closing, contextmanager
 import hashlib
 import json
 import os
 from pathlib import Path
 import sqlite3
 import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -331,3 +332,107 @@ def test_outage_exceeding_freshness_window_is_detected(setup):
     clock[0] += jobs.FRESH
     with pytest.raises(ValueError, match="receipt is missing or stale"):
         jobs.run(cfg, ledger, store, health_only=True)
+
+
+@contextmanager
+def _source_pair():
+    import socket
+
+    server, client = socket.socketpair(type=socket.SOCK_SEQPACKET)
+    with server, client:
+        yield server, client
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux credentialed UNIX socket")
+def test_socket_source_transfers_only_ciphertext_and_expires_at_exact_boundary(setup):
+    import socket
+    from concurrent.futures import ThreadPoolExecutor
+    import prod_backup_source as source
+    import prod_object_backup as jobs
+
+    cfg, ledger, store, clock = setup
+    cfg.update(data_bucket=store.data, evidence_bucket=store.evidence)
+    ctx = source.binding(cfg)
+    owner = source.SnapshotSource(cfg, ledger, jobs.destination_binding(cfg, ctx))
+    with ThreadPoolExecutor(max_workers=1) as pool, _source_pair() as (server, client):
+        server.settimeout(30)
+        client.settimeout(30)
+        worker = pool.submit(source.serve, server, owner, os.getuid())
+        transfer = source.RemoteSource(client, clock=lambda: clock[0])
+        assert jobs.transfer(cfg, ctx, transfer, store)["storage_verified"]
+        local, = cfg["spool"].glob("*.cms")
+        original = local.read_bytes()
+        assert b"SQLite format 3" not in original
+        assert next(v for (bucket, _, _), v in store.objects.items() if bucket == store.data) == original
+        assert [p.name for p in cfg["work"].iterdir()] == ["delivery.sqlite"]
+        clock[0] += jobs.RETENTION
+        assert jobs.transfer(cfg, ctx, transfer, store)["storage_verified"]
+        assert not local.exists()
+        assert original not in store.objects.values()
+        assert any(key.startswith("expired/") for _, key, _ in store.objects)
+        client.shutdown(socket.SHUT_RDWR)
+        worker.result(timeout=5)
+
+
+def test_source_refuses_unregistered_expired_and_early_retired_archives(setup):
+    import prod_backup_source as source
+    import prod_object_backup as jobs
+
+    cfg, ledger, store, clock = setup
+    cfg.update(data_bucket=store.data, evidence_bucket=store.evidence)
+    jobs.run(cfg, ledger, store)
+    ctx = source.binding(cfg)
+    local = source.SnapshotSource(cfg, ledger, jobs.destination_binding(cfg, ctx))
+    name = next(cfg["spool"].glob("*.cms")).name
+    with pytest.raises(ValueError, match="not due"):
+        local.retired(name, "f" * 64)
+    with pytest.raises(ValueError, match="Unexpected backup archive name"):
+        local.archive("../" + name)
+    alias = cfg["spool"] / ("2027-03-06-" + "0" * 24 + ".cms")
+    alias.write_bytes(b"unregistered")
+    alias.chmod(0o600)
+    with pytest.raises(ValueError, match="unknown"):
+        local.archive(alias.name)
+    clock[0] += jobs.RETENTION
+    with pytest.raises(ValueError, match="retention"):
+        local.archive(name)
+    with pytest.raises(ValueError, match="retention"):
+        local.reserve(name)
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux credentialed UNIX socket")
+def test_socket_peer_operation_clock_and_fd_restrictions(tmp_path):
+    import socket
+    import prod_backup_source as source
+    from array import array
+
+    with _source_pair() as (sender, receiver):
+        with pytest.raises(PermissionError, match="peer UID"):
+            source.check_peer(receiver, os.getuid() + 1)
+        sender.sendall(b'["unlisted_method"]')
+        with pytest.raises(ValueError, match="Unknown source operation"):
+            source.serve(receiver, object(), os.getuid())
+        sender.sendall(b'[50,false]')
+        client = source.RemoteSource(receiver, clock=lambda: 25)
+        with pytest.raises(ValueError, match="clock differ"):
+            client.clock()
+        with (tmp_path / "synthetic").open("wb") as writable:
+            sender.sendmsg([b"null"], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, array("i", [writable.fileno()]))])
+            with pytest.raises(ValueError, match="Invalid encrypted archive descriptor"):
+                client.archive("ignored-on-fixture")
+
+
+def test_evidence_with_extra_or_untyped_fields_is_never_uploaded(setup):
+    import prod_backup_source as source
+    import prod_object_backup as jobs
+
+    cfg, ledger, store, _ = setup
+    cfg.update(data_bucket=store.data, evidence_bucket=store.evidence)
+    ctx = source.binding(cfg)
+    local = source.SnapshotSource(cfg, ledger, jobs.destination_binding(cfg, ctx))
+    raw, original = local.evidence()
+    for change in ({"extra": "unset"}, {"inventory_outstanding": "one"}, {"closure": 0}):
+        bad = SimpleNamespace(evidence=lambda: (raw, dict(original, **change)))
+        with pytest.raises(ValueError, match="Evidence does not match"):
+            jobs.export_lifecycle(store, bad, cfg["work"], "fixture/", ctx)
+        assert not store.objects

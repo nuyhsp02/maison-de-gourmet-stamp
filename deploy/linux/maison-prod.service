@@ -21,6 +21,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+ProtectProc=invisible
+InaccessiblePaths=-/etc/maison-backup -/etc/maison-backup-job -/var/lib/maison-backup -/var/lib/maison-prod-backup -/run/maison-prod-backup-source.sock
 ReadWritePaths=/var/lib/maison-prod /var/lib/maison-prod-lifecycle
 CapabilityBoundingSet=
 

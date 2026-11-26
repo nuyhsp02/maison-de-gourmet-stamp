@@ -29,9 +29,21 @@ class S3:
             raise StorageError("Invalid storage configuration")
 
     def call(self, service, action, *args):
+        # Only pass the worker-owned anonymous CMS descriptor to the CLI that uploads it.
+        inherited = ()
+        if service == "s3api" and action == "put-object":
+            body = Path(args[args.index("--body") + 1])
+            if body.parent == Path("/proc/self/fd") and body.name.isdecimal():
+                inherited = (int(body.name),)
+        # A clean AWS process environment prevents ambient credentials, profiles, proxy
+        # variables and endpoint overrides from redirecting the noninteractive job.
+        aws_env = dict(PATH="/usr/local/bin:/usr/bin:/bin", HOME="/nonexistent", LANG="C.UTF-8",
+                       AWS_PROFILE="maison-prod-backup", AWS_CONFIG_FILE="/etc/maison-backup/aws-config",
+                       AWS_SHARED_CREDENTIALS_FILE="/dev/null", AWS_EC2_METADATA_DISABLED="true",
+                       AWS_IGNORE_CONFIGURED_ENDPOINT_URLS="true")
         p = subprocess.run(["aws", service, action, "--region", self.region, "--no-cli-pager",
                             "--no-cli-auto-prompt", "--output", "json", *map(str, args)],
-                           stdin=subprocess.DEVNULL, capture_output=True, timeout=180)
+                           stdin=subprocess.DEVNULL, capture_output=True, timeout=180, pass_fds=inherited, env=aws_env)
         if p.returncode:
             raise StorageError("Provider operation failed: " + action)
         return json.loads(p.stdout) if p.stdout.strip() else {}
@@ -39,7 +51,16 @@ class S3:
     def bucket(self, action, bucket, *args):
         return self.call("s3api", action, "--bucket", bucket, "--expected-bucket-owner", self.owner, *args)
 
+    def require_identity(self):
+        identity = self.call("sts", "get-caller-identity")
+        role = "arn:aws:sts::" + self.owner + ":assumed-role/maison-prod-backup/"
+        arn = identity.get("Arn", "")
+        if (identity.get("Account") != self.owner or not isinstance(arn, str) or not arn.startswith(role)
+                or not re.fullmatch(r"[A-Za-z0-9+=,.@_-]{2,64}", arn[len(role):])):
+            raise StorageError("Backup role identity mismatch")
+
     def ready(self):
+        self.require_identity()
         for bucket in (self.data, self.evidence):
             if self.bucket("get-bucket-versioning", bucket).get("Status") != "Enabled":
                 raise StorageError("Enabled bucket versioning is required")
@@ -77,8 +98,7 @@ class S3:
     def snapshots_clear(self):
         # No mutation permission on shared Lightsail snapshots. Unexpected copies
         # require the custodian to reconcile every affected environment.
-        if self.call("sts", "get-caller-identity").get("Account") != self.owner:
-            raise StorageError("Unexpected Lightsail inventory account")
+        self.require_identity()
         source = self.call("lightsail", "get-instance", "--instance-name", self.source)["instance"]
         manual = self.call("lightsail", "get-instance-snapshots")
         auto = self.call("lightsail", "get-auto-snapshots", "--resource-name", self.source)

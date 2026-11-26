@@ -93,7 +93,8 @@ def test_expiry_uses_the_exact_version_not_an_unversioned_delete(client, monkeyp
 def test_snapshot_inventory_fail_closed(client, monkeypatch, case):
     def reply(api, action, *args):
         if action == "get-caller-identity":
-            return {"Account": "1" * 12 if case == "wrong-owner" else client.owner}
+            return {"Account": "1" * 12 if case == "wrong-owner" else client.owner,
+                    "Arn": f"arn:aws:sts::{client.owner}:assumed-role/maison-prod-backup/synthetic"}
         if action == "get-instance":
             return {
                 "instance": {
@@ -110,3 +111,36 @@ def test_snapshot_inventory_fail_closed(client, monkeypatch, case):
     monkeypatch.setattr(client, "call", reply)
     with pytest.raises(StorageError):
         client.snapshots_clear()
+
+@pytest.mark.parametrize("identity", [
+    {"Account": "0" * 12},
+    {"Account": "0" * 12, "Arn": "arn:aws:iam::000000000000:root"},
+    {"Account": "0" * 12, "Arn": "arn:aws:sts::000000000000:assumed-role/other/synthetic"},
+    {"Account": "1" * 12, "Arn": "arn:aws:sts::111111111111:assumed-role/maison-prod-backup/synthetic"},
+])
+def test_wrong_or_missing_role_stops_before_storage_calls(client, monkeypatch, identity):
+    def reply(service, action, *args):
+        assert (service, action) == ("sts", "get-caller-identity")
+        return identity
+    monkeypatch.setattr(client, "call", reply)
+    with pytest.raises(StorageError, match="role identity"):
+        client.ready()
+
+
+def test_provider_environment_drops_ambient_credentials_endpoint_and_proxy(client, monkeypatch):
+    import subprocess
+    from types import SimpleNamespace
+
+    for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_DEFAULT_PROFILE",
+                 "AWS_ENDPOINT_URL_STS", "HTTPS_PROXY", "PYTHONPATH"):
+        monkeypatch.setenv(name, "ambient")
+    def capture(args, *, env, **kwargs):
+        assert env["AWS_PROFILE"] == "maison-prod-backup"
+        assert env["AWS_CONFIG_FILE"] == "/etc/maison-backup/aws-config"
+        assert env["AWS_SHARED_CREDENTIALS_FILE"] == "/dev/null"
+        assert env["AWS_EC2_METADATA_DISABLED"] == env["AWS_IGNORE_CONFIGURED_ENDPOINT_URLS"] == "true"
+        assert "ambient" not in env.values()
+        assert kwargs["pass_fds"] == ()
+        return SimpleNamespace(returncode=0, stdout=b"{}")
+    monkeypatch.setattr(subprocess, "run", capture)
+    client.call("sts", "get-caller-identity")

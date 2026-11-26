@@ -47,7 +47,8 @@ def test_prod_package_has_only_runtime_assets_and_matches_static_routes(tmp_path
         assert len(list((ROOT / "app/static/stamps").glob("*.png"))) == 10
         assert not any("demo" in n or n.endswith((".png", ".key", ".sqlite", ".cms")) for n in names)
         required = {"prod_local_lifecycle.py", "prod_custody.py", "prod_restore_approval.py",
-                    "prod_object_backup.py", "prod_s3.py", "maison-prod.service",
+                    "prod_object_backup.py", "prod_s3.py", "prod_backup_source.py", "maison-prod.service",
+                    "maison-prod-backup-source.socket", "maison-prod-backup-source@.service",
                     "maison-prod-backup.service", "maison-prod-backup.timer",
                     "maison-prod-purge.service", "maison-prod-purge.timer"}
         assert {"deploy/linux/" + name for name in required} <= names

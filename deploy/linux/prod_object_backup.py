@@ -13,10 +13,9 @@ import tempfile
 
 import prod
 import prod_backup as backup
-import prod_backup_custody as custody
-from prod_custody import CUTOFF, trusted_file
+import prod_backup_source as data_source
+from prod_custody import CUTOFF, validate_binding
 from prod_s3 import S3, UnexpectedSnapshot
-import prod_local_lifecycle as lifecycle
 
 
 DAY = 86400
@@ -28,14 +27,8 @@ def canonical_json(record):
     return (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
 
-def checked_clock(ledger, ctx):
-    with ledger.transaction(*ctx) as (db, now):
-        status = ledger._status(db)
-    if status.retention_days != 14 or not status.backup_ready:
-        raise ValueError("Approved fourteen-day inventory required")
-    if status.closed and (now < CUTOFF or not status.purge_authorized):
-        raise ValueError("Closed without authority for physical disposition")
-    return now, status.closed
+def destination_binding(cfg, ctx):
+    return canonical_json([*ctx, cfg["data_bucket"], cfg["evidence_bucket"], cfg["aws_account"], cfg["region"]]).decode()
 
 
 def external_id(bucket, key):
@@ -56,21 +49,28 @@ def publish_evidence(store, key, record, work):
     return digest
 
 
-def export_lifecycle(store, ledger, work, prefix):
-    decision = lifecycle.read_approval()
-    raw = trusted_file(os.environ["MAISON_PROD_LIFECYCLE_APPROVAL"]).read_bytes()
+def export_lifecycle(store, source, work, prefix, ctx):
+    policy_text, record = source.evidence()
+    raw = policy_text.encode()
     pin = os.environ["MAISON_PROD_LIFECYCLE_APPROVAL_SHA256"]
     backup.matching_digest(hashlib.sha256(raw).hexdigest(), pin)
-    if json.loads(raw) != decision:
-        raise ValueError("Approval changed during export")
+    fixed = dict(format="prod-erasure-evidence-v1", event_id=ctx[0], instance_id=ctx[1],
+                 approval_sha256=pin, cutoff=CUTOFF)
+    counts = {"observed_at", "inventory_outstanding", "inventory_unresolved"}
+    flags = {"closure", "backups_expired"}
+    if (not isinstance(record, dict) or set(record) != fixed.keys() | counts | flags | {"local_db_purge_verified_at"}
+            or any(record[k] != v for k, v in fixed.items())
+            or any(type(record[k]) is not int or record[k] < 0 for k in counts)
+            or any(type(record[k]) is not bool for k in flags)
+            or record["local_db_purge_verified_at"] is not None and type(record["local_db_purge_verified_at"]) is not int):
+        raise ValueError("Evidence does not match the approved source")
     publish_bytes(store, "policy/" + prefix + pin + ".json", raw, work)
-    record = lifecycle.evidence(ledger, decision)
     digest = hashlib.sha256(canonical_json(record)).hexdigest()
     publish_evidence(store, "lifecycle/" + prefix + str(record["observed_at"]) + "-" + digest + ".json", record, work)
 
 
 @contextmanager
-def journal(work, binding, ledger, ctx):
+def journal(work, binding, source):
     """Exclude overlapping invocations. Each receipt is durable before the next side effect."""
     import fcntl
     fd = os.open(work, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -79,29 +79,26 @@ def journal(work, binding, ledger, ctx):
         path = work / "delivery.sqlite"
         # Pin a delivery journal generation in the separately protected lifecycle state.
         # Losing the queue must never look like a first install with zero prior copies.
-        with ledger.transaction(*ctx) as (control, _):
-            control.execute("""CREATE TABLE IF NOT EXISTS delivery_anchor
-                            (id INTEGER PRIMARY KEY CHECK(id=1), binding TEXT NOT NULL, generation TEXT NOT NULL)""")
-            anchor = control.execute("SELECT binding,generation FROM delivery_anchor").fetchone()
-            if anchor and (anchor["binding"] != binding or not path.is_file()):
-                raise ValueError("Missing or mismatched delivery journal; reconcile from independent evidence")
-            if not path.exists():
-                with backup.exclusive(path):
-                    pass
-            prod.private(path)
-            with closing(sqlite3.connect(path)) as inner, inner:
-                inner.execute("CREATE TABLE IF NOT EXISTS generation (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
-                prior = inner.execute("SELECT value FROM generation").fetchone()
-                if anchor and (not prior or prior[0] != anchor["generation"]):
-                    raise ValueError("Restored delivery journal generation mismatch")
-                if not anchor:
-                    if inner.execute("SELECT 1 FROM sqlite_schema WHERE name='jobs'").fetchone():
-                        raise ValueError("Unanchored delivery journal requires recovery review")
-                    if not prior:
-                        inner.execute("INSERT INTO generation VALUES(1,?)", (secrets.token_hex(32),))
-                    generation = inner.execute("SELECT value FROM generation").fetchone()[0]
-                    control.execute("INSERT INTO delivery_anchor VALUES(1,?,?)", (binding, generation))
-            prod.sync_dir(work)
+        anchor = source.anchor()
+        if anchor and not path.is_file():
+            raise ValueError("Missing or mismatched delivery journal; reconcile from independent evidence")
+        if not path.exists():
+            with backup.exclusive(path):
+                pass
+        prod.private(path)
+        with closing(sqlite3.connect(path)) as inner, inner:
+            inner.execute("CREATE TABLE IF NOT EXISTS generation (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL)")
+            prior = inner.execute("SELECT value FROM generation WHERE id=1").fetchone()
+            if anchor and (not prior or prior[0] != anchor):
+                raise ValueError("Restored delivery journal generation mismatch")
+            if not anchor and inner.execute("SELECT 1 FROM sqlite_schema WHERE name='jobs'").fetchone():
+                raise ValueError("Unanchored delivery journal requires recovery review")
+            if not prior:
+                inner.execute("INSERT INTO generation VALUES(1,?)", (secrets.token_hex(32),))
+            generation = inner.execute("SELECT value FROM generation WHERE id=1").fetchone()[0]
+        prod.sync_dir(work)
+        if source.anchor(generation) != generation:
+            raise ValueError("Source journal binding mismatch")
         with closing(sqlite3.connect(path, isolation_level=None)) as db:
             db.row_factory = sqlite3.Row
             db.execute("PRAGMA synchronous=FULL")
@@ -118,21 +115,21 @@ def journal(work, binding, ledger, ctx):
         os.close(fd)
 
 
-def daily(db, cfg, spool, slot, ledger, ctx, roots):
+def daily(db, slot, source):
     if db.execute("SELECT 1 FROM jobs WHERE slot=?", (slot,)).fetchone():
         return
-    # A crash after snapshot publication but before recording its digest leaves a
-    # registered local-only archive. A retry creates a new name; POSIX expiry owns both.
-    file = spool / (slot + "-" + secrets.token_hex(12) + ".cms")
-    result = backup.create(Path(cfg["state_dir"]), Path(cfg["event"]), Path(cfg["recipient"]),
-                           Path(cfg["certificate"]), cfg["cert_sha256"], file, authority=ledger)
-    ident = roots.ident(file, "archive")
-    row = next(r for r in ledger.objects(*ctx) if r["object_id"] == ident and r["deleted_at"] is None)
-    db.execute("INSERT INTO jobs(name,slot,created,sha,bytes) VALUES (?,?,?,?,?)",
-               (file.name, slot, row["created_at"], result["archive_sha256"], file.stat().st_size))
+    # The isolated transfer worker chooses the archive name and times the snapshot.
+    name = slot + "-" + secrets.token_hex(12) + ".cms"
+    before, _ = source.clock()
+    created, sha, size = source.snapshot(name)
+    after, closed = source.clock()
+    if closed or type(created) is not int or not before <= created <= after or type(size) is not int or size <= 0:
+        raise ValueError("Unconfirmed snapshot creation time or size")
+    backup.matching_digest(sha, sha)
+    db.execute("INSERT INTO jobs(name,slot,created,sha,bytes) VALUES (?,?,?,?,?)", (name, slot, created, sha, size))
 
 
-def retire(db, row, key, versions, ledger, ctx, store, work):
+def retire(db, row, key, versions, source, ctx, store, work):
     # Persist the deletion inventory first. If a delete or receipt write fails,
     # retry against the same inventory and re-list, including noncurrent versions.
     planned = set(json.loads(row["deletion_plan"] or "[]"))
@@ -142,32 +139,46 @@ def retire(db, row, key, versions, ledger, ctx, store, work):
         store.delete(key, version)
     if any(k == key for k, _ in store.versions(store.data, key)):
         raise ValueError("Object versions still present after deletion")
-    ident = external_id(store.data, key)
     evidence = dict(format="prod-object-expiry-v1", event_id=ctx[0], instance_id=ctx[1],
                     object_key=key, created_at=row["created"], archive_sha256=row["sha"],
                     versions=sorted(planned), verified_remaining=0, expires_at=min(row["created"] + RETENTION, CUTOFF))
     proof = publish_evidence(store, "expired/" + key + ".json", evidence, work)
-    records = {r["object_id"]: r for r in ledger.objects(*ctx)}
-    if ident in records:
-        ledger.attest_deleted(*ctx, ident, proof)
+    source.retired(row["name"], proof)
     db.execute("UPDATE jobs SET erased=1 WHERE name=?", (row["name"],))
 
 
-def deliver(db, row, key, versions, ledger, ctx, store, work, spool):
+def deliver(db, row, key, versions, source, ctx, store, work):
     if row["version"]:
         if versions != {row["version"]: "Versions"}:
             raise ValueError("Off-host backup missing or unexpected versions before expiry")
         return
-    file = prod.private(spool / row["name"])
-    with file.open("rb") as stream:
-        backup.matching_digest(backup.digest_stream(stream), row["sha"])
-    ledger.reserve(*ctx, "external", external_id(store.data, key))
-    version = store.put(store.data, key, file, row["sha"])
-    now, closed = checked_clock(ledger, ctx)
+    # Copy the checked read-only CMS descriptor into an anonymous, worker-owned file.
+    # The AWS CLI may reopen its procfd as maison-backup. No crash leaves a named copy.
+    with os.fdopen(source.archive(row["name"]), "rb") as stream, tempfile.TemporaryFile(dir=work) as ciphertext:
+        digest = hashlib.sha256()
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            if ciphertext.tell() + len(chunk) > row["bytes"]:
+                raise ValueError("Source archive exceeds its recorded size")
+            digest.update(chunk)
+            ciphertext.write(chunk)
+        backup.matching_digest(digest.hexdigest(), row["sha"])
+        if ciphertext.tell() != row["bytes"]:
+            raise ValueError("Source archive size mismatch")
+        ciphertext.flush()
+        ciphertext.seek(0)
+        source.reserve(row["name"])
+        # Recheck expiry after obtaining/copying the file and immediately before upload.
+        now, closed = source.clock()
+        if closed or now >= row["created"] + RETENTION:
+            retire(db, row, key, versions, source, ctx, store, work)
+            return
+        fdroot = Path("/proc/self/fd") if Path("/proc/self/fd").is_dir() else Path("/dev/fd")
+        version = store.put(store.data, key, fdroot / str(ciphertext.fileno()), row["sha"])
+    now, closed = source.clock()
     if closed or now >= row["created"] + RETENTION:
         # A transfer started before the boundary may have crossed it.
         current = {v: kind for (k, v), kind in store.versions(store.data, key).items() if k == key}
-        retire(db, row, key, current, ledger, ctx, store, work)
+        retire(db, row, key, current, source, ctx, store, work)
         return
     receipt = dict(format="prod-object-receipt-v1", event_id=ctx[0], instance_id=ctx[1], object_key=key,
                    created_at=row["created"], archive_sha256=row["sha"], version_id=version, size=row["bytes"])
@@ -176,25 +187,23 @@ def deliver(db, row, key, versions, ledger, ctx, store, work, spool):
 
 
 def run(cfg, ledger, store, *, health_only=False):
-    event = prod.load_prod_event(cfg["event"])
-    ctx = (event["id"], cfg["instance_id"], CUTOFF)
-    now, closed = checked_clock(ledger, ctx)
-    spool = prod.private(backup.detached(cfg["spool"]), directory=True)
+    # In-process source is used by existing isolated drills. The installed CLI always
+    # connects as the dedicated transfer UID to the socket-activated local data owner.
+    ctx = data_source.binding(cfg)
+    plan = dict(cfg, data_bucket=store.data, evidence_bucket=store.evidence)
+    source = data_source.SnapshotSource(plan, ledger, destination_binding(plan, ctx))
+    return transfer(plan, ctx, source, store, health_only=health_only)
+
+
+def transfer(cfg, ctx, source, store, *, health_only=False):
+    now, closed = source.clock()
     work = prod.private(backup.detached(cfg["work"]), directory=True)
-    proofs = prod.private(backup.detached(cfg["posix_receipts"]), directory=True)
-    roots = custody.Roots.from_env(*ctx[:2])
-    if (spool not in roots.volumes or not {"archive", "temporary"} <= set(roots.volumes[spool]["kinds"])
-            or "external" not in roots.manual or "snapshot" not in roots.manual
-            or any(work.is_relative_to(v) or v.is_relative_to(work) for v in (*roots.volumes, proofs))):
-        raise ValueError("Register isolated job state, spool and provider inventory")
     prefix = "prod-backups/" + ctx[0] + "/" + ctx[1] + "/"
-    binding = canonical_json([*ctx, store.data, store.evidence, cfg["aws_account"], cfg["region"]]).decode()
-    with journal(work, binding, ledger, ctx) as db:
+    with journal(work, destination_binding(cfg, ctx), source) as db:
         if not health_only:
-            # Local storage expiry and creation do not wait on object storage or a Mac.
-            custody.expire(roots, ledger, *ctx, proofs)
+            source.expire()
             if not closed:
-                daily(db, cfg, spool, datetime.fromtimestamp(now, prod.KST).date().isoformat(), ledger, ctx, roots)
+                daily(db, datetime.fromtimestamp(now, prod.KST).date().isoformat(), source)
         store.ready()
         store.uploads_clear(prefix)
         inventory = store.versions(store.data, prefix)
@@ -205,15 +214,15 @@ def run(cfg, ledger, store, *, health_only=False):
             raise ValueError("Independent receipts exceed local delivery history; reconcile before continuing")
         for key, _ in inventory:
             if key not in jobs or jobs[key]["erased"]:
-                ledger.flag_unknown(*ctx, external_id(store.data, key))
+                source.unknown(external_id(store.data, key))
                 if not health_only:
-                    export_lifecycle(store, ledger, work, prefix)
+                    export_lifecycle(store, source, work, prefix, ctx)
                 raise ValueError("Unknown or reappeared off-host archive; inventory review required")
         for key, row in jobs.items():
             if row["erased"]:
                 continue
             versions = {v: kind for (k, v), kind in inventory.items() if k == key}
-            current, closed = checked_clock(ledger, ctx)
+            current, closed = source.clock()
             if row["version"] and not closed and current < row["created"] + RETENTION:
                 receipt_key = "received/" + key + ".json"
                 available = {v: kind for (k, v), kind in receipts.items() if k == receipt_key}
@@ -226,22 +235,20 @@ def run(cfg, ledger, store, *, health_only=False):
                 if (closed or current >= row["created"] + RETENTION) and versions:
                     raise ValueError("Expired versions remain in storage")
             elif closed or current >= row["created"] + RETENTION:
-                retire(db, row, key, versions, ledger, ctx, store, work)
+                retire(db, row, key, versions, source, ctx, store, work)
             else:
-                deliver(db, row, key, versions, ledger, ctx, store, work, spool)
+                deliver(db, row, key, versions, source, ctx, store, work)
         try:
             store.snapshots_clear()
         except UnexpectedSnapshot:
-            ledger.flag_unknown(*ctx, external_id(cfg["aws_account"], cfg["region"] + "/" + cfg["lightsail_instance"]))
+            source.unknown(external_id(cfg["aws_account"], cfg["region"] + "/" + cfg["lightsail_instance"]))
             if not health_only:
-                export_lifecycle(store, ledger, work, prefix)
+                export_lifecycle(store, source, work, prefix, ctx)
             raise
         if not health_only:
-            export_lifecycle(store, ledger, work, prefix)
-        with ledger.transaction(*ctx) as (control, _):
-            if control.execute("SELECT 1 FROM unresolved LIMIT 1").fetchone():
-                raise ValueError("Unresolved copy inventory requires custodian review")
-        now, closed = checked_clock(ledger, ctx)
+            export_lifecycle(store, source, work, prefix, ctx)
+        source.clear()
+        now, closed = source.clock()
         if closed:
             if store.versions(store.data, prefix):
                 raise ValueError("Cutoff reached with pending objects")
@@ -264,10 +271,11 @@ def main():
     args = parser.parse_args()
     os.umask(0o077)
     try:
-        raw = trusted_file(os.environ["MAISON_PROD_BACKUP_JOB"]).read_bytes()
-        backup.matching_digest(hashlib.sha256(raw).hexdigest(), os.environ["MAISON_PROD_BACKUP_JOB_SHA256"])
-        cfg = json.loads(raw)
-        result = run(cfg, lifecycle.local_ledger(), S3(cfg), health_only=args.action == "health")
+        cfg = data_source.configuration()
+        ctx = (cfg["event_id"], cfg["instance_id"], CUTOFF)
+        validate_binding(*ctx)
+        with data_source.connect() as source:
+            result = transfer(cfg, ctx, source, S3(cfg), health_only=args.action == "health")
     except (OSError, RuntimeError, KeyError, ValueError, sqlite3.Error, subprocess.SubprocessError, backup.ops.OpsError):
         parser.exit(1, "Backup delivery or expiry is incomplete. Inspect private job, clock and inventory records.\n")
     print(json.dumps(result))

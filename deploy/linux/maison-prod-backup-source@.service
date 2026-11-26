@@ -1,0 +1,25 @@
+[Unit]
+Description=Local PROD snapshot and custody operations for one transfer job
+
+[Service]
+User=maison-prod
+Group=maison-prod
+WorkingDirectory=/opt/maison-prod
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=/etc/maison-prod/prod.env
+EnvironmentFile=/etc/maison-backup-job/job.env
+Environment=LD_LIBRARY_PATH=/opt/maison-prod/sqlite-lib
+StandardInput=socket
+StandardOutput=journal
+ExecStart=/opt/maison-prod/.venv/bin/python -EBs /opt/maison-prod/deploy/linux/prod_backup_source.py
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateNetwork=true
+RestrictAddressFamilies=AF_UNIX
+ProtectHome=true
+ProtectSystem=strict
+ProtectProc=invisible
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/maison-prod /var/lib/maison-prod-lifecycle /var/lib/maison-prod-backup
+InaccessiblePaths=-/etc/maison-backup -/var/lib/maison-backup -/var/lib/maison-demo -/etc/maison-demo
